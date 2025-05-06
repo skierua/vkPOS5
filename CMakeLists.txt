@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(vkPOS5 VERSION 2.6 LANGUAGES CXX)
+project(vkPOS5 VERSION 5.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -14,7 +14,6 @@ qt_standard_project_setup()
 
 qt_add_executable(appvkPOS5
     main.cpp
-
     dbdriver4.cpp
     print.cpp
 )
