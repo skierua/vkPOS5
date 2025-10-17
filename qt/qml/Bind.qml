@@ -69,10 +69,6 @@ Item {
     onVisibleChanged: startNewRow()
 
 
-//    property string dfltPrintDcm: ''
-//    property bool doPrint: false
-
-
     signal vkEvent(string id, var param)
 
     states: [
@@ -176,9 +172,6 @@ Item {
         crntRate = '1'
         crntDsc = ""
         crntBns = ""
-        // crntAmnt = dfltAmnt
-        // fldMainInput.text = ''
-        // fldMainInput.forceActiveFocus()
         startNewRow()
     }
 

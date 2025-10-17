@@ -4,14 +4,17 @@ import QtQuick.Layouts
 import QtQuick.Controls
 //import com.vkeeper.sqlmodel 1.0
 
+import "../lib.js" as Lib
+
 Window {
     id: root
     width: 300
     height: 540
-//    title: qsTr('Cash wizard')
-    property string cashAmnt
 
-    signal vkEvent(var event)
+    property var db                 // DataBase driver
+    onDbChanged: view.model.getCash()
+
+    // signal vkEvent(string id, var param)
 
     onVisibleChanged: {cmbMode.forceActiveFocus()}
 
@@ -37,14 +40,6 @@ Window {
                         horizontalAlignment: Text.AlignHCenter
 //                        clip: true
                         text:qty.toLocaleString(Qt.locale(),'f',0)
-                        MouseArea{
-                            anchors.fill: parent
-                            onClicked: {
-                                root.ListView.view.currentIndex = index
-                                fldQtyEdit.visible = true;
-                                fldQtyEdit.forceActiveFocus();
-                            }
-                        }
                         TextField{
                             id: fldQtyEdit
                             anchors.centerIn: parent
@@ -56,17 +51,23 @@ Window {
                             validator: DoubleValidator {bottom: 0; decimals: 0; notation: "StandardNotation"; locale: "en_US" }
                             onActiveFocusChanged: if (activeFocus) {selectAll()} else {visible = false}
                             onAccepted: {
-                                root.ListView.view.model.setProperty(index,'qty', Number(text))
-                                root.ListView.view.recalculate()
+                                root.ListView.view.model.setQty(index, text)
                                 parent.forceActiveFocus()
-                                root.ListView.view.currentIndex = -1
                             }
                         }
                     }
                     Label{
                         Layout.preferredWidth: 90
                         horizontalAlignment: Text.AlignHCenter
-                        text:(qty*coef).toLocaleString(Qt.locale(),'f',2)
+                        text:(qty * coef).toLocaleString(Qt.locale(),'f',0)
+                    }
+                }
+                MouseArea{
+                    anchors.fill: parent
+                    onClicked: {
+                        root.ListView.view.currentIndex = index
+                        fldQtyEdit.visible = true;
+                        fldQtyEdit.forceActiveFocus();
                     }
                 }
             }
@@ -75,18 +76,113 @@ Window {
     }
 
     Action {
-        id: reloadAction
+        id: reloadCashAction
         text: "🔄"
-        onTriggered: {
-            vkEvent({'id':'loadData', 'crn':cmbMode.model.get(cmbMode.currentIndex).id})
-        }
+        onTriggered:  view.model.getCash()
     }
+
     Action {
         id: clearAction
         text: "⌫"       // ✕ &#x2715
-        onTriggered: {
-            cashView.model.refreshData();
+        onTriggered:  view.model.erase();
+    }
+
+    ListModel{
+        id: cmbModel
+        Component.onCompleted: {
+            append({ 'id':'', 'code':'UAH', 'name':'українська гривня'})
+            append({ 'id':'840', 'code':'USD', 'name':'долар США'})
+            append({ 'id':'978', 'code':'EUR', 'name':'ЄВРО'})
+            append({ 'id':'985', 'code':'PLN', 'name':'польський злотий'})
         }
+    }
+
+    ListModel{
+        id: dataModel
+        property real cash: 0
+        property real total: 0
+        property real subTotal: 0
+
+        property string cur: ""
+        onCurChanged: populate()
+
+        function populate(){
+            clear()
+            total = 0
+            subTotal = 0
+            if (cur === '') {
+                append({'name':'1000 грн.','qty':0,'coef':1000, 'sect': 'sub'})
+                append({'name':'500 грн.','qty':0,'coef':500,'sect': 'sub'})
+                append({'name':'200 грн.','qty':0,'coef':200, 'sect': 'sub'})
+                append({'name':'100 грн.','qty':0,'coef':100, 'sect': 'sub'})
+                append({'name':'50 грн.','qty':0,'coef':50, 'sect': 'sub'})
+                append({'name':'20 грн.','qty':0,'coef':20, 'sect': 'sub'})
+                append({'name':'10 грн.','qty':0,'coef':10, 'sect': 'sub'})
+                append({'name':'5 грн.','qty':0,'coef':5, 'sect': 'sub'})
+                append({'name':'2 грн.','qty':0,'coef':2, 'sect': 'sub'})
+                append({'name':'1 грн.','qty':0,'coef':1, 'sect': 'sub'})
+            } else if (cur === '985') {
+                append({'name':'200 pln','qty':0,'coef':200, 'sect': 'sub'})
+                append({'name':'100 pln','qty':0,'coef':100, 'sect': 'sub'})
+                append({'name':'50 pln','qty':0,'coef':50, 'sect': 'sub'})
+                append({'name':'20 pln','qty':0,'coef':20, 'sect': 'sub'})
+                append({'name':'10 pln','qty':0,'coef':10, 'sect': 'sub'})
+
+            } else if (cur === '978') {
+                append({'name':'500 eur','qty':0,'coef':500, 'sect': 'sub'})
+                append({'name':'200 eur','qty':0,'coef':200, 'sect': 'sub'})
+                append({'name':'100 eur','qty':0,'coef':100, 'sect': 'sub'})
+                append({'name':'50 eur','qty':0,'coef':50, 'sect': 'sub'})
+                append({'name':'20 eur','qty':0,'coef':20, 'sect': 'sub'})
+                append({'name':'10 eur','qty':0,'coef':10, 'sect': 'sub'})
+                append({'name':'5 eur','qty':0,'coef':5, 'sect': 'sub'})
+            } else if (cur === '840') {
+                append({'name':'100 usd','qty':0,'coef':100, 'sect': 'sub'})
+                append({'name':'50 usd','qty':0,'coef':50, 'sect': 'sub'})
+                append({'name':'20 usd','qty':0,'coef':20, 'sect': 'sub'})
+                append({'name':'10 usd','qty':0,'coef':10, 'sect': 'sub'})
+                append({'name':'5 usd','qty':0,'coef':5, 'sect': 'sub'})
+            }
+
+            append({'name':'Сейф 1','qty':0,'coef':1, 'sect': ''})
+            append({'name':'Сейф 2','qty':0,'coef':1, 'sect': ''})
+            append({'name':'Збірна','qty':0,'coef':1, 'sect': ''})
+            append({'name':'Пошкодж.','qty':0,'coef':1, 'sect': ''})
+            if (db !== undefined) getCash()
+        }
+
+        function getCash(){
+            cash = Number(Lib.getSQLData(db,
+                                         String("select item, beginamnt+turndbt-turncdt as total from acnt where item %1")
+                                                .arg(cur === '' ? 'is null' : String("= '%1'").arg(cur)))[0].total)
+        }
+
+        function result(){
+            return total - cash;
+        }
+
+        function recalculate(){
+            let total_ = 0;
+            let subTotal_ = 0;
+            for (let r =0; r < count; ++r) {
+                total_ += Number(get(r).qty * Number(get(r).coef))
+                if (get(r).sect === 'sub') { subTotal_ += Number(get(r).qty*Number(get(r).coef)) }
+            }
+            total = total_;
+            subTotal = subTotal_;
+        }
+
+        function erase(){
+            for (let r =0; r < count; ++r) setProperty(r,'qty', 0)
+            recalculate()
+        }
+
+        function setQty(row, val){
+            setProperty(row,'qty', Number(val))
+            recalculate()
+        }
+
+        Component.onCompleted: populate()
     }
 
     Pane{
@@ -97,23 +193,11 @@ Window {
                 id: cmbMode
                 textRole: 'name'
                 Layout.fillWidth: true;
-    //            currentIndex: -1
-                model: ListModel{}
+                currentIndex: 0
+                model: cmbModel
                 onCurrentIndexChanged: {
-    //                console.log('Cash wizard onCurrentIndexChanged index ='+currentIndex)
-                    if (currentIndex != -1 && count!=0){
-                        cashView.model.refreshData()
-                        vkEvent({'id':'loadData', 'crn':model.get(currentIndex).id})
-    //                    refresh()
-                    }
-                }
-                Component.onCompleted: {
-                    model.append({ 'id':'', 'code':'UAH', 'name':'українська гривня'})
-                    model.append({ 'id':'840', 'code':'USD', 'name':'долар США'})
-                    model.append({ 'id':'978', 'code':'EUR', 'name':'ЄВРО'})
-                    model.append({ 'id':'985', 'code':'PLN', 'name':'польський злотий'})
-                    currentIndex = -1
-                    currentIndex = 0
+                    // console.log('Cash wizard onCurrentIndexChanged index ='+currentIndex + " count="+ count)
+                    if (currentIndex !== -1 && count !== 0) dataModel.cur = model.get(currentIndex).id
                 }
             }
 
@@ -121,18 +205,22 @@ Window {
                 id: resultRect
                 Layout.fillWidth: true;
                 height: 35  //resultLayout.height*1.2
-                color: (cashView.total-Number(cashAmnt)) <0 ? 'mistyrose' : 'honeydew'
+                color: view.model.result() < 0 ? 'mistyrose' : 'honeydew'
                 radius: 5
                 border.width: 1; border.color: Qt.darker(color,1.5)
                 RowLayout{
                     id: resultLayout
                     anchors{fill: parent; margins: 5}
-                    Label{anchors.leftMargin: parent.radius; anchors.rightMargin: parent.radius;text: (cashView.total-Number(cashAmnt))<0? qsTr('Shortage:') : qsTr('Surplus:')}
-                    Label{
-                        id: lblResult; font.pixelSize: 20;
+                    Text{
+                        anchors{leftMargin: parent.radius; rightMargin: parent.radius;}
+                        text: view.model.result() < 0 ? 'Нестача:' : 'Лишки:'
+                    }
+                    // Label{anchors.leftMargin: parent.radius; anchors.rightMargin: parent.radius;text: view.model.result() < 0 ? qsTr('Shortage:') : qsTr('Surplus:')}
+                    Text{
+                        font.pixelSize: 20;
                         Layout.fillWidth: true;
-                        text: (cashView.total-Number(cashAmnt)).toLocaleString(Qt.locale(),'f',2)
-                        color: (cashView.total-Number(cashAmnt)) <0 ? 'red' : 'green'
+                        text: view.model.result().toLocaleString(Qt.locale(),'f',2)
+                        color: view.model.result() < 0 ? 'red' : 'green'
                     }
                 }
             }
@@ -140,102 +228,42 @@ Window {
 
             RowLayout{
                 Label{text: qsTr('Should be:')}
-                Label{id: lblCash; font.pixelSize: 20; Layout.fillWidth: true; text: Number(cashAmnt).toLocaleString(Qt.locale(),'f',2)}
+                Text{font.pixelSize: 20; Layout.fillWidth: true; text: view.model.cash.toLocaleString(Qt.locale(),'f',2)}
                 ToolButton {
-//                    Layout.preferredWidth: 32
-//                    Layout.preferredHeight: 32
                     font.pointSize: 14
-                    action: reloadAction
+                    action: reloadCashAction
                 }
                 ToolButton {
-//                    Layout.preferredWidth: 32
-//                    Layout.preferredHeight: 32
                     font.pointSize: 14
                     action: clearAction
                 }
             }
 
             ListView{
-                id: cashView
-                property real total:0
-                property real subTotal:0
+                id: view
                 Layout.fillWidth: true
                 Layout.fillHeight: true
 
                 clip: true
-                model: ListModel{
-                    function refreshData(){
-                        cashView.model.clear()
-                        cashView.total = 0
-                        cashView.subTotal = 0
-                        if (cmbMode.model.get(cmbMode.currentIndex).code === 'UAH') {
-                            cashView.model.append({'name':'1000 грн.','qty':0,'coef':1000, 'sect': 'sub'})
-                            cashView.model.append({'name':'500 грн.','qty':0,'coef':500,'sect': 'sub'})
-                            cashView.model.append({'name':'200 грн.','qty':0,'coef':200, 'sect': 'sub'})
-                            cashView.model.append({'name':'100 грн.','qty':0,'coef':100, 'sect': 'sub'})
-                            cashView.model.append({'name':'50 грн.','qty':0,'coef':50, 'sect': 'sub'})
-                            cashView.model.append({'name':'20 грн.','qty':0,'coef':20, 'sect': 'sub'})
-                            cashView.model.append({'name':'10 грн.','qty':0,'coef':10, 'sect': 'sub'})
-                            cashView.model.append({'name':'5 грн.','qty':0,'coef':5, 'sect': 'sub'})
-                            cashView.model.append({'name':'2 грн.','qty':0,'coef':2, 'sect': 'sub'})
-                            cashView.model.append({'name':'1 грн.','qty':0,'coef':1, 'sect': 'sub'})
-                        } else if (cmbMode.model.get(cmbMode.currentIndex).code === 'PLN') {
-                            cashView.model.append({'name':'200 pln','qty':0,'coef':200, 'sect': 'sub'})
-                            cashView.model.append({'name':'100 pln','qty':0,'coef':100, 'sect': 'sub'})
-                            cashView.model.append({'name':'50 pln','qty':0,'coef':50, 'sect': 'sub'})
-                            cashView.model.append({'name':'20 pln','qty':0,'coef':20, 'sect': 'sub'})
-                            cashView.model.append({'name':'10 pln','qty':0,'coef':10, 'sect': 'sub'})
-
-                        } else if (cmbMode.model.get(cmbMode.currentIndex).code === 'EUR') {
-                            cashView.model.append({'name':'500 eur','qty':0,'coef':500, 'sect': 'sub'})
-                            cashView.model.append({'name':'200 eur','qty':0,'coef':200, 'sect': 'sub'})
-                            cashView.model.append({'name':'100 eur','qty':0,'coef':100, 'sect': 'sub'})
-                            cashView.model.append({'name':'50 eur','qty':0,'coef':50, 'sect': 'sub'})
-                            cashView.model.append({'name':'20 eur','qty':0,'coef':20, 'sect': 'sub'})
-                            cashView.model.append({'name':'10 eur','qty':0,'coef':10, 'sect': 'sub'})
-                            cashView.model.append({'name':'5 eur','qty':0,'coef':5, 'sect': 'sub'})
-                        } else if (cmbMode.model.get(cmbMode.currentIndex).code === 'USD') {
-                            cashView.model.append({'name':'100 usd','qty':0,'coef':100, 'sect': 'sub'})
-                            cashView.model.append({'name':'50 usd','qty':0,'coef':50, 'sect': 'sub'})
-                            cashView.model.append({'name':'20 usd','qty':0,'coef':20, 'sect': 'sub'})
-                            cashView.model.append({'name':'10 usd','qty':0,'coef':10, 'sect': 'sub'})
-                            cashView.model.append({'name':'5 usd','qty':0,'coef':5, 'sect': 'sub'})
-                        }
-
-                        cashView.model.append({'name':'Сейф 1','qty':0,'coef':1, 'sect': ''})
-                        cashView.model.append({'name':'Сейф 2','qty':0,'coef':1, 'sect': ''})
-                        cashView.model.append({'name':'Збірна','qty':0,'coef':1, 'sect': ''})
-                        cashView.model.append({'name':'Пошкодж.','qty':0,'coef':1, 'sect': ''})
-                    }
-                }
+                model: dataModel
                 delegate: wcdlg
-                function recalculate(){
-                    total = 0; subTotal = 0;
-                    for (var r =0; r < model.count; ++r) {
-                        total += Number(model.get(r).qty*Number(model.get(r).coef))
-                        if (model.get(r).sect === 'sub') { subTotal += Number(model.get(r).qty*Number(model.get(r).coef)) }
-                    }
-                }
             }
+
             RowLayout{
                 Item{Layout.fillWidth: true; }
                 Label{text: 'Хвіст:' /*qsTr('Subtotal:')*/}
-                Label{font.pixelSize: 14; text: cashView.subTotal.toLocaleString(Qt.locale(),'f',2)}
+                Text{font.pixelSize: 14; text: view.model.subTotal.toLocaleString(Qt.locale(),'f',0)}
 
             }
 
             RowLayout{
                 Label{text: 'Всього:' /*qsTr('Total:')*/}
-                Label{id: lblTotal; font.pixelSize: 20; Layout.fillWidth: true; text: cashView.total.toLocaleString(Qt.locale(),'f',2)}
+                Text{font.pixelSize: 20; Layout.fillWidth: true; text: view.model.total.toLocaleString(Qt.locale(),'f',0)}
             }
         }
 
     }
 
-
-
-
-    Component.onCompleted: {/*cmbMode.currentIndex=0*/}
-
+    // Component.onCompleted: {/*cmbMode.currentIndex=0*/}
 
 }

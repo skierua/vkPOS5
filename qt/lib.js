@@ -134,7 +134,7 @@ function findText(db, vtext, mask, callback) {
 }
 
 function getSQLData(db, vsql) {
-    // console.log("#dr3 sql="+vsql+filt)
+    // console.log("#dr3 sql="+vsql)
     var jdata = parse(db.dbSelectRows(vsql));
     if (jdata){ return jdata.rows; }
     // console.log("#235 article="+JSON.stringify(ret))

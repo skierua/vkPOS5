@@ -3,6 +3,7 @@
 // #include <QQmlEngine>
 #include <QDebug>
 #include <QQuickView>
+#include <QQmlContext>
 
 // #include "dbdriver3.h"
 #include "dbdriver4.h"
@@ -44,6 +45,7 @@ int main(int argc, char *argv[])
 //    qDebug() << "2 main.cpp pwd=" << QDir::current();
 
     QQmlApplicationEngine engine;
+    engine.rootContext()->setContextProperty("applicationDirPath", QCoreApplication::applicationDirPath());
     // const QUrl url(u"qrc:/vkPOS5/qt/qml/Main.qml"_qs);
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed,
         &app, []() { QCoreApplication::exit(-1); },
