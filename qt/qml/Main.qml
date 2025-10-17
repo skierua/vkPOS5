@@ -16,7 +16,7 @@ import com.singleton.dbdriver4 1.0
 ApplicationWindow {
     id: root
     visible: true
-    title: String("vkPOS5#%1").arg("2.6*")
+    title: String("vkPOS5#%1").arg("2.7")
 
     // property string pathToDb: "/data/"
     property string dbname: ''
@@ -835,19 +835,12 @@ ApplicationWindow {
         onActiveChanged: if (active) {
                             item.visible = true
                             item.title = String("%1(%2)").arg(root.title).arg("Cash wizard")
-                            cashWizardLoader.item.cashAmnt = Lib.getSQLData(Db, String("select item, beginamnt+turndbt-turncdt as total from acnt where item is null"))[0].total
+                            item.db = Db
                          }
         Connections {
             target: cashWizardLoader.item
             function onClosing() {
                 cashWizardLoader.active = false
-            }
-            function onVkEvent(event) {
-                if (event.id === 'loadData'){
-                    cashWizardLoader.item.cashAmnt = Lib.getSQLData(Db, String("select item, beginamnt+turndbt-turncdt as total from acnt where item %1")
-                                                                    .arg(event.crn === '' ? 'is null' : String("= '%1'").arg(event.crn)))[0].total
-                }
-
             }
         }
     }
@@ -877,40 +870,16 @@ ApplicationWindow {
         onActiveChanged: if (active) {
                              item.visible = true
                              item.title = String("%1(%2)").arg(root.title).arg("Rates")
-                             // item.height = root.height
-                             item.jscur = Lib.getCurrency(Db)
-                             REST.postRequest2(resthost+restapi+"/rates?api_token="+resttoken, {"term":term,"reqid":"sel","shop":root.term}, (err,resp) => {
-                                                  if (err === null){
-                                                      // console.log("#278 main "+JSON.stringify(resp))
-                                                      rateLoader.item.setWeb(resp)
-                                                  } else {
-                                                      Lib.log(err.text, 'REST.postRequest2', err.code)
-                                                  }
-                             });
+                             item.uri = resthost + restapi + "/rates?api_token=" + resttoken
+                             item.queryData = {"term": root.term, "reqid": "sel", "shop": root.term}
+                             item.db = Db
                          }
         Connections {
             target: rateLoader.item
             function onClosing() { rateLoader.active = false; }
 
             function onVkEvent(id,param) {
-                let vsql = ""
-                // console.log("#09k Main HERE id="+id+" param="+JSON.stringify(param))
-                if (id === "rate.updLocal"){
-                    Lib.updRate(Db, param.price, param.qty, param.id, param.curid, param.ba)
-                } else if (id === "rate.getLocal"){
-                    // console.log("#ow4 Main force refresh local")
-                    rateLoader.item.setLocal(Lib.getRate(Db))
-                } else if (id === "rate.getWeb"){
-                    // let vpath = resthost+restapi+"/rates?api_token="+resttoken
-                    REST.postRequest2(resthost+restapi+"/rates?api_token="+resttoken, {"term":term,"reqid":"sel","shop":root.term}, (err,resp) => {
-                                         if (err === null){
-                                             // console.log("##94un main "+JSON.stringify(resp))
-                                             rateLoader.item.setWeb(resp)
-                                         } else {
-                                             Lib.log(err.text, 'REST.postRequest2', err.code)
-                                         }
-                    });
-                } else if (id === "rate.newDocum"){
+                if (id === "rate.newDocum"){
                     if (vkStack.currentItem.codeid === 'bind'){ vkStack.currentItem.insert( new3Dcm(param) ); }
                 }
             }
@@ -1059,6 +1028,7 @@ ApplicationWindow {
                     onClicked: {
                         if (selectPopup.code==="client"){                  // client
                             vkStack.currentItem.crntClient = Lib.getClient(Db,id);
+                            vkStack.currentItem.crntAcnt = Lib.getAccount(Db)
                         } else if (selectPopup.code==="database") {        // database
                             root.dbname = id
                             // openConnection(id)
@@ -1418,6 +1388,11 @@ ApplicationWindow {
     }
 
     Component.onCompleted: {
+        // let p = "f26r"    //"s5k9";
+        // console.log("#387y psw = " + p + " b64: " + Qt.btoa( p));
+        // console.log("env=")
+        // console.log(applicationDirPath)
+        // console.log("+++")
         actionBind.trigger()
         if (resthost != undefined && resthost != "") {
             actionLogin.trigger();
@@ -1427,7 +1402,8 @@ ApplicationWindow {
         // for Mac OS
         // pathToDb = env().appPath + "/"+settingsValue("program/pwd","") + "/data/"
 
-        pathToDb = "./data/"
+        // pathToDb = "./data/"
+        pathToDb = applicationDirPath + "/data/"
         var dbList = Db.dirEntryList(pathToDb,'*.sqlite', 2,0)
 //            console.log('main db list='+dbList)
         var vj = [];

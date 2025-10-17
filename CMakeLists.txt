@@ -4,11 +4,18 @@ project(vkPOS5 VERSION 5.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 6.6 REQUIRED COMPONENTS QuickControls2)
-find_package(Qt6 6.6 REQUIRED COMPONENTS Quick)
-find_package(Qt6 6.6 REQUIRED COMPONENTS Sql)
-find_package(Qt6 6.6 REQUIRED COMPONENTS PrintSupport)
-
+# find_package(Qt6 6.9 REQUIRED COMPONENTS QuickControls2)
+# find_package(Qt6 6.9 REQUIRED COMPONENTS Quick)
+# find_package(Qt6 6.9 REQUIRED COMPONENTS Sql)
+# find_package(Qt6 6.9 REQUIRED COMPONENTS PrintSupport)
+find_package(Qt6 REQUIRED COMPONENTS QuickControls2)
+find_package(Qt6 REQUIRED COMPONENTS Quick)
+find_package(Qt6 REQUIRED COMPONENTS Sql)
+find_package(Qt6 REQUIRED COMPONENTS PrintSupport)
+# find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS QuickControls2)
+# find_package(Qt${QT_VERSION_MAJOR} 6.9 REQUIRED COMPONENTS Quick)
+# find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Sql)
+# find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS PrintSupport)
 
 qt_standard_project_setup()
 
@@ -17,6 +24,7 @@ qt_add_executable(appvkPOS5
     dbdriver4.cpp
     print.cpp
 )
+
 
 qt_add_qml_module(appvkPOS5
     URI vkPOS5
@@ -38,6 +46,8 @@ qt_add_qml_module(appvkPOS5
         qt/lib.js
         qt/libREST.js
         RESOURCES README.md .gitignore
+        QML_FILES qt/qml/ModelRates.qml
+        QML_FILES qt/qml/LogView.qml
         # SOURCES print.h print.cpp
         # SOURCES singleton.h singleton.cpp
         # libSettings.js
@@ -75,12 +85,18 @@ set_target_properties(appvkPOS5 PROPERTIES
     WIN32_EXECUTABLE TRUE
 )
 
+# target_link_libraries(appvkPOS5
+#     PRIVATE Qt6::QuickControls2
+#     PRIVATE Qt6::Quick
+#     PRIVATE Qt6::Sql
+#     PRIVATE Qt6::PrintSupport
+# )
+
 target_link_libraries(appvkPOS5
-    PRIVATE Qt6::QuickControls2
-    PRIVATE Qt6::Quick
-    PRIVATE Qt6::Sql
-    PRIVATE Qt6::PrintSupport
-)
+    PRIVATE Qt${QT_VERSION_MAJOR}::QuickControls2
+    PRIVATE Qt${QT_VERSION_MAJOR}::Quick
+    PRIVATE Qt${QT_VERSION_MAJOR}::Sql
+    PRIVATE Qt${QT_VERSION_MAJOR}::PrintSupport)
 
 install(TARGETS appvkPOS5
     BUNDLE DESTINATION .
