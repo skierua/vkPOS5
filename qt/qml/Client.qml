@@ -3,27 +3,32 @@ import QtQuick.Window
 import QtQuick.Layouts
 import QtQuick.Controls
 
+import "../lib.js" as Lib
+
 Window {
     id: root
     width: 240
     height: 480
 //    title: qsTr('Clients')
-    property var jdata
-    onJdataChanged: {
-       // console.log('onDcmListChanged')
-        rectNewClient.visible = false
-        edName.text = ''
-        edPhone.text = ''
-        edNote.text = ''
-        vw.vpopulate()
-    }
+    property var db                 // DataBase driver
+    onDbChanged: vw.model.load(db)
 
-    signal vkEvent(string id, var param)
+    // signal vkEvent(string id, var param)
 
     Action{
         id: actionNew
-        text: qsTr("Новий клієнт")
-        onTriggered: rectNewClient.visible = !rectNewClient.visible
+        text: "Новий клієнт"  // qsTr("New")
+        onTriggered: {
+            if (rectNewClient.visible ){
+                rectNewClient.visible = false
+                edName.text = ''
+                edPhone.text = ''
+                edNote.text = ''
+            } else {
+                rectNewClient.visible = true
+            }
+        }
+            // rectNewClient.visible = !rectNewClient.visible
     }
 
     Component {
@@ -38,14 +43,6 @@ Window {
                 height: 45
                 color: (index == vw.currentIndex) ?  'lightsteelblue' :'white'
                                                         // (index%2 == 0 ?  Qt.darker('white',1.01) : 'white')
-//                 MouseArea{
-// //                    anchors.fill: parent;
-//                     width: (index === root.ListView.view.currentIndex)?0:parent.width
-//                     height: (index === root.ListView.view.currentIndex)?0:parent.height
-//                     onClicked: {
-//                         root.ListView.view.currentIndex = index;
-//                     }
-//                 }
                 ColumnLayout{
                     width: parent.width
                     anchors.verticalCenter:  parent.verticalCenter
@@ -95,12 +92,10 @@ Window {
                         else if (code === "phone") { phone = text; }
                         else if (code === "note") { clnote = text; }
                         else { ok = false; }
-                        if (ok){ root.ListView.view.subm()
-                            // vkEvent('client.submit', {'id':id, 'name':name, 'note':clnote, 'phone':phone})
+                        if (ok){
+                            root.ListView.view.model.update(db, index)
                         }
                         visible= false
-
-                        // root.ListView.view.forceActiveFocus()
                     }
                     Keys.onEscapePressed: visible= false    //root.ListView.view.forceActiveFocus()
                 }
@@ -113,6 +108,53 @@ Window {
                     }
                 }
             }
+        }
+    }
+
+    ListModel{
+        id: dataModel
+        property var data
+
+        function load(dbDriver){
+            clear()
+            data = Lib.getClientList(dbDriver).sort((a,b) => { return  a.name < b.name ? -1 : 1; })
+            // console.log('[client] data ='+ JSON.stringify(data))
+            populate()
+        }
+
+        function isAllowed(row, flt){
+            return (~(data[row].id.indexOf(flt))
+                    || ~(data[row].name.toLowerCase()).indexOf(flt.toLowerCase())
+                    || ~(data[row].clnote.toLowerCase()).indexOf(flt.toLowerCase())
+                    || ~(data[row].phone.toLowerCase()).indexOf(flt.toLowerCase()));
+        }
+
+        function populate( flt =""){
+            // console.log('[client] flt =' + flt)
+            clear()
+            if ((flt === undefined) || flt === "") {
+                for (let i =0; i < data.length; ++i) append(data[i])
+            } else {
+                for (let r =0; r < data.length; ++r){
+                    if (isAllowed(r, flt)) {
+                        append(data[r])
+                    }
+                }
+
+            }
+
+        }
+
+        function addNew(dbDriver, name, phone ="", note =""){        // submit
+            // console.log("#8943j subm() currentIndex="+currentIndex+" name="+model.get(currentIndex).phone)
+            const res = Lib.updClient(dbDriver, "", name, phone, note)
+            load(dbDriver)
+        }
+
+        function update(dbDriver, row){        // submit
+            // console.log("#8943j subm() currentIndex="+currentIndex+" name="+model.get(currentIndex).phone)
+            const res = Lib.updClient(dbDriver, get(row).id, get(row).name, get(row).phone, get(row).clnote)
+            load(dbDriver)
         }
     }
 
@@ -144,16 +186,16 @@ Window {
                         if (visible) { forceActiveFocus() }
                         else {
                             text = ''
-//                            vw.model.vpopulate()
                         }
                     }
+                    onAccepted: vw.model.populate(text)
                 }
                 Item{
                     Layout.fillWidth: true
                 }
 
                 ToolButton {
-                    text: qsTr("⋮")
+                    text: "⋮"
                     onClicked: toolMenu.open()
                     Menu {
                         id: toolMenu
@@ -164,6 +206,7 @@ Window {
             }
 
         }
+
         Pane{
             anchors.fill: parent;
             ColumnLayout{
@@ -172,6 +215,7 @@ Window {
                     id: rectNewClient
                     Layout.fillWidth: true
                     Layout.preferredHeight: childrenRect.height
+                    visible: false
                     color: "transparent"
                     ColumnLayout{
                         width: parent.width
@@ -200,9 +244,7 @@ Window {
                             Layout.alignment: Qt.AlignCenter
                             Button{
                                 text: "Save"
-                                onClicked: {
-                                    vkEvent('client.submit', {'id':'', 'name':edName.text, 'note':edNote.text, 'phone':edPhone.text})
-                                }
+                                onClicked: vw.model.addNew(db, edName.text, dPhone.text, edNote.text)
                             }
                             Button{
                                 action: actionNew
@@ -216,39 +258,13 @@ Window {
 
                 ListView{
                     id: vw
-                    property alias vfilter: findEdit.text
-                    onVfilterChanged: vpopulate()
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     spacing: 1
                     clip: true
                     focus: true
-                    model: ListModel{}
+                    model: dataModel
                     delegate: dlg
-                    function vpopulate(){
-                        currentIndex = -1
-                        model.clear()
-                        var r = 0
-                        var i = 0
-                        for (r =0; r < jdata.length; ++r){
-                            if ((vfilter == undefined) || vfilter === ''
-                                    || ~(jdata[r].id.indexOf(vfilter))
-                                    || ~(jdata[r].name.toLowerCase()).indexOf(vfilter.toLowerCase())
-                                    || ~(jdata[r].clnote.toLowerCase()).indexOf(vfilter.toLowerCase())
-                                    || ~(jdata[r].phone.toLowerCase()).indexOf(vfilter.toLowerCase())) {
-                                model.append(jdata[r])
-                            }
-                        }
-                        if (model.count){ currentIndex = 0; }
-        //                forceActiveFocus()
-                    }
-
-                    function subm(){        // submit
-                        // console.log("#8943j subm() currentIndex="+currentIndex+" name="+model.get(currentIndex).phone)
-
-                        vkEvent('client.submit', {'id':model.get(currentIndex).id, 'name':model.get(currentIndex).name, 'note':model.get(currentIndex).clnote, 'phone':model.get(currentIndex).phone})
-                    }
-                    // onCurrentIndexChanged: console.log("#a7h currentIndex="+currentIndex+" name="+model.get(currentIndex).phone)
 
     /*                highlight: Rectangle {
                         width: vw.width; height: vw.currentItem.height
@@ -275,3 +291,19 @@ Window {
     }
 
 }
+
+/*
+  client request structure
+  [{
+    "id":"1012",
+    "name":"Some Name",
+    "fullname":"",
+    "phone":"+380xxxxxxxxx",
+    "clnote":"/3209",
+    "mask":"0",
+    "sect":"Клієнти"},
+}]
+  */
+
+
+
