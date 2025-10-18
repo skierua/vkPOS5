@@ -16,7 +16,7 @@ import com.singleton.dbdriver4 1.0
 ApplicationWindow {
     id: root
     visible: true
-    title: String("vkPOS5#%1").arg("2.7")
+    title: String("vkPOS5#%1").arg("2.8")
 
     // property string pathToDb: "/data/"
     property string dbname: ''
@@ -167,7 +167,13 @@ ApplicationWindow {
 
     function taxUploadBind(bindid){
         if (isTaxMode()) {
+
+
+
             Lib.log("#94hn TAX MODE IS BLOCKED !!! \n main.taxUploadBind id=" + bindid); return;
+
+
+
             Lib.bindFromDb(Db, bindid,
                (err,bind) => {
                     if (err){
@@ -646,6 +652,7 @@ ApplicationWindow {
                             dfltCashDisc: { cdhost: root.cdhost, cdprefix: root.cdprefix, cdcash: root.cdcash, cdtoken: root.cdtoken }
                          }
                              , StackView.PushTransition)
+
             vkStack.currentItem.vkEvent.connect( (id, param)=>{
                 if (id === "saveTerminal") {
                     root.term = vkStack.currentItem.dfltTerminal.term
@@ -839,9 +846,7 @@ ApplicationWindow {
                          }
         Connections {
             target: cashWizardLoader.item
-            function onClosing() {
-                cashWizardLoader.active = false
-            }
+            function onClosing() { cashWizardLoader.active = false ; }
         }
     }
 
@@ -852,10 +857,8 @@ ApplicationWindow {
         onActiveChanged: if (active) {
                              item.visible = true
                              item.title = String("%1(%2)").arg(root.title).arg("Stat")
-                             statLoader.item.jsdata =
-                                     Lib.parse(Db.dbSelectRows(String("select substr(dcmtime,1,10) as tm, acntcdt, p.client, sum(amount) as amnt from strgdocum as d join "
-                                                                + "(select dcmid, client from strgdocum where dcmtype='folder' and acntcdt='rslt') as p on (d.parentid=p.dcmid) "
-                                                                + "where substr(acntcdt,1,9)='rslt.3500' and dcmtime > substr(date('now', '-4 month'),1,7) and p.client='%1' group by substr(dcmtime,1,10), acntcdt, p.client ORDER by tm desc;").arg(root.crntShift.cshr))).rows
+                             item.cshr = root.crntShift.cshr
+                             item.dbDriver = Db
                          }
         Connections {
             target: statLoader.item
@@ -893,19 +896,11 @@ ApplicationWindow {
         onActiveChanged: if (active) {
                              item.visible = true
                              item.title = String("%1(%2)").arg(root.title).arg("clients")
-                             item.jdata = Lib.getClientList(Db).sort((a,b) => { return  a.name < b.name ? -1 : 1; })
+                             item.db = Db
                          }
         Connections {
             target: clientLoader.item
-            function onClosing() {
-                clientLoader.active = false
-            }
-            function onVkEvent(id,param) {
-                if (id === 'client.submit') {
-                    const res = Lib.updClient(Db, param.id, param.name, param.phone, param.note)
-                    clientLoader.item.jdata = Lib.getClientList(Db)
-                } else { /* BAD event */ }
-            }
+            function onClosing() { clientLoader.active = false; }
         }
     }
 
@@ -1249,6 +1244,13 @@ ApplicationWindow {
         }
     }
 
+    LogView{
+        id: logView
+        width: parent.width
+        height: (count * 25 < parent.height / 4) ? count * 25 : parent.height / 4
+        z: 10
+        anchors.bottom: parent.bottom
+    }
 
     header: ToolBar {
         id: appToolBar

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(vkPOS5 VERSION 5.0 LANGUAGES CXX)
+project(vkPOS5 VERSION 6.2.8 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -28,7 +28,7 @@ qt_add_executable(appvkPOS5
 
 qt_add_qml_module(appvkPOS5
     URI vkPOS5
-    VERSION 2.0
+    VERSION 2.8
     QML_FILES qt/qml/Main.qml
         qt/qml/MainKant.qml
         qt/qml/MainShop.qml
@@ -45,9 +45,9 @@ qt_add_qml_module(appvkPOS5
         qt/qml/Rate.qml
         qt/lib.js
         qt/libREST.js
+        qt/qml/ModelRates.qml
+        qt/qml/LogView.qml
         RESOURCES README.md .gitignore
-        QML_FILES qt/qml/ModelRates.qml
-        QML_FILES qt/qml/LogView.qml
         # SOURCES print.h print.cpp
         # SOURCES singleton.h singleton.cpp
         # libSettings.js
