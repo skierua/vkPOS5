@@ -16,7 +16,7 @@ import com.singleton.dbdriver4 1.0
 ApplicationWindow {
     id: root
     visible: true
-    title: String("vkPOS5#%1").arg("2.8")
+    title: String("vkPOS5#%1").arg("2.9")
 
     // property string pathToDb: "/data/"
     property string dbname: ''
@@ -738,21 +738,10 @@ ApplicationWindow {
     Action {
         id: changeDBAction
         enabled: false
-        text: "Змінити БД ["+root.dbname.substring(dbname.lastIndexOf('/'))+"]"
+        text: "Змінити БД ["+root.dbname.substring(dbname.lastIndexOf('/')+1)+"]"
         onTriggered: {
-            let pathToDb = "/data/"
-            //pathToDb = String("%1/$2/data/").arg(env().appPath).arg(settingsValue("program/pwd","."))
-            // pathToDb = env().appPath + "/"+settingsValue("program/pwd","") + "/data/"
-            pathToDb = "./data/"
-            var dbList = Db.dirEntryList(pathToDb,'*.sqlite', 2,0)
-//            console.log('main db list='+dbList)
-            var vj = [];
-            for (var i = 0; i < dbList.length; ++i){
-                vj[i] = {'id':pathToDb+dbList[i], 'name':dbList[i],"fullname":'', 'mask':"256", "sect":'Доступні БД'};
-//                    databaseView.model.append({'id':pathToDb+dbList[i], 'name':dbList[i]})
-            }
             selectPopup.code = "database"
-            selectPopup.jsdata = vj;
+            selectPopup.jsdata = Lib.getDbList(Db, applicationDirPath);
             selectPopup.open()
         }
     }
@@ -764,8 +753,8 @@ ApplicationWindow {
         onActiveChanged: if (active) {
                             item.visible = true
                             item.title = String("%1(%2)").arg(root.title).arg("Documents")
-                            item.fiscMode = true    //(root.token !== undefined && root.token !== "")
-                            item.jbindList = Lib.getBindList(Db, "shftid = 0 and pid = ''")
+                            item.dbDriver = Db
+                            item.prnDriver = Prn
                          }
         Connections {
             target: dcmViewLoader.item
@@ -773,13 +762,7 @@ ApplicationWindow {
                 dcmViewLoader.active = false
             }
             function onVkEvent(id, param) {
-                if (id === "documView.loadBindList"){
-                    dcmViewLoader.item.jbindList = Lib.getBindList(Db, param)
-                } else if (id === "documView.loadDcmList"){
-                    dcmViewLoader.item.jdcmList = Lib.getDcmList(Db, param)
-                } else if (id === "documView.find"){
-                    dcmViewLoader.item.findList = Lib.getSQLData(Db,dcmViewLoader.item.sqlFilter)
-                } else if (id === "documView.return"){
+                if (id === "documView.return"){
                     actionBind.trigger();
                     const cl = Lib.getSQLData(Db, "select coalesce(client,'') as cl from documall where id ="+param.pid);
                     if (!cl.length){
@@ -806,26 +789,6 @@ ApplicationWindow {
                                 "dsc":Math.abs(Number(param.dsc)/Number(param.eq)),
                                 "bns":Math.abs(Number(param.bns)/Number(param.eq)),
                                 "pratt":0, "retfor":param.dcmid}))
-                } else if (id === "docum.printCheck"){
-                    Lib.bindFromDb(Db, param,
-                        (err,bind) => {
-                            if (err){
-                                 Lib.log(err, "Main>bindFromDb", "EE")
-                            } else {
-                              Prn.saveCheckCopy( bind )
-                              Prn.printCheckCopy( bind )
-                            }
-                        })
-                } else if (id === "docum.saveOrder"){
-                    Lib.bindFromDb(Db, param,
-                       (err,bind) => {
-                            if (err){
-                                Lib.log(err, "Main>bindFromDb", "EE")
-                            } else {
-                                Prn.saveOrder( bind )
-                            }
-                        })
-
                 } else if (id === "docum.fiscCheck"){
                     taxUploadBind(param)
                 } else if (id === 'log'){ Lib.log(param,"DcmView");
@@ -918,9 +881,9 @@ ApplicationWindow {
                          }
         Connections {
             target: taxServiceLoader.item
-            function onClosing() {
-                taxServiceLoader.active = false
-            }
+
+            function onClosing() { taxServiceLoader.active = false; }
+
             function onVkEvent(event,param) {
                 if (event === 'ping'){
 //                    console.log("#5n4 Main ping started")
@@ -981,7 +944,6 @@ ApplicationWindow {
             }
         }
     }
-
 
     Popup{
         id: selectPopup
@@ -1393,24 +1355,20 @@ ApplicationWindow {
         // let p = "f26r"    //"s5k9";
         // console.log("#387y psw = " + p + " b64: " + Qt.btoa( p));
         // console.log("env=")
-        // console.log(applicationDirPath)
+        console.log(applicationDirPath)
         // console.log("+++")
         actionBind.trigger()
         if (resthost != undefined && resthost != "") {
             actionLogin.trigger();
         }
-        let pathToDb = "/data/"
-//pathToDb = String("%1/$2/data/").arg(env().appPath).arg(settingsValue("program/pwd","."))
-        // for Mac OS
-        // pathToDb = env().appPath + "/"+settingsValue("program/pwd","") + "/data/"
-
         // pathToDb = "./data/"
-        pathToDb = applicationDirPath + "/data/"
-        var dbList = Db.dirEntryList(pathToDb,'*.sqlite', 2,0)
-//            console.log('main db list='+dbList)
-        var vj = [];
+        // pathToDb = applicationDirPath + "/data/"
+//         var dbList = Db.dirEntryList(pathToDb,'*.sqlite', 2,0)
+// //            console.log('main db list='+dbList)
+        const dbList = Lib.getDbList(Db, applicationDirPath)
         if (dbList.length === 1) {
-            root.dbname = pathToDb+dbList[0]
+            // root.dbname = pathToDb+dbList[0]
+            root.dbname = dbList[0].id
             // openConnection(pathToDb+dbList[0])
         } else if (dbList.length > 1) {
             changeDBAction.enabled = true
@@ -1422,8 +1380,6 @@ ApplicationWindow {
             msgDialog.open()
         }
 
-        // Db.msg("Test message.");
-        // console.log("#73h main isTax="+isTaxMode())
     }
 
 }

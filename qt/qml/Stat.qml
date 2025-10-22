@@ -14,10 +14,8 @@ Window {
     onDbDriverChanged: {
         vw.model.populate(dbDriver)
     }
-    property var jsdata
-    onJsdataChanged: vw.spopulate()
 
-    signal vkEvent(string id, var param)
+    // signal vkEvent(string id, var param)
 
     ListModel{
         id: dataModel

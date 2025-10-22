@@ -271,7 +271,7 @@ function getBalAccounts(db, bal) {
 function getBindList(db, flt=""){
   const vsql = "select shftid, id as dcmid, coalesce(dcmno,'') dcmno, dcmtype, coalesce(item,'') atclid, acntdbt, acntcdt, amount, eqamount eq, discount dsc, "
             + " bonus bns, coalesce(client,'') clid, coalesce(parentid,'') pid, coalesce(dcmnote,'') dnote, dcmtime dtm, coalesce(clchar, '') clchar "
-            + " from documall left join client on(clid = pkey) " + (flt==="" ? "" : ( "where "+flt)) + " order by id DESC;";
+            + " from documall left join client on(clid = pkey) " + (flt==="" ? "" : ( "where "+flt))+ " order by dcmid;";     //+ " order by dtm DESC;";
   // log("#82 lib.getBindList vsql=" + vsql)
     const vj = parse(db.dbSelectRows(vsql));
     if (!vj){
@@ -327,13 +327,28 @@ function getDcmList(db, flt=""){
   + " coalesce(parentid,'') pid, coalesce(dcmnote,'') dnote, dcmtime dtm, coalesce(clchar, '') clchar, coalesce(iname,'UAH') iname, coalesce(ifname,'українська гривня') ifname, coalesce(scancode,'') scan, "
   + " coalesce(imask,1) imask, coalesce(qty,1) qty, coalesce(unitprec,2) prec from documall LEFT join acntbal on(acntcdt = acntno) left join client on(acntbal.client = pkey) LEFT join "
   + " (select item.pkey aid, itemchar iname, itemname ifname, scancode, itemmask imask, unitprec, qty from item  left join articlepriceqty on(item.pkey=articlepriceqty.pkey) LEFT join itemunit on (defunit=itemunit.pkey) where folder=0) atcl on (item = atcl.aid) "
-       + (flt==="" ? "" : ( "where "+flt)) + " order by pid DESC;";
+       + (flt==="" ? "" : ( "where "+flt))  + " order by pid DESC;";
     const vj = parse(db.dbSelectRows(vsql));
     if (!vj){
         log('getDcmList #823y JSON.parse error sql='+ vsql);
         return [];
     }
     return vj.rows;
+}
+
+function getDbList(db, path){
+  let pathToDb = path + "/data/"
+  //pathToDb = String("%1/$2/data/").arg(env().appPath).arg(settingsValue("program/pwd","."))
+  // pathToDb = env().appPath + "/"+settingsValue("program/pwd","") + "/data/"
+  pathToDb = "./data/"
+  var dbList = db.dirEntryList(pathToDb,'*.sqlite', 2,0)
+//            console.log('main db list='+dbList)
+  var vj = [];
+  for (var i = 0; i < dbList.length; ++i){
+      vj[i] = {'id':pathToDb+dbList[i], 'name':dbList[i],"fullname":'', 'mask':"256", "sect":'Доступні БД'};
+//                    databaseView.model.append({'id':pathToDb+dbList[i], 'name':dbList[i]})
+  }
+  return vj
 }
 
 function getRate(db, id){

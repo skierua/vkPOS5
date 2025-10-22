@@ -2,6 +2,7 @@
 #define PRINT_H
 
 #include <QObject>
+#include <QCoreApplication>
 #include <QQmlEngine>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -39,7 +40,7 @@ private:
 
     QLatin1StringView m_checkPrinter{"POSPrn"};
 
-    QLatin1StringView m_checkFile{"report/lastcheck.pdf"};
+    QLatin1StringView m_checkFile{ "report/lastcheck.pdf"};
 
     QLatin1StringView m_orderFile{"report/order.pdf"};
 
