@@ -23,7 +23,7 @@ int Print::paintCheck(const QJsonObject & bind, int mode, int isCopy)
     QPrinter printer;
 
     if (mode){ printer.setPrinterName(m_checkPrinter); }
-        else { printer.setOutputFileName(m_checkFile); }
+        else { printer.setOutputFileName(QCoreApplication::applicationDirPath() + "/" + m_checkFile); }
 
     QPainter painter;
 
@@ -158,10 +158,13 @@ int Print::saveOrder(const QJsonObject & bind)
 
     QPrinter printer;
 
+    // printer.setOutputFileName(QCoreApplication::applicationDirPath() + "/" + m_orderFile);
     printer.setOutputFileName(m_orderFile);
 
     QPainter painter;
     if (! painter.begin(&printer)) { // failed to open painter
+        QString err = "Print::saveOrder err " + QCoreApplication::applicationDirPath() + "/" + m_orderFile;
+        qDebug() << err;
         qWarning("failed to open file, is it writable?");
         return 1;
     }
@@ -184,7 +187,7 @@ int Print::saveOrder(const QJsonObject & bind)
     int wpr = 60;
     int weq = 80;
     int wsps = 4;       // spacing
-    int wnm = tblw-wid-war-wun-wam-wpr-weq-6*wsps;
+    int wnm = tblw - wid - war - wun - wam - wpr - weq - 6*wsps;
     //    painter.drawText(0, 0, "0123456789012345678901234567890123456789");
     QString fontFamily = "Arial";
     //    int fontStretch = 62;
