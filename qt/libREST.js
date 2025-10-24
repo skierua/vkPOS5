@@ -19,7 +19,7 @@ function parse(raw){
 
 function loginRequest(url, usr, psw, callback) {
     let request = new XMLHttpRequest();
-    let  err = null, req = null;
+    let  err = null, resp = null;
 
     request.onreadystatechange = function() {
         if (request.readyState === XMLHttpRequest.DONE) {
@@ -29,7 +29,7 @@ function loginRequest(url, usr, psw, callback) {
                 let isPlainText = request.responseType === ''
                 let presp = parse(request.response)
                 if (isPlainText && presp) {
-                    req = presp.token
+                    resp = presp.token
                 }
             } else if (request.status === 0){
                 err = {text:'loginRequest. Site connection error', code:'EE'}
@@ -38,7 +38,7 @@ function loginRequest(url, usr, psw, callback) {
                 err = {text:url + "\nU:"+usr+" P:"+psw+"\n"+request.response, code: 'EE'}
             }
 
-            callback(err, req);
+            callback(err, resp);
         }
     }
 
