@@ -179,7 +179,7 @@ ApplicationWindow {
                             } else {
                                 taxbind.api_token = cdtoken
                                 taxbind.num_fiscal = cdcash
-                                CashDesk.postRequest(cdhost + cdprefix + String("/check/sale?api_token=%1").arg(cdtoken), taxbind,
+                            /*    CashDesk.postRequest(cdhost + cdprefix + String("/check/sale?api_token=%1").arg(cdtoken), taxbind,
                                                     (taxerr, taxresp) =>
                                                      {
                                                          if (err){
@@ -190,8 +190,8 @@ ApplicationWindow {
                                                                  "resp": "XReport OK #" + taxresp,
                                                                  "tm":new Date()});
                                                          }
-                                                     } )
-                                taxRequest(String("/check/sale?api_token=%1").arg(cdtoken), taxbind, (response) => {
+                                                     } ) */
+                            /*    taxRequest(String("/check/sale?api_token=%1").arg(cdtoken), taxbind, (response) => {
                                 // Lib.log(response.status);
                                 // Lib.log(response.headers);
                                 // Lib.log( response.content);
@@ -212,36 +212,12 @@ ApplicationWindow {
                                  taxServiceLoader.active = true
                                  taxServiceLoader.item.showResp({"code":"error", "sender":"ping", "resp":"Status="+response.status+": "+response.content, "tm":new Date()});
                                 }
-                                });
+                                }); */
                             }
                         })
                     }
                 })
         }
-    }
-
-    function taxRequest(path, req, callback) {
-        let request = new XMLHttpRequest();
-
-        request.onreadystatechange = function() {
-            if (request.readyState === XMLHttpRequest.DONE) {
-                let response = {
-                    status : request.status,
-                    headers : request.getAllResponseHeaders(),
-                    contentType : request.responseType,
-                    content : request.response
-                };
-
-                callback(response);
-            }
-        }
-        request.open("POST", cdhost + cdprefix + path);
-        request.setRequestHeader("Content-Type","application/json");
-        request.setRequestHeader("Accept","application/json");
-        request.setRequestHeader("developer-id","linux,mppanna");
-        // request.setRequestHeader("Bearer",token);
-        request.send(JSON.stringify(req));
-        // request.send("data=" + JSON.stringify(req));
     }
 
     Action {
