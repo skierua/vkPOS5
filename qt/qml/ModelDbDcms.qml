@@ -76,8 +76,6 @@ ListModel {
         }
         // dbg("count="+ root.count, "#74y")
     }
-    // text: Number(qty) === 1 ? (Number(eq)/Number(root.ListView.view.dcms[sid].amount)).toFixed(root.ListView.view.dcms[sid].imask === "4" ? 2 : 4)
-    //                                      : ((Number(root.ListView.view.dcms[sid].eq)/Number(root.ListView.view.dcms[sid].amount)).toFixed(root.ListView.view.dcms[sid].imask === "4" ? 2 : 4)+'/'+root.ListView.view.dcms[sid].qty)
 
     function price(row) {
         if (row < 0) return ""

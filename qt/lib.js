@@ -267,6 +267,40 @@ function getBalAccounts(db, bal) {
   return (jdata && jdata.rows.length) ? jdata.rows : [];
 }
 
+// mask 1|2|4
+function getBalance(db, bal=[], mask = 3, reverse =false){
+    let amount = "(beginamnt+turndbt-turncdt) as total, turndbt as income, turncdt as outcome"
+    if (reverse) { amount = "(0 - beginamnt+turndbt-turncdt) as total, turncdt as income, turndbt as outcome"; }
+    let balFlt = "1"
+    if (bal.length) {
+        balFlt = ""
+        // balFlt = String("substr(acntno,1,%1) = '%2'").arg(bal.length).arg(bal);
+        for (let i =0; i < bal.length; ++i) {
+            balFlt += (balFlt !== "" ? " OR " : "") + String("substr(acntno,1,%1) = '%2'").arg(String(bal[i]).length).arg(String(bal[i]));
+        }
+        balFlt = "(" + balFlt + ")";
+    }
+    let maskFlt = "1" ;
+    if (mask){
+        maskFlt = String("(%1 itemmask & %2)").arg(mask&1 === 1 ? "itemmask is null or " : "").arg(mask);
+    }
+
+    const vsql = String("select coalesce(acntnote,'') as bind, coalesce(itemchar, item, 'ГРН') as name,'[' || coalesce(item,'980') || '] ' || coalesce(itemname, item, 'гривня україни') as subname,"
+    + " %1, item.pkey as key, coalesce(unitprec,2) as prec,"
+    + " scancode as scan, 0 as totaleq, coalesce(client,'') as clid, clchar, acnt.acntno as ano, coalesce(itemmask,1) as mask  "
+    + " from acntbal join acnt using(acntno) left join item on (item = item.pkey)  left join itemunit on (defunit=itemunit.pkey) LEFT JOIN client ON(clid = client.pkey)"
+    + " where %2 and %3 and (abs(total) > 0.0009 or dbtupd>date(coalesce((select max(shftdate) from shift),date('now')), '-0 days')"
+    + " or  cdtupd>date(coalesce((select max(shftdate) from shift),date('now')), '-0 days')) order by bind, itemmask, itemnote;").arg(amount).arg(balFlt).arg(maskFlt);
+    // log('getBalance #13e sql='+ vsql);
+    let vj = parse(db.dbSelectRows(vsql));
+    if (!vj){
+        log('getBalance #62t JSON.parse error sql='+ vsql);
+        return [];
+    }
+    return vj.rows;
+}
+
+
 // only bind rows from table
 function getBindList(db, flt=""){
   const vsql = "select shftid, id as dcmid, coalesce(dcmno,'') dcmno, dcmtype, coalesce(item,'') atclid, acntdbt, acntcdt, amount, eqamount eq, discount dsc, "
@@ -410,6 +444,7 @@ function acntTrade_id(db, acnt, article = ""){
   return res;
 }
 
+// transact bind
 function tranBind(db, jbind) {
     let pid = 0;
     // Lib.log("#94j bind="+JSON.stringify(jbind)); //return;

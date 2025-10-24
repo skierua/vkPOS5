@@ -275,7 +275,6 @@ Window {
         id: actionPrintOrder
         text: "Зберегти накладну"
         onTriggered: {
-            // vkEvent("docum.saveOrder", vw.model.get(vw.currentIndex).bind);
             Lib.bindFromDb(dbDriver, vw.model.get(vw.currentIndex).pid,
                (err, bind) => {
                     if (err){
@@ -288,13 +287,13 @@ Window {
         }
     }
 
-    Action {
+/*    Action {
         id: actionFiscalizate
         enabled: false
         text: "Фіскалізувати"
         onTriggered: { vkEvent("docum.fiscCheck", vw.model.get(vw.currentIndex).bind); }
     }
-
+*/
     Page{
         anchors.fill: parent
         Pane{
@@ -383,7 +382,6 @@ Window {
                 ToolButton {    // ⋮
                     text: qsTr("⋮")
                     onClicked: {
-                        // actionFiscalizate.enabled = vw.isCurrentRowFiscalizable()
                         contextMenu.open()
                     }
                     Menu{

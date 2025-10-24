@@ -9,6 +9,7 @@ import QtQuick.Layouts
 
 import "../lib.js" as Lib
 import "../libREST.js" as REST
+import "../libTAX.js" as CashDesk
 
 import com.print 1.0
 import com.singleton.dbdriver4 1.0
@@ -16,7 +17,7 @@ import com.singleton.dbdriver4 1.0
 ApplicationWindow {
     id: root
     visible: true
-    title: String("vkPOS5#%1").arg("2.9")
+    title: String("vkPOS5#%1").arg("2.10")
 
     // property string pathToDb: "/data/"
     property string dbname: ''
@@ -77,9 +78,13 @@ ApplicationWindow {
     property string checkPrintDcm: ""
 
     property string cdhost: ""
+        onCdhostChanged: CashDesk.gl_host = cdhost
     property string cdprefix: ""
+        onCdprefixChanged: CashDesk.gl_prefix = cdprefix
     property string cdcash: ""
+        onCdcashChanged: CashDesk.gl_cash = cdcash
     property string cdtoken: ""
+        onCdtokenChanged: CashDesk.gl_token = cdtoken
 
     Settings {
         category: "terminal"
@@ -115,18 +120,6 @@ ApplicationWindow {
         property alias prefix: root.cdprefix
         property alias cash: root.cdcash
         property alias token: root.cdtoken
-    }
-
-    Component.onDestruction: {}
-
-    function msg(vstring, vtype, vmodule) {
-        if (vtype === undefined) { vtype = 'II'}
-        if (vmodule === undefined) { vmodule = 'main.qml'}
-        msgDialog.code = vtype
-        msgDialog.message = vstring
-        msgDialog.open()
-
-        Lib.log(vstring, vmodule, vtype)
     }
 
     function isOnline() { return root.resttoken != "" }
@@ -186,6 +179,18 @@ ApplicationWindow {
                             } else {
                                 taxbind.api_token = cdtoken
                                 taxbind.num_fiscal = cdcash
+                                CashDesk.postRequest(cdhost + cdprefix + String("/check/sale?api_token=%1").arg(cdtoken), taxbind,
+                                                    (taxerr, taxresp) =>
+                                                     {
+                                                         if (err){
+                                                        // TODO
+                                                         } else {
+                                                             taxServiceLoader.item.showResp({"code":"info", "sender":"XReport",
+                                                                 // "resp": "XReport OK #" +jsresp.user_signature.user_id + " "+jsresp.user_signature.full_name,
+                                                                 "resp": "XReport OK #" + taxresp,
+                                                                 "tm":new Date()});
+                                                         }
+                                                     } )
                                 taxRequest(String("/check/sale?api_token=%1").arg(cdtoken), taxbind, (response) => {
                                 // Lib.log(response.status);
                                 // Lib.log(response.headers);
@@ -473,9 +478,6 @@ ApplicationWindow {
                   })
                 vkStack.currentItem.startBind()
             }
-
-
-            // msg("#72g dfltAcnt="+JSON.stringify(vkStack.currentItem.dfltAcnt))
         }
     }
 
@@ -789,9 +791,6 @@ ApplicationWindow {
                                 "dsc":Math.abs(Number(param.dsc)/Number(param.eq)),
                                 "bns":Math.abs(Number(param.bns)/Number(param.eq)),
                                 "pratt":0, "retfor":param.dcmid}))
-                } else if (id === "docum.fiscCheck"){
-                    taxUploadBind(param)
-                } else if (id === 'log'){ Lib.log(param,"DcmView");
                 } else { Lib.log("Bad request","DcmView"); }
 
             }
@@ -874,74 +873,12 @@ ApplicationWindow {
         onActiveChanged: if (active) {
                              item.visible = true
                              item.title = String("%1(%2)").arg(root.title).arg("Tax service")
-                             item.host = cdhost
-                             item.cash = cdcash
-                             item.prefix = cdprefix
-                             item.token = cdtoken
                          }
         Connections {
             target: taxServiceLoader.item
 
             function onClosing() { taxServiceLoader.active = false; }
 
-            function onVkEvent(event,param) {
-                if (event === 'ping'){
-//                    console.log("#5n4 Main ping started")
-                    taxRequest("/shift/ping", { "api_token": cdtoken, "num_fiscal": cdcash }, (response) => {
-                     // Lib.log(response.status);
-                     // Lib.log(response.headers);
-                     // Lib.log( response.content);
-                    let jsresp = JSON.parse(response.content)
-                    while (~response.content.indexOf(',"')){ response.content = response.content.replace(',"',',\n"'); }
-                    if (response.status === 200) {
-                        let isPlainText = response.contentType.length === 0
-                        if (isPlainText && taxServiceLoader.active) {
-                            taxServiceLoader.item.showResp({"code":"info", "sender":"ping",
-                            "resp": "ping OK #" +jsresp.user_signature.user_id + " "+jsresp.user_signature.full_name, "tm":new Date()});
-                        }
-                    } else if (response.status === 0){
-                        taxServiceLoader.active = true
-                        taxServiceLoader.item.showResp({"code":"error", "sender":"ping", "resp":'Site connection error', "tm":new Date()});
-                    } else {
-                        taxServiceLoader.active = true
-                        taxServiceLoader.item.showResp({"code":"error", "sender":"ping", "resp":"Status="+response.status+": "+response.content, "tm":new Date()});
-                    }
-                    });
-
-                } else if (event === 'xreport'){
-                    taxRequest("/shift/xReport", { "api_token": cdtoken, "num_fiscal": cdcash,"no_text_print": true,"no_pdf": true,"include_checks": false },
-                               (response) => {
-                    let jsresp = JSON.parse(response.content)
-                    while (~response.content.indexOf(',"')){ response.content = response.content.replace(',"',',\n"'); }
-                    if (response.status === 200) {
-                        let isPlainText = response.contentType.length === 0
-                        if (isPlainText && taxServiceLoader.active) {
-                            taxServiceLoader.item.showResp({"code":"info", "sender":"XReport",
-                                // "resp": "XReport OK #" +jsresp.user_signature.user_id + " "+jsresp.user_signature.full_name,
-                                "resp": "XReport OK #" +response.content,
-                                "tm":new Date()});
-                        }
-                    } else if (response.status === 0){
-                        taxServiceLoader.active = true
-                        taxServiceLoader.item.showResp({"code":"error", "sender":"ping", "resp":'Site connection error', "tm":new Date()});
-                    } else {
-                        taxServiceLoader.active = true
-                        taxServiceLoader.item.showResp({"code":"error", "sender":"ping", "resp":"Status="+response.status+": "+response.content, "tm":new Date()});
-                    }
-                    });
-                } else if (event === 'zreport'){
-                    askDialog.code = 'zreport'
-                    askDialog.jdata =  { "text" : "Закрити фіскальну зміну ДПС ?" }
-                    askDialog.open()
-                } else if (event === 'settings'){
-//                    console.log("#84y main cash="+param.cash+" host="+param.host+" prefix="+param.prefix+" token="+param.token)
-                    cdhost = param.host !== undefined ? param.host : ""
-                    cdprefix = param.prefix !== undefined ? param.prefix : ""
-                    cdcash =  param.cash !== undefined ? param.cash : ""
-                    cdtoken = param.token !== undefined ? param.token : ""
-                } else {}
-
-            }
         }
     }
 
@@ -998,8 +935,6 @@ ApplicationWindow {
                             Lib.log("selectPopup bad code, nothing to do","Main", "EE")
                             // bad code, nothing to do
                         }
-
-//                        msg('index='+index+' name='+name)
                         selectPopup.close()
                     }
                 }
@@ -1104,35 +1039,9 @@ ApplicationWindow {
                     Lib.closeShift(Db, {"shid":jdata.shid,"shdate":jdata.shdate, "cshr":jdata.cshr}, {"url":root.resthost+root.restapi, "token": root.resttoken, "term": root.term})
                     quitTimer.start()
                 }
-            } else if (code === "zreport"){
-//                msg("#945 zReport ok")
-
-                taxRequest("/shift", { "api_token": cdtoken, "num_fiscal": cdcash, "action_type": "Z_REPORT" },
-                           (response) => {
-                let jsresp = JSON.parse(response.content)
-                while (~response.content.indexOf(',"')){ response.content = response.content.replace(',"',',\n"'); }
-                if (response.status === 200) {
-                    let isPlainText = response.contentType.length === 0
-                    if (isPlainText && taxServiceLoader.active) {
-                        taxServiceLoader.item.showResp({"code":"info", "sender":"XReport",
-                            // "resp": "XReport OK #" +jsresp.user_signature.user_id + " "+jsresp.user_signature.full_name,
-                            "resp": "XReport OK #" +response.content,
-                            "tm":new Date()});
-                    }
-                } else if (response.status === 0){
-                    taxServiceLoader.active = true
-                    taxServiceLoader.item.showResp({"code":"error", "sender":"ping", "resp":'Site connection error', "tm":new Date()});
-                } else {
-                    taxServiceLoader.active = true
-                    taxServiceLoader.item.showResp({"code":"error", "sender":"ping", "resp":"Status="+response.status+": "+response.content, "tm":new Date()});
-                }
-                });
-
-
-                // quitTimer.start()
-//                Qt.quit();
-            } else {
-                console.log("#0i code undefined")
+            } else  {
+                logView.append("[askDialog] BAD event code", 0)
+                // console.log("#0i code undefined")
             }
         }
 //        onRejected:  { console.log("#348j rejected"); }
@@ -1145,54 +1054,15 @@ ApplicationWindow {
         width: parent.width < 500 ? parent.width*0.8 : 400
         height: parent.height
         edge: Qt.RightEdge
+
         DrawerItem{
             id: drawer2RightItem
+            dbDriver: Db
             anchors.fill: parent
-            onVkEvent: (id, param) => {
-                if (id === "sqlRequest"){
-                    jdata = Lib.parse(Db.dbSelectRows(param.sql)).rows
-                } else if (id === "rowDClicked"){
-//                    console.log("#283n param="+JSON.stringify(param))
-                    if (param.acnt.substring(0,3) === "300") {
-                        vkStack.currentItem.insert(new3Dcm(param.atcl))
-                    } else if (param.acnt.substring(0,3) === "350") {
-                        vkStack.currentItem.crntAcnt = Lib.getAccount(Db, param.acnt);
-                        vkStack.currentItem.insert(new3Dcm(param.atcl))
-                    } else if (param.acnt.substring(0,3) === "360" || param.acnt.substring(0,3) === "380") {
-                        if (vkStack.currentItem.crntClient.id === undefined
-                            || vkStack.currentItem.crntClient.id === '' || vkStack.currentItem.crntClient.id === param.clid){
-                            vkStack.currentItem.crntClient = Lib.getClient(Db,param.clid);
-                            vkStack.currentItem.crntAcnt = Lib.getAccount(Db, param.acnt);
-                            vkStack.currentItem.crntAcnt = Lib.getAccount(Db, id)
-                            vkStack.currentItem.insert(new3Dcm(param.atcl, {"amnt": String(0-Number(param.amnt))}))
 
-                        } else {    // not possible
-                           msgDialog.code = 'Error'
-                           msgDialog.message = 'Клієнта вже обрано'
-                           msgDialog.open()
-                        }
-                    } else if (param.acnt.substring(0,3) === "302") {
-                        vkStack.currentItem.insert(new3Dcm(param.atcl, {"amnt": String(0-Number(param.amnt))}))
-                    } else if (param.acnt.substring(0,3) === "300") {
-
-                    } else if (param.acnt === "300") {
-
-                    }
-                } else {
-                      // unmanaged event
-                }
-            }
         }
-
-        onVisibleChanged: if (!visible) {
-                              drawer2RightItem.jdata = ({})
-                              // stackBind.children[stackBind.currentIndex].startNewRow()
-                          } else {
-                              // Db.msg("drawer2Right. sql="+drawer2RightItem.dfltSql);
-                              // const d = Db.dbSelectRows(drawer2RightItem.dfltSql);
-                            drawer2RightItem.jdata = Lib.parse(Db.dbSelectRows(drawer2RightItem.dfltSql)).rows
-                          }
     }
+
 
     StackView {
         id: vkStack
@@ -1334,7 +1204,6 @@ ApplicationWindow {
 //        close.accepted = false
 //        askDialog.jdata = {"code":"zReport", "text":"zReport"}
 //        askDialog.open()
-//        msg("#84r onClosing")
         closeChildWindow()
     }
     footer: Rectangle{
@@ -1355,7 +1224,7 @@ ApplicationWindow {
         // let p = "f26r"    //"s5k9";
         // console.log("#387y psw = " + p + " b64: " + Qt.btoa( p));
         // console.log("env=")
-        console.log(applicationDirPath)
+        // console.log(applicationDirPath)
         // console.log("+++")
         actionBind.trigger()
         if (resthost != undefined && resthost != "") {
