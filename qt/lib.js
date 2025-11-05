@@ -374,7 +374,7 @@ function getDbList(db, path){
   let pathToDb = path + "/data/"
   //pathToDb = String("%1/$2/data/").arg(env().appPath).arg(settingsValue("program/pwd","."))
   // pathToDb = env().appPath + "/"+settingsValue("program/pwd","") + "/data/"
-  pathToDb = "./data/"
+  // pathToDb = "./data/"
   var dbList = db.dirEntryList(pathToDb,'*.sqlite', 2,0)
 //            console.log('main db list='+dbList)
   var vj = [];
