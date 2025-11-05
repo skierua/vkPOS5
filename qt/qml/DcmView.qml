@@ -247,27 +247,25 @@ Window {
     }
 
     Action {
-        id: returnAction
-        enabled: false
+        id: refuseAction
         // enabled: vw.model.get(vw.currentIndex).trade === "1"
         text: "Повернути"
-        onTriggered: { vkEvent("documView.return", jdcmList[vw.model.get(vw.currentIndex).sid]); }
+        onTriggered: {
+            // console.log("[DcnView] #63g" + JSON.stringify(vw.model.get(vw.currentIndex)))
+            vkEvent("refuse", {"dcmid":vw.model.get(vw.currentIndex).dcmid, "pid":vw.model.get(vw.currentIndex).pid});
+        }
     }
 
     Action {
         id: actionPrintCheck
         text: "Друкувати чек"
         onTriggered: {
-            Lib.bindFromDb(dbDriver, vw.model.get(vw.currentIndex).pid,
-                (err, bind) => {
-                    if (err){
-                         // Lib.log(err, "Main>bindFromDb", "EE")
-                        logView.append("[DcmView>bindFromDb] " + err, 0)
-                    } else {
-                      prnDriver.saveCheckCopy( bind )
-                      prnDriver.printCheckCopy( bind )
-                    }
-                })
+            const res = Lib.bindFromDb(dbDriver, vw.model.get(vw.currentIndex).pid)
+            if (res){
+                // Lib.log(JSON.stringify(res), "Main>bindFromDb", "II"); return;
+                prnDriver.saveCheckCopy( res )
+                prnDriver.printCheckCopy( res )
+            } else logView.append("[DcmView>bindFromDb] Database query error", 0)
         }
     }
 
@@ -275,15 +273,10 @@ Window {
         id: actionPrintOrder
         text: "Зберегти накладну"
         onTriggered: {
-            Lib.bindFromDb(dbDriver, vw.model.get(vw.currentIndex).pid,
-               (err, bind) => {
-                    if (err){
-                        // Lib.log(err, "Main>bindFromDb", "EE")
-                        logView.append("[DcmView>bindFromDb] " + err, 0)
-                    } else {
-                        prnDriver.saveOrder( bind )
-                    }
-                })
+            const res = Lib.bindFromDb(dbDriver, vw.model.get(vw.currentIndex).pid)
+            if (res){
+                prnDriver.saveOrder( res )
+            } else logView.append("[DcmView>bindFromDb] Database query error", 0)
         }
     }
 
@@ -388,7 +381,7 @@ Window {
                         id: contextMenu
                         // MenuItem { action: clearFilterAction; }
                         MenuItem { action: viewFullBindAction; }
-                        MenuItem { action: returnAction; }
+                        MenuItem { action: refuseAction; }
                         MenuSeparator { padding: 5; }
                         MenuItem { action: actionPrintCheck; }
                         MenuItem { action: actionPrintOrder; }
@@ -457,7 +450,7 @@ Window {
 
         // contextMenu.addAction(clearFilterAction)
         // contextMenu.addAction(viewFullBindAction)
-        // contextMenu.addAction(returnAction)
+        // contextMenu.addAction(refuseAction)
         // contextMenu.addItem( Qt.createQmlObject('import QtQuick.Controls; MenuSeparator {}', contextMenu.contentItem, "dynamicSeparator") )
         // contextMenu.addAction(actionPrintCheck)
         // contextMenu.addAction(actionPrintOrder)

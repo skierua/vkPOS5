@@ -17,7 +17,7 @@ import com.singleton.dbdriver4 1.0
 ApplicationWindow {
     id: root
     visible: true
-    title: String("vkPOS5#%1").arg("2.10")
+    title: String("vkPOS5#%1").arg("2.11")
 
     // property string pathToDb: "/data/"
     property string dbname: ''
@@ -31,22 +31,22 @@ ApplicationWindow {
             Prn.setUser(crntShift.cshrname)
             Prn.setCheck(root.checkPrintDcm)
 
-            if (vkStack.depth){
-                vkStack.currentItem.dfltClient = Lib.getClient(Db)
-                vkStack.currentItem.cashAcnt = Lib.getAccount(Db,acnts.cash)
-                vkStack.currentItem.dfltAcnt = Lib.getAccount(Db)
-                vkStack.currentItem.startBind()
+            if (bindContainer.depth){
+                bindContainer.currentItem.dfltClient = Lib.getClient(Db)
+                bindContainer.currentItem.cashAcnt = Lib.getAccount(Db,acnts.cash)
+                bindContainer.currentItem.dfltAcnt = Lib.getAccount(Db)
+                bindContainer.currentItem.startBind()
             }
-            // Lib.log("#72g dfltAcnt="+JSON.stringify(vkStack.currentItem.dfltAcnt))
+            // Lib.log("#72g dfltAcnt="+JSON.stringify(bindContainer.currentItem.dfltAcnt))
 
             if (root.crntShift.shftend !== '') {   // shift is closed
                 // Lib.log("222 here")
-                actionShift.trigger();
+                winShiftAction.trigger();
             } else {
                 // Lib.log("111 here")
                 if (root.crntShift.shftdate !== Qt.formatDateTime(new Date(), "yyyy-MM-dd")){
                     if (Lib.isIncas(Db, root.acnts)) {
-                      actionShift.trigger()
+                      winShiftAction.trigger()
                     } else {
                       askDialog.code = 'askCloseShift'
                       askDialog.jdata =  { "text" : "Закрити попередню зміну ?","shid":root.crntShift.id,"shdate":root.crntShift.shftdate, "cshr":root.crntShift.cshr }
@@ -57,7 +57,6 @@ ApplicationWindow {
                 }
             }
         }
-    // onDbnameChanged:  Lib.openConnection(dbDriver, dbname)
 
     property real z0: 0.0000001
     property var crntShift: { "id":0,"errid":1,"errname":"","shftdate":"","shftbegin":"","shftend":"","cshr":"","cshrname":""}
@@ -65,9 +64,12 @@ ApplicationWindow {
     property var acnts: { "cash":"3000", "incas":"3003ELSV", "trade":"3500", "bulk":"3501", "profit":"3607-55" }
 
 
-    property string resthost: "http://localhost"
-    property string restapi: "/api/dev"
+    property string resthost: ""      //"http://localhost"
+        onResthostChanged: REST.gl_host = resthost
+    property string restapi: ""
+        onRestapiChanged: REST.gl_api = restapi
     property string resttoken: ""
+        onResttokenChanged: REST.gl_token = resttoken
     property string restuser: ""
     property string restpassword: ""
     property string term: ""
@@ -122,101 +124,33 @@ ApplicationWindow {
         property alias token: root.cdtoken
     }
 
-    function isOnline() { return root.resttoken != "" }
-
-    function isTaxMode() { return root.cdhost != "" && !root.cdhost.startsWith('*') }
-
-    function upload_tran(jbind, uplAcnt = true){
-
-        if (jbind === undefined) { return; }
-
-        if (root.resttoken != ""){      // isOnline
-
-            REST.postRequest2(resthost+restapi+"/dcms?api_token="+resttoken, {"term":root.term,"reqid":"upd","shop":root.term,"data":jbind},
-                (err,resp) => {
-                if (err === null){
-                     // Lib.log("#278 main "+JSON.stringify(resp))
-                } else {
-                    Lib.log(err.text, 'REST.postRequest2', err.code)
-                }
-            });
-
-            if (uplAcnt) {
-                const jacnt = Lib.uploadAcnt(Db, true)
-                if (jacnt && jacnt.rows.length) {
-                    REST.postRequest2(resthost+restapi+"/accounts?api_token="+resttoken, {"term":root.term,"reqid":"upd","shop":root.term,"data":jacnt.rows},
-                        (err,resp) => {
-                        if (err === null){
-                           // Lib.log("#278 main "+JSON.stringify(resp))
-                        } else {
-                          Lib.log(err.text, 'REST.postRequest2', err.code)
-                        }
-                    });
-                }
-            }
-
-        }
+    function dbg(str, code ="") {
+        console.log( String("%1[Main.qml] %2").arg(code).arg(str));
     }
 
-    function taxUploadBind(bindid){
-        if (isTaxMode()) {
+    function isOnline() { return REST.gl_token != ""; }
+    // function isOnline() { return root.resttoken != "" }
 
+    function isTaxMode() { return root.cdtoken != "" && root.cdhost != "" && !root.cdhost.startsWith('*') }
 
-
-            Lib.log("#94hn TAX MODE IS BLOCKED !!! \n main.taxUploadBind id=" + bindid); return;
-
-
-
-            Lib.bindFromDb(Db, bindid,
-               (err,bind) => {
-                    if (err){
-                        Lib.log(err, "Main>bindFromDb", "EE")
-                    } else {
-                       Lib.cdtaxFromBind(Db, bind,
-                        (err, taxbind)=>{
-                            if (err){
-                                Lib.log(err, "Main>cdtaxFromBind", "EE")
-                            } else {
-                                taxbind.api_token = cdtoken
-                                taxbind.num_fiscal = cdcash
-                            /*    CashDesk.postRequest(cdhost + cdprefix + String("/check/sale?api_token=%1").arg(cdtoken), taxbind,
-                                                    (taxerr, taxresp) =>
-                                                     {
-                                                         if (err){
-                                                        // TODO
-                                                         } else {
-                                                             taxServiceLoader.item.showResp({"code":"info", "sender":"XReport",
-                                                                 // "resp": "XReport OK #" +jsresp.user_signature.user_id + " "+jsresp.user_signature.full_name,
-                                                                 "resp": "XReport OK #" + taxresp,
-                                                                 "tm":new Date()});
-                                                         }
-                                                     } ) */
-                            /*    taxRequest(String("/check/sale?api_token=%1").arg(cdtoken), taxbind, (response) => {
-                                // Lib.log(response.status);
-                                // Lib.log(response.headers);
-                                // Lib.log( response.content);
-                                let jsresp = JSON.parse(response.content)
-                                while (~response.content.indexOf(',"')){ response.content = response.content.replace(',"',',\n"'); }
-                                if (response.status === 200) {
-                                 let isPlainText = response.contentType.length === 0
-                                 if (isPlainText && taxServiceLoader.active) {
-                                     taxServiceLoader.item.showResp({"code":"info", "sender":"XReport",
-                                         // "resp": "XReport OK #" +jsresp.user_signature.user_id + " "+jsresp.user_signature.full_name,
-                                         "resp": "XReport OK #" +response.content,
-                                         "tm":new Date()});
-                                 }
-                                } else if (response.status === 0){
-                                 taxServiceLoader.active = true
-                                 taxServiceLoader.item.showResp({"code":"error", "sender":"ping", "resp":'Site connection error', "tm":new Date()});
-                                } else {
-                                 taxServiceLoader.active = true
-                                 taxServiceLoader.item.showResp({"code":"error", "sender":"ping", "resp":"Status="+response.status+": "+response.content, "tm":new Date()});
-                                }
-                                }); */
-                            }
-                        })
-                    }
-                })
+    Component{
+        id: activateBind
+        Action{
+            id: croot
+            property string ctext
+            property int cindex
+            text: croot.ctext
+            onTriggered: {
+                if (cindex === bindContainer.depth -1) return;
+                let list = []
+                // dbg("STA cindex=" + cindex +" container count="+ bindContainer.depth + " list.count=" + list.length, "#333")
+                while (bindContainer.depth > croot.cindex +1) list[list.length] = bindContainer.pop()
+                list.reverse()
+                list[list.length] = bindContainer.pop()
+                // dbg("MID cindex=" + cindex +" container count="+ bindContainer.depth + " list.count=" + list.length, "#333")
+                for (let i =0; i < list.length; ++i) {bindContainer.push(list[i]); }
+                // dbg("END cindex=" + cindex +" container count="+ bindContainer.depth + " list.count=" + list.length, "#333")
+            }
         }
     }
 
@@ -224,22 +158,13 @@ ApplicationWindow {
         id: actionLogin
         text: "Login"
         onTriggered: {
-            resttoken = ''
-            if ( resthost != "") {
-                REST.loginRequest(resthost+restapi+"/auth", restuser, restpassword, (err, token) => {
-                    // Lib.log("#984u token="+token);
-                    if (err === null){
-                        resttoken = token
-                    } else {
-                        Lib.log(err.text, 'lib.login', err.code)
-                    }
-                });
-            }
-
+            REST.login(restuser, restpassword, (err) =>{
+                           if (err !== null) logView.append("[REST login]" + err, 1)
+                       });
         }
     }
 
-    Action {
+ /*   Action {
         id: testAction
         text: "TEST"
 //        icon.name: "edit-copy"
@@ -247,7 +172,7 @@ ApplicationWindow {
         onTriggered: {
             Lib.log(Lib.ttest(Db))
         }
-    }
+    } */
 
 
     function closeChildWindow(){
@@ -259,102 +184,9 @@ ApplicationWindow {
         rateLoader.active = false
     }
 
-    /**
-      param { acntno, code, amnt, price, dsc, bns, pratt, retfor}
-     */
-    function new3Dcm(vaid, param) {
-//        console.log("#48h vaid="+vaid+ " amnt="+vamnt)
-        var n2d = {"price":0, "dsc":0, "bns":0, "tag":"", "retfor":""}
-        n2d.atcl = Lib.getArticle(Db,vaid)
-         if (param === undefined){
-//            param = ({})
-            n2d.acnt = vkStack.currentItem.crntAcnt
-            n2d.amnt = vkStack.currentItem.crntAmnt
-            n2d.code = Number(n2d.amnt) < 0 ? "pay:out" : "pay:in"
-        } else {
-            n2d.acnt = (param.acntno !== undefined) ? Lib.getAccount(Db,param.acntno) : vkStack.currentItem.crntAcnt;
-            n2d.amnt = param.amnt || vkStack.currentItem.crntAmnt
-            n2d.code = param.code || (Number(n2d.amnt) < 0 ? "pay:out" : "pay:in")
-            n2d.retfor = param.retfor || ""
-        }
-
-        if ( !(Number(n2d.atcl.mask) & Number(n2d.acnt.mask)) ){
-            msgDialog.code = 'Warning'
-            msgDialog.message = 'Main\n'+"#37h currency/article and account missmatch ["+n2d.atcl.mask+"] & ["+n2d.acnt.mask +"]"
-            msgDialog.open()
-            vkStack.currentItem.startNewRow();
-            return false;
-        }
-//        if (param === undefined) { param = {"price":"0", "offer":"0", "dsc":"0" }; }
-//        if (vamnt !== undefined && vamnt !==''){ vkStack.currentItem.crntAmnt = vamnt; }
-        let jpr = {"price":"0", "offer":"0", "dsc":"0" };
-        if (Number(n2d.acnt.trade) === 1) {
-            if (param !== undefined){
-                n2d.price = param.price || 0;
-                n2d.dsc = param.dsc || 0;
-                n2d.bns = param.bns || 0;
-                n2d.pratt = param.price > z0 ? 0 : 7
-                if (Number(n2d.atcl.mask) === 4 || vkStack.currentItem.state === "incas") {
-                    n2d.code = param.code || vkStack.currentItem.crntCode
-                } else {
-                    n2d.code = param.code || (Number(n2d.amnt) < 0 ? "trade:sell" : "trade:buy");
-                }
-            } else {
-                n2d.pratt = 7
-                if (Number(n2d.atcl.mask) === 4 || vkStack.currentItem.state === "incas") {
-                    n2d.code = vkStack.currentItem.crntCode
-                } else {
-                    n2d.code = (Number(n2d.amnt) < 0 ? "trade:sell" : "trade:buy")
-                }
-            }
-
-
-            if (n2d.price < z0) {   // price undefined
-                let vj = ({})
-                let prid = ""
-                if (vkStack.currentItem.state !== "facture"){
-                    vj = JSON.parse(Db.dbSelectRows(
-                                String("select item as pkey, price.price/price.qtty as price, coalesce(selloffer.price,0)/coalesce(selloffer.qtty,1) as offer, coalesce(selldsc.price,0) as dsc
-                                        from price left join selloffer on(item=selloffer.article) left join selldsc on(item=selldsc.article)
-                                        where item = '%1' and prbidask=%2;").arg(vaid).arg(n2d.code === 'trade:sell'? '-1':'1')))
-                    if (vj.rows.length) {
-                        prid = vj.rows[0].pkey
-                    }
-//                    console.log("#4h7 n2d data="+JSON.stringify(vj))
-                }
-
-                if (prid === ""){
-                    vj = JSON.parse(Db.dbSelectRows(
-                                String("select article as pkey, %1 as price, 0 as offer, 0 as dsc from acntrade where article = '%2' and acntno='%3';")
-                                .arg(n2d.code === "trade:sell" ? 'lastpricesell':'lastpricebuy')
-                                .arg(n2d.atcl.id)
-                                .arg(n2d.acnt.acntno)))
-                }
-                if (vj.rows.length){
-                    jpr = vj.rows[0];
-                    if (vj.rows[0].offer !== undefined && Number(vj.rows[0].offer) > z0 ){
-                        n2d.price = Number(vj.rows[0].offer);
-                        n2d.tag = ' #АКЦІЯ!'
-                        n2d.pratt = 0
-                    }
-                    if (n2d.price < z0){
-                        n2d.pratt = 7
-                        n2d.price = Number(vj.rows[0].price);
-                        if(Number(vj.rows[0].dsc) > z0){
-                            n2d.dsc = Number(vj.rows[0].dsc);
-                            n2d.pratt = 0
-                        }
-                    }
-                }
-            }
-        }
-       // Lib.log("#927b main param="+JSON.stringify(n2d))
-        return n2d;
-    }
-
     Timer{
         id: quitTimer
-        interval: 2500
+        interval: 1000
         repeat: false
         running: false
         onTriggered: {
@@ -364,98 +196,115 @@ ApplicationWindow {
     }
 
     Action {
-        id: actionBind
-        text: "Чек | Фактура"        //qsTr("Check")
-//        icon.name: "edit-copy"
-//        shortcut: StandardKey.Copy
+        id: bindCheckAction
+        property string code: ""
+        property int dfltAmnt: Number(root.checkAmnt)
+        text: "Новий Чек"        //qsTr("Check")
         onTriggered: {
-            while (vkStack.depth >1) {
-                vkStack.pop()
-            }
-            if (vkStack.depth === 1){
-                if (vkStack.currentItem.codeid === 'bind'){
-                    //
-                    return;
-                }
-            } else {
-                vkStack.push("Bind.qml",
+            actionBind.trigger(bindCheckAction)
+            bindContainer.currentItem.forceActiveFocus()
+            // bindContainer.currentItem.startBind()
+        }
+    }
+
+    Action {
+        id: bindFactureAction
+        property string code: "facture"
+        property int dfltAmnt: 1
+        text: "Нова Фактура"
+        onTriggered: {
+            actionBind.trigger(bindFactureAction)
+            // bindContainer.currentItem.startBind()
+        }
+    }
+
+    Action {
+        id: bindTaxAction
+        property string code: "taxcheck"
+        property int dfltAmnt: Number(root.checkAmnt)
+        text: "Новий ФІСК.Чек"
+        onTriggered: actionBind.trigger(bindTaxAction)
+    }
+
+    Action {
+        id: actionBind
+        onTriggered: (source) => {
+
+                         bindContainer.push("Bind.qml",
                                {
-                                fnCreateDcm: (vaid, param) => { return new3Dcm(vaid, param)},
-                                printDcm: checkPrintDcm,
-                                autoPrint: checkAutoPrint,
-                                dfltAmnt: Number(checkAmnt),
+                                dbDriver: Db,
+                                funcRESTUpload: (jbind) => {
+                                    if (isOnline()) REST.uploadBindTran(root.term, root.term, jbind, Lib.uploadAcnt(Db, true).rows,
+                                                         (err) =>{ if (err !== null) logView.append("[uploadBindTran] " + err, 0); })
+                                 },
+                                 funcFiscalizate: (bindid) =>{
+                                    if (!isTaxMode()) {
+                                         logView("Fiscalization is unsupported", 1)
+                                         return
+                                    }
+                                    let jbind = Lib.cdtaxFromBind(Db, bindid)
+                                    if (!jbind) {
+                                        logView("Fiscalization local error", 0)
+                                        return
+                                    }
+                                    CashDesk.sale(jbind, (err, resp) =>{
+                                                      if (err) {
+                                                          logView("Fiscalization server error", 0)
+                                                          if (taxServiceLoader.active) taxServiceLoader.item.newMessage(
+                                                              "SALE", "Fiscalization server error", "error")
+                                                      } else {
+                                                          if (taxServiceLoader.active) taxServiceLoader.item.newMessage(
+                                                              "SALE", JSON.stringify(resp), "info")
+                                                      }
+                                                  }
+                                                      )
+                                },
+                                // funcBatchIncasToBalk: () => {
+                                //  },
+                                acnts: root.acnts,
+                                funcLog: (text, logid =2) => { logView.append("[Bind] " + text, logid); },
+                                allowTax: isTaxMode(),
+                                printDcm: root.checkPrintDcm,
+                                autoPrint: root.checkAutoPrint,
+                                dfltAmnt: source.dfltAmnt,
+                                dfltClient: Lib.getClient(Db),
+                                cashAcnt: Lib.getAccount(Db,acnts.cash),
+                                dfltAcnt: Lib.getAccount(Db),
+                                state: source.code
                                },
                                StackView.PushTransition)
-                vkStack.currentItem.vkEvent.connect( (id, param)=>{
+
+                bindContainer.currentItem.vkEvent.connect( (id, param)=>{
                     if (id === 'drawer'){
                         drawer2Right.open();
-                    } else if (id === 'findText') {
-                        // findText(text);
-                        Lib.findText(Db, param.text, param.mask,
-                            (err, res)=>{
-                                if (err){
-                                    msgDialog.code = 'Info'
-                                    msgDialog.message = 'Main/bind\nНічого не знайдено'
-                                    msgDialog.open()
-                                    // vkStack.currentItem.startNewRow()
-                                } else {
-                                    if (res.length === 1){
-                                     // create docum
-                                        if (Number(res[0].mask)===0){
-                                            vkStack.currentItem.crntClient = Lib.getClient(Db,res[0].id);
-                                        } else {
-                                            vkStack.currentItem.insert(new3Dcm(res[0].id))
-                                        }
-                                    } else {
-                                     // choice article from list
-                                     selectPopup.code = res[0].mask === "0" ? "client" : "article"
-                                     selectPopup.jsdata = res
-                                     selectPopup.open()
-                                    }
-                                }
-                            })
-                    } else if (id === 'tranBind'){
-                        const jbind = vkStack.currentItem.makeBind()
-                        const bindId = Lib.tranBind(Db, jbind);
-                        if (bindId !== 0 ){
-
-                            upload_tran(jbind)
-
-                            if (root.checkPrintDcm !== undefined && root.checkPrintDcm !== ""){
-                                if (param === 1) {
-                                    Prn.saveCheck(jbind)
-                                    Prn.printCheck(jbind)
-                                } else if (param === 2 && root.checkAutoPrint !== undefined && root.checkAutoPrint !== 0) {
-                                    Prn.saveCheck(jbind)
-                                    Prn.printCheck(jbind)
-                                }
-                            }
-                            taxUploadBind(bindId)
-                            vkStack.currentItem.startBind()
-                        }
-
+                    } else if (id === 'find'){
+                        selectPopup.code = param[0].mask === "0" ? "client" : "article"
+                        selectPopup.jsdata = param
+                        selectPopup.open()
                     } else if (id === 'creditAcntClicked'){
-                        // selectAcnt(param.cashno, param.clid, param.mode )
-                        Lib.getAcntList(Db, param.cashno, param.clid, param.mode)
                         selectPopup.code = "acntno"
                         selectPopup.jsdata = Lib.getAcntList(Db, param.cashno, param.clid, param.mode);
                         // Lib.log("#34rs HERE")
                         selectPopup.open()
-                    } else if (id === 'crntAcntToTrade'){
-                        vkStack.currentItem.crntAcnt = Lib.getAccount(Db);
-                    } else if (id === 'dialog'){
-                        msgDialog.code = 'Error'
-                        msgDialog.message = 'Check\n'+param
-                        msgDialog.open()
-                    } else if (id === 'log'){ Lib.log(param.text,"Bind");
+                    } else if (id === 'printCheck'){
+                        Prn.saveCheck(param)
+                        Prn.printCheck(param)
                     } else {
-                        // bad event
+                        logView.append("[Bind] Bad event", 1)
                     }
                   })
-                vkStack.currentItem.startBind()
-            }
+                         bindContainer.currentItem.forceActiveFocus()
+                bindContainer.currentItem.startBind()
         }
     }
+
+    Action {
+        id: removeBindAction
+        enabled: bindContainer.depth > 2
+        text: "Видалити поточний"
+        onTriggered: bindContainer.popCurrentItem()
+    }
+
 
     Action {
         id: winDcmsAction
@@ -477,153 +326,15 @@ ApplicationWindow {
     }
 
     Action {
-        id: actionShift
-        text: qsTr("Зміна")
-        enabled: vkStack.currentItem.codeid !== 'shift'
-        onTriggered: {
-            closeChildWindow()
-            if (vkStack.depth >1) {
-                vkStack.pop()
-            }
-
-            vkStack.push("Shift.qml",
-                           {
-                             vshift: Lib.crntShift(Db),
-                             vcashiers: Lib.getSQLData(Db,"select '' code, ' без касира' note, '' psw union select code, note, psw from cashier order by note;"),
-                             // Lib.log(JSON.stringify(shift.vshift))
-                             toBulk: (root.acnts.bulk !== undefined && root.acnts.bulk !== ""),
-                           },
-                           StackView.PushTransition)
-
-            vkStack.currentItem.vpopulate(Lib.getIncas(Db))
-
-            vkStack.currentItem.vkEvent.connect( (id, param)=>{
-                    if (id === "shift.open") {
-                        const isNewMonth = (root.crntShift.shftdate.substring(0,7) !== Qt.formatDateTime(new Date(), "yyyy-MM") )
-
-                        if( Lib.newShift(Db, root.acnts, param/*, {"url":root.resthost+root.restapi, "token": root.resttoken, "term": root.term}*/) ) {
-                            root.crntShift = Lib.crntShift(Db)
-                            if (isNewMonth && root.acnts.profit !== undefined &&  root.acnts.profit !== ""){
-                                const jbind = Lib.makeBind_balancingTrade(Db, root.acnts/*, {"url":root.resthost+root.restapi, "token": root.resttoken, "term": root.term}*/);
-                                const bindId = Lib.tranBind(Db, jbind);
-                                if (bindId !== 0 ){
-                                    upload_tran(jbind)
-                                }
-                            }
-
-                            if (root.resttoken != ""){      // isOnline
-                                REST.postRequest2(resthost+restapi+"/accounts?api_token="+resttoken, {"term":root.term,"reqid":"del","shop":root.term},
-                                    (err,resp) => {
-                                    if (err === null){
-                                       // Lib.log("#278 main "+JSON.stringify(resp))
-                                    } else {
-                                      Lib.log(err.text, 'REST.postRequest2', err.code)
-                                    }
-                                });
-
-                                const jacnt = Lib.uploadAcnt(Db, false)
-                                if (jacnt && jacnt.rows.length) {
-                                    REST.postRequest2(resthost+restapi+"/accounts?api_token="+resttoken, {"term":root.term,"reqid":"upd","shop":root.term,"data":jacnt.rows},
-                                        (err,resp) => {
-                                        if (err === null){
-                                           // Lib.log("#278 main "+JSON.stringify(resp))
-                                        } else {
-                                          Lib.log(err.text, 'REST.postRequest2', err.code)
-                                        }
-                                    });
-                                }
-
-                            }
-
-                            vkStack.pop()
-                        }
-                    } else if(id === "shift.cancel") {
-                        if(Lib.crntShift(Db).shftend !== "") {
-                           actionShift.trigger();
-                        } else {
-                           vkStack.pop()
-                        }
-
-                    } else if(id==="shift.close") {
-                        // console.log("#6ev Main shiftid="+ JSON.stringify(param)); return;
-                        if( isTaxMode() ) {
-                           askDialog.code = 'zreport'
-                           askDialog.jdata =  { "text" : "Закрити фіскальну зміну ДПС ?" }
-                           askDialog.open()
-                        }
-                        // revaluate TRADE
-                        const jbinds = Lib.makeBind_reval(Db, root.crntShift.cshr);
-                        let cbindId = 0;
-                        for (let r =0; r < jbinds.length; ++r){
-                            cbindId = Lib.tranBind(Db, jbinds[r]);
-                            if (cbindId !== 0 ){
-                                upload_tran(jbinds[r], r === (jbinds.length -1))
-                            }
-                        }
-
-                        if (Lib.closeShift(Db, param)){
-                        /*  REPORT proceed by dayly cron on server !!!
-                            const dnow = new Date(param.shdate)
-                            const dprev = new Date(dnow.getFullYear(), dnow.getMonth()-1)
-                            const dnext = new Date(dnow.getFullYear(), dnow.getMonth()+1)
-                            let ifrom = param.shdate.substring(0,7)
-                            let ito = Qt.formatDate( dnext, "yyyy-MM")
-                            let jrep = Lib.uploadReport(Db, ifrom, ito);
-                            if (jrep.length) {  // month report stream  -- profit
-                                REST.postRequest2(resthost+restapi+"/reports?api_token="+resttoken, {"term":root.term,"reqid":"upd", "period":ifrom,"shop":root.term,"data":jrep},
-                                      (err,resp) => {
-                                      if (err === null){
-                                         // Lib.log("#278 main "+JSON.stringify(resp))
-                                      } else {
-                                        Lib.log(err.text, 'REST.postRequest2', err.code)
-                                      }
-                                  });
-                            }
-                            if (dnow.getDate() < 4){
-                                ifrom = Qt.formatDate( dprev, "yyyy-MM")
-                                ito = param.shdate.substring(0,7)
-                                jrep = Lib.uploadReport(Db, ifrom, ito);
-                                REST.postRequest2(resthost+restapi+"/reports?api_token="+resttoken, {"term":root.term,"reqid":"upd", "period":ifrom,"shop":root.term,"data":jrep},
-                                      (err,resp) => {
-                                      if (err === null){
-                                         // Lib.log("#278 main "+JSON.stringify(resp))
-                                      } else {
-                                        Lib.log(err.text, 'REST.postRequest2', err.code)
-                                      }
-                                  });
-                            }
-                                                            */
-                        }
-
-                        root.visible = false;
-                        quitTimer.start()
-                    } else if(id==="shift.incas") {
-                        // Lib.log("#32yh Main "+ JSON.stringify(param)); return;
-                        const bindId = Lib.tranBind(Db, param);
-                        if (bindId !== 0 ){
-                            upload_tran(param)
-                        }
-                        vkStack.currentItem.vpopulate(Lib.getIncas(Db))
-                        // Lib.incasShift(Db, root.acnts, root.crntShift.cshr, param, {"url":root.resthost+root.restapi, "token": root.resttoken, "term": root.term})
-                        // actionShift.trigger()
-                    } else {
-                    // error
-                    }
-
-            })
-        }
-    }
-
-    Action {
         id: actionSetting
         text: qsTr("Settings")
         onTriggered: {
             closeChildWindow()
-            if (vkStack.depth >1) {
-                vkStack.pop()
+            if (bindContainer.depth >1) {
+                bindContainer.pop()
             }
 
-            vkStack.push("Settings.qml", {
+            bindContainer.push("Settings.qml", {
                             dfltTerminal: {term:root.term, posPrinter: root.posPrinter, checkAmnt:root.checkAmnt, checkAutoPrint:root.checkAutoPrint, checkPrintDcm: root.checkPrintDcm },
                             dfltAcnt: { cash: root.acnts.cash, trade: root.acnts.trade, bulk: root.acnts.bulk, incas: root.acnts.incas, profit: root.acnts.profit  },
                             dfltREST: { resthost: root.resthost, restapi: root.restapi, restuser: root.restuser, restpassword: root.restpassword, resttoken: root.resttoken },
@@ -631,42 +342,50 @@ ApplicationWindow {
                          }
                              , StackView.PushTransition)
 
-            vkStack.currentItem.vkEvent.connect( (id, param)=>{
+            bindContainer.currentItem.vkEvent.connect( (id, param)=>{
                 if (id === "saveTerminal") {
-                    root.term = vkStack.currentItem.dfltTerminal.term
-                    root.posPrinter = vkStack.currentItem.dfltTerminal.posPrinter
-                    root.checkAmnt = vkStack.currentItem.dfltTerminal.checkAmnt
-                    root.checkAutoPrint = vkStack.currentItem.dfltTerminal.checkAutoPrint
-                    root.checkPrintDcm = vkStack.currentItem.dfltTerminal.checkPrintDcm
+                    root.term = bindContainer.currentItem.dfltTerminal.term
+                    root.posPrinter = bindContainer.currentItem.dfltTerminal.posPrinter
+                    root.checkAmnt = bindContainer.currentItem.dfltTerminal.checkAmnt
+                    root.checkAutoPrint = bindContainer.currentItem.dfltTerminal.checkAutoPrint
+                    root.checkPrintDcm = bindContainer.currentItem.dfltTerminal.checkPrintDcm
                 } else if (id === "saveAcnts") {
                     // Lib.log('#893 param=' + JSON.stringify(param))
-                    root.acnts = vkStack.currentItem.dfltAcnt
-                    Db.dbUpdate("update settings set acnts = '" + JSON.stringify(vkStack.currentItem.dfltAcnt) + "' where rowid=1;")
+                    root.acnts = bindContainer.currentItem.dfltAcnt
+                    Db.dbUpdate("update settings set acnts = '" + JSON.stringify(bindContainer.currentItem.dfltAcnt) + "' where rowid=1;")
                 } else if (id === "loginREST") {
-                    root.resthost = vkStack.currentItem.dfltREST.resthost
-                    root.restapi = vkStack.currentItem.dfltREST.restapi
-                    root.restuser = vkStack.currentItem.dfltREST.restuser
-                    root.restpassword = vkStack.currentItem.dfltREST.restpassword
+                    root.resthost = bindContainer.currentItem.dfltREST.resthost
+                    root.restapi = bindContainer.currentItem.dfltREST.restapi
+                    root.restuser = bindContainer.currentItem.dfltREST.restuser
+                    root.restpassword = bindContainer.currentItem.dfltREST.restpassword
                     root.resttoken = ''
-                    REST.loginRequest(resthost+restapi+"/auth", restuser, restpassword, (err, token) => {
+                    REST.login(restuser, restpassword, (err) => {
                         // Lib.log("#984u token="+token);
                         if (err === null){
-                            root.resttoken = token
+                            root.resttoken = REST.gl_token
                         } else {
-                            Lib.log(err.text, 'lib.login', err.code)
+                            logView.appenr(err, 0)
                         }
-                        vkStack.currentItem.dfltREST = { resthost: root.resthost, restapi: root.restapi, restuser: root.restuser, restpassword: root.restpassword, resttoken: root.resttoken }
+                        bindContainer.currentItem.dfltREST = { resthost: root.resthost, restapi: root.restapi, restuser: root.restuser, restpassword: root.restpassword, resttoken: root.resttoken }
                     } )
                 } else if (id === "saveCD") {
-                    root.cdhost = vkStack.currentItem.dfltCashDisc.cdhost
-                    root.cdprefix = vkStack.currentItem.dfltCashDisc.cdprefix
-                    root.cdcash = vkStack.currentItem.dfltCashDisc.cdcash
-                    root.cdtoken = vkStack.currentItem.dfltCashDisc.cdtoken
+                    root.cdhost = bindContainer.currentItem.dfltCashDisc.cdhost
+                    root.cdprefix = bindContainer.currentItem.dfltCashDisc.cdprefix
+                    root.cdcash = bindContainer.currentItem.dfltCashDisc.cdcash
+                    root.cdtoken = bindContainer.currentItem.dfltCashDisc.cdtoken
                 } else {
                     // bad event
                 }
             })
         }
+    }
+
+    Action {
+        id: winShiftAction
+        checkable: true
+        checked: winShiftLoader.active
+        text: "Зміна"
+        onTriggered: { winShiftLoader.active = checked; }
     }
 
     Action {
@@ -679,6 +398,7 @@ ApplicationWindow {
 
     Action {
         id: winStatAction
+        enabled: false
         checkable: true
         checked: statLoader.active
         text: "Статистика"
@@ -706,11 +426,12 @@ ApplicationWindow {
         text: "Збалансувати дохід"
         onTriggered: {
             const jbind = Lib.makeBind_balancingTrade(Db, root.acnts/*, {"url":root.resthost+root.restapi, "token": root.resttoken, "term": root.term}*/);
+            // console.log("#72h Main actionBalancingTrade " + JSON.stringify(jbind)); return;
             const bindId = Lib.tranBind(Db, jbind);
             if (bindId !== 0 ){
-                upload_tran(jbind)
+                if (bindId !== 0 && isOnline()) REST.uploadBindTran(root.term, root.term, jbind, Lib.uploadAcnt(Db, true).rows,
+                                     (err) =>{ if (err !== null) logView.append("[uploadBindTran] " + err, 0); })        }
             }
-        }
     }
 
     Action {
@@ -721,6 +442,74 @@ ApplicationWindow {
             selectPopup.code = "database"
             selectPopup.jsdata = Lib.getDbList(Db, applicationDirPath);
             selectPopup.open()
+        }
+    }
+
+    Loader{
+        id: winShiftLoader
+        active: false
+        source: 'Shift.qml'
+        onActiveChanged: if (active) {
+                             closeChildWindow()
+                             item.visible = true
+                             item.title = String("%1(%2)").arg(root.title).arg("Shift")
+                             item.dbDriver = Db
+                             item.acnts = root.acnts
+                             item.vshift = root.crntShift
+                             item.toBulk = (root.acnts.bulk !== undefined && root.acnts.bulk !== "")
+                             item.funcOnShiftChanged = (newShift) => { root.crntShift = newShift; }
+                             item.funcUploadBind = (jbind) => {
+                                if (!isOnline()){ return; }// isOnline
+                                dbg("Shift upload ...", "#w7g"); return;
+
+
+                                REST.uploadBindTran(root.term, root.term, jbind, Lib.uploadAcnt(Db, true).rows,
+                                            (err) =>{ if (err !== null) logView.append("[uploadBindTran] " + err, 0); })
+                            }
+                            item.funcUploadBalace = () => {
+                                 if (!isOnline()){ return; }// isOnline
+                                 REST.uploadBalance({"term":root.term,"reqid":"del","shop":root.term},
+                                                    (err) => { if (err !== null) logView.append("[REST uploadBalance]" + err, 0) });
+                                 const jacnt = Lib.uploadAcnt(Db, false)
+                                 if (jacnt && jacnt.rows.length) {
+                                     REST.uploadBalance( {"term":root.term,"reqid":"upd","shop":root.term,"data":jacnt.rows},
+                                                        (err) => { if (err !== null) logView.append("[REST uploadBalance]" + err, 0) });
+                                 }
+                            }
+                            item.funcShiftClose = (param) => {
+                                 if( isTaxMode() ) {
+                                    askDialog.code = 'zreport'
+                                    askDialog.jdata =  { "text" : "Закрити фіскальну зміну ДПС ?" }
+                                    askDialog.open()
+                                 }
+                                 // revaluate TRADE
+                                 const jbinds = Lib.makeBind_reval(Db, root.crntShift.cshr);
+                                 let cbindId = 0;
+                                 for (let r =0; r < jbinds.length; ++r){
+                                     cbindId = Lib.tranBind(Db, jbinds[r]);
+                                     if (cbindId !== 0 ){
+                                         REST.uploadBindTran(root.term, root.term, jbinds[r], Lib.uploadAcnt(Db, true).rows,
+                                                     (err) =>{ if (err !== null) logView.append("[uploadBindTran] " + err, 0); })
+                                     }
+                                 }
+
+                                 if (Lib.closeShift(Db, param)){
+                                 // TODO error
+                                 }
+
+                                 root.visible = false;
+                                 quitTimer.start()
+
+                             }
+                         } else {
+                             // root.crntShift = Lib.crntShift(Db)
+                             // if shift is closed
+                             if (crntShift.shftend !== "") { quitTimer.start(); }
+                         }
+
+        Connections {
+            target: winShiftLoader.item
+            function onClosing() { winShiftLoader.active = false; }
         }
     }
 
@@ -740,35 +529,10 @@ ApplicationWindow {
                 dcmViewLoader.active = false
             }
             function onVkEvent(id, param) {
-                if (id === "documView.return"){
-                    actionBind.trigger();
-                    const cl = Lib.getSQLData(Db, "select coalesce(client,'') as cl from documall where id ="+param.pid);
-                    if (!cl.length){
-                        msgDialog.code = 'Error'
-                        msgDialog.message = "Неможливо визначити клієнта."
-                        msgDialog.open()
-                        return;
-                    }
-                    // console.log("#94j cl="+cl+" bindclid="+stackBind.children[stackBind.currentIndex].crntClient.id)
-                    if (vkStack.currentItem.crntClient.id === "" ){
-                        vkStack.currentItem.crntClient = Lib.getClient(Db, cl[0].cl);
-                    }
-                    if (vkStack.currentItem.crntClient.id !== cl[0].cl){
-                        msgDialog.code = 'Error'
-                        msgDialog.message = "Клієнт Чеку вже визначений і відрізняється від чеку повернення"
-                        msgDialog.open()
-                        return;
-                    }
-                    vkStack.currentItem.insert( new3Dcm(param.atclid,
-                                { "acntno":param.acntcdt,
-                                "code":param.dcmtype,
-                                "amnt": String(0-Number(param.amount)),
-                                "price":Math.abs(Number(param.eq)/Number(param.amount)),
-                                "dsc":Math.abs(Number(param.dsc)/Number(param.eq)),
-                                "bns":Math.abs(Number(param.bns)/Number(param.eq)),
-                                "pratt":0, "retfor":param.dcmid}))
-                } else { Lib.log("Bad request","DcmView"); }
-
+                if (id === "refuse"){
+                    // console.log("[MAIN>DcnView] dcmid=" + param.dcmid + " pid=" + param.pid)
+                    bindContainer.currentItem.newRefused(param)
+                }
             }
         }
     }
@@ -811,19 +575,15 @@ ApplicationWindow {
         onActiveChanged: if (active) {
                              item.visible = true
                              item.title = String("%1(%2)").arg(root.title).arg("Rates")
+                             item.online = isOnline()
                              item.uri = resthost + restapi + "/rates?api_token=" + resttoken
                              item.queryData = {"term": root.term, "reqid": "sel", "shop": root.term}
-                             item.db = Db
+                             item.dbDriver = Db
+                             item.funcCreateDcm = (atclid) => {bindContainer.currentItem.newDcm(atclid);}
                          }
         Connections {
             target: rateLoader.item
             function onClosing() { rateLoader.active = false; }
-
-            function onVkEvent(id,param) {
-                if (id === "rate.newDocum"){
-                    if (vkStack.currentItem.codeid === 'bind'){ vkStack.currentItem.insert( new3Dcm(param) ); }
-                }
-            }
         }
     }
 
@@ -897,16 +657,16 @@ ApplicationWindow {
                     anchors.fill: parent
                     onClicked: {
                         if (selectPopup.code==="client"){                  // client
-                            vkStack.currentItem.crntClient = Lib.getClient(Db,id);
-                            vkStack.currentItem.crntAcnt = Lib.getAccount(Db)
+                            bindContainer.currentItem.crntClient = Lib.getClient(Db,id);
+                            bindContainer.currentItem.crntAcnt = Lib.getAccount(Db)
                         } else if (selectPopup.code==="database") {        // database
                             root.dbname = id
                             // openConnection(id)
                         } else if (selectPopup.code==="acntno") {        // acntno
-                            vkStack.currentItem.crntAcnt = Lib.getAccount(Db, id)
+                            bindContainer.currentItem.crntAcnt = Lib.getAccount(Db, id)
                             // setAccount(id)
                         } else if (selectPopup.code==="article") {
-                            vkStack.currentItem.insert(new3Dcm(id))
+                            bindContainer.currentItem.newDcm(id)
                         } else {
                             Lib.log("selectPopup bad code, nothing to do","Main", "EE")
                             // bad code, nothing to do
@@ -957,28 +717,6 @@ ApplicationWindow {
     }
 
     Dialog{
-        id: msgDialog
-        width:300
-//        height:300
-        property string code: 'Info'
-        property string message: ''
-
-        anchors.centerIn: parent
-        modal: true
-        title: 'Повідомлення'
-        contentItem: Text{text: msgDialog.message; wrapMode: Text.Wrap;}
-
-        footer: DialogButtonBox {
-            standardButtons: Dialog.Ok      //|Dialog.Cancel
-//            alignment: Qt.AlignHCenter
-            Keys.onEnterPressed: msgDialog.accept()
-            Keys.onReturnPressed: msgDialog.accept()
-            Keys.onEscapePressed: msgDialog.close()
-            onVisibleChanged: if (visible) forceActiveFocus()
-        }
-    }
-
-    Dialog{
         id: askDialog
         width: 300
         property string code: ''
@@ -1003,18 +741,10 @@ ApplicationWindow {
                 if (askDialog.jdata.prid !== undefined && askDialog.jdata.prname !== undefined) {
                     Prn.printCheck(jbind)
                 } else {
-                    msgDialog.code = 'Error'
-                    msgDialog.message = 'main'+'\n'+'Prind bind paraneter error'
-                    msgDialog.open()
+                    logView.append("Не вдається роздрукувати чек", 0)
                 }
             } else if (code === "askCloseShift"){       // { "text" : "Закрити попередню зміну ?","shid":crsh.id,"shdate":crsh.shftdate, "cshr":crsh.cshr }
-                // Lib.log("#7rh askCloseShift"); return;
-                if (Lib.isIncas(Db, root.acnts)) {
-                    actionShift.trigger();
-                } else {
-                    Lib.closeShift(Db, {"shid":jdata.shid,"shdate":jdata.shdate, "cshr":jdata.cshr}, {"url":root.resthost+root.restapi, "token": root.resttoken, "term": root.term})
-                    quitTimer.start()
-                }
+                winShiftAction.trigger()
             } else  {
                 logView.append("[askDialog] BAD event code", 0)
                 // console.log("#0i code undefined")
@@ -1041,15 +771,15 @@ ApplicationWindow {
 
 
     StackView {
-        id: vkStack
+        id: bindContainer
         anchors.fill: parent
-        // onDepthChanged: Lib.log("#6qg current depth="+ depth)
-        onCurrentItemChanged:  {
-        // Lib.log("#2804 vkStack =" +depth )
-        }
-        onDepthChanged:  {
-            // Lib.log("#2804 vkStack =" + depth )
-        }
+        initialItem: Bind{} // blank item
+        // onCurrentItemChanged:  {
+            // currentItem.findChild("fldMainInput").forceActiveFocus()
+        // }
+        // onDepthChanged:  {
+        //     // Lib.log("#2804 bindContainer =" + depth )
+        // }
     }
 
     LogView{
@@ -1058,6 +788,7 @@ ApplicationWindow {
         height: (count * 25 < parent.height / 4) ? count * 25 : parent.height / 4
         z: 10
         anchors.bottom: parent.bottom
+        debug: true
     }
 
     header: ToolBar {
@@ -1077,22 +808,25 @@ ApplicationWindow {
                     Menu{
                         id: naviMenu
                         y: parent.height
-                        MenuItem { action: actionBind; }
-                        // MenuItem { action: pageTaxAction; }
-                        MenuItem { action: actionShift; }
+                        MenuItem { action: bindCheckAction; }
+                        MenuItem { action: bindFactureAction; }
+                        MenuItem { action: bindTaxAction; }
+                        MenuSeparator { padding: 5; }
+                        MenuItem { action: removeBindAction; }
                         MenuSeparator { padding: 5; }
                         MenuItem { action: winDcmsAction; }
                         MenuItem { action: winClientAction; }
                         MenuItem { action: winCashWizardAction; }
-                        MenuItem { action: winStatAction; }
+                        // MenuItem { action: winStatAction; }      // TODO
                         MenuItem { action: winRateAction; }
                         MenuItem { action: winTaxServiceAction; }
+                        MenuItem { action: winShiftAction; }
                         MenuSeparator { padding: 5; }
                         MenuItem { action: actionBalancingTrade; }
                         MenuSeparator {  padding: 5; }
                         MenuItem { action: actionSetting; }
                         MenuItem { action: changeDBAction; }
-                        MenuItem { action: testAction; }
+                        // MenuItem { action: testAction; }
                         MenuSeparator { padding: 5; }
                         MenuItem {
                             text: "Вийти"
@@ -1107,13 +841,13 @@ ApplicationWindow {
                     horizontalAlignment: Qt.AlignHCenter
                     verticalAlignment: Qt.AlignVCenter
                     Layout.fillWidth: true
-                    text: vkStack.currentItem.title
+                    text: bindContainer.currentItem.title
                 }
                 Row {
                     id: btnClient
-                    visible: vkStack.currentItem.crntClient !== undefined
+                    visible: bindContainer.currentItem.crntClient !== undefined
                     ToolButton{
-                        text: vkStack.currentItem.crntClient !== undefined ? vkStack.currentItem.crntClient.name : ''
+                        text: bindContainer.currentItem.crntClient !== undefined ? bindContainer.currentItem.crntClient.name : ''
                         icon.source: "qrc:/icon/account.svg"
 //                        flat: true
                         onClicked: {
@@ -1125,30 +859,27 @@ ApplicationWindow {
                     ToolButton{
                         width: 32
     //                    Layout.preferredHeight: 35
-                        visible: vkStack.currentItem.crntClient !== undefined && vkStack.currentItem.crntClient.id !== ''
+                        visible: bindContainer.currentItem.crntClient !== undefined && bindContainer.currentItem.crntClient.id !== ''
                         font.pointSize: 16
                         text:"⌫"
 //                        flat: true
 //                        icon.source:"qrc:/icon/undo.svg"
                         onClicked: {
-                            vkStack.currentItem.crntClient = Lib.getClient(Db);
+                            bindContainer.currentItem.crntClient = Lib.getClient(Db);
                         }
                     }
                     Label{
-                        visible: vkStack.currentItem.crntClient !== undefined && Math.abs(Number(vkStack.currentItem.crntClient.bonusTotal)) >= 0.01
+                        visible: bindContainer.currentItem.crntClient !== undefined && Math.abs(Number(bindContainer.currentItem.crntClient.bonusTotal)) >= 0.01
     //                        Layout.preferredWidth: visible?35:0
                         Layout.preferredHeight: 35
                         color:'slategray'
     //                        background: Rectangle{color:'gold'}
     //                        flat: true
-                        text: vkStack.currentItem.crntClient !== undefined ? Number(vkStack.currentItem.crntClient.bonusTotal).toFixed(0) : ''
+                        text: bindContainer.currentItem.crntClient !== undefined ? Number(bindContainer.currentItem.crntClient.bonusTotal).toFixed(0) : ''
                         MouseArea{
                             anchors.fill: parent
                             onDoubleClicked: {
-                                let ano = vkStack.currentItem.crntAcnt.acntno
-                                vkStack.currentItem.crntAcnt = Lib.getAccount(Db, vkStack.currentItem.crntClient.bonusAcnt);
-                                vkStack.currentItem.insert( new3Dcm('', {"amnt":(0 - Number(vkStack.currentItem.crntClient.bonusTotal)).toFixed(2)}) )
-                                vkStack.currentItem.crntAcnt = Lib.getAccount(Db, ano)
+                                bindContainer.currentItem.newBonus()
                             }
 
                         }
@@ -1157,14 +888,43 @@ ApplicationWindow {
                 }
 
                 ToolButton {    // ⋮
-                    id:contentMenu_toolbtn
+                    id:contextMenu_toolbtn
                     text: qsTr("⋮")
-                    onClicked: {
-                        // bindContentMenu.open()
-                        // contentMenu.open()
-                        // vkStack.currentItem.vkMenu.y = parent.height
-                        if (vkStack.currentItem.vkContentMenu !== undefined){
-                            vkStack.currentItem.vkContentMenu.popup()
+
+                    onClicked:  contextMenu.popup()
+
+                    Menu{
+                        id: contextMenu
+                        y: parent.height
+
+                        onVisibleChanged: {
+                            // dbg("contextMenu_toolbtn vsbl="+ visible, "#72js")
+                            if (visible){
+                                if (bindContainer.currentItem.vkContextActions !== undefined){
+                                      for (let i =0; i < bindContainer.currentItem.vkContextActions.length; ++i){
+                                          contextMenu.addAction(bindContainer.currentItem.vkContextActions[i])
+                                      }
+                                      contextMenu.addItem( Qt.createQmlObject('import QtQuick.Controls; MenuSeparator {}',
+                                                                                                    contextMenu,
+                                                                                                    "dynamicSeparator") )
+                                }
+                                for (let i = bindContainer.depth -1, r =1; i > 0; --i, ++r){
+                                    // dbg(bindContainer.get(i, StackView.DontLoad).title, "#34gs")
+                                    contextMenu.addAction(activateBind.createObject(contextMenu
+                                                                                  ,{ cindex: i
+                                                                                    , ctext: String("%1. %2 (%3грн/%4)")
+                                                                                        .arg(r)
+                                                                                        .arg(bindContainer.get(i, StackView.DontLoad).title)
+                                                                                        .arg(bindContainer.get(i, StackView.DontLoad).total)
+                                                                                        .arg(bindContainer.get(i, StackView.DontLoad).count)
+                                                                                    }))
+                                }
+                            } else {
+                                for (let j =contextMenu.count -1; j >=0; --j){
+                                    contextMenu.removeItem(contextMenu.itemAt(j))
+                                }
+                            }
+
                         }
                     }
 
@@ -1202,7 +962,7 @@ ApplicationWindow {
         // console.log("env=")
         // console.log(applicationDirPath)
         // console.log("+++")
-        actionBind.trigger()
+        bindCheckAction.trigger()
         if (resthost != undefined && resthost != "") {
             actionLogin.trigger();
         }
@@ -1221,8 +981,7 @@ ApplicationWindow {
 
         } else {        // no database
             // error
-            msgDialog.message = "No DB"
-            msgDialog.open()
+            logView.append("Недоступна база даних", 0)
         }
 
     }

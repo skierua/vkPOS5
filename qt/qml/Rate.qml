@@ -8,16 +8,19 @@ Window {
     width: 200
     height: 400
 
+    property bool online: false
     property string uri
     property var queryData  // {"term":term,"reqid":"sel","shop":root.term}
-    property var db                 // DataBase driver
-    onDbChanged: {
-        vw.model.populate(db)
-        vw.model.loadWebRates(uri, queryData)
+    property var dbDriver                 // DataBase driver
+    onDbDriverChanged: {
+        vw.model.populate(dbDriver)
+        if (getWebAction.enabled) vw.model.loadWebRates(uri, queryData)
     }
     property real zero: 0.0000001
 
-    signal vkEvent(string id, var param)
+    property var funcCreateDcm // (atclid)
+
+    // signal vkEvent(string id, var param)
 
     ModelRates{
         id: data
@@ -33,31 +36,52 @@ Window {
         }
     }
 
+    Popup{
+        id: rateWarningPopup
+        property string str
+        width: root.width * 0.8
+        height: 80
+        x: (root.width-width)/2
+        y: (root.height-height)/2
+        modal: true
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        Item{
+            anchors.fill: parent
+            clip: true
+            Text{
+                anchors.centerIn: parent
+                text: rateWarningPopup.str
+            }
+        }
+
+    }
+
     Component {
         id: dlg
         FocusScope {
-            id: root
-            width: root.ListView.view.width //childrenRect.width;
+            id: dlgroot
+            property bool web: root.online
+            width: dlgroot.ListView.view.width //childrenRect.width;
             height: 28;
-//            color: (index==root.ListView.view.currentIndex?"PaleGreen":(index%2 == 0 ?  "white" : 'HoneyDew'))
+//            color: (index==dlgroot.ListView.view.currentIndex?"PaleGreen":(index%2 == 0 ?  "white" : 'HoneyDew'))
             // color: (index%2 == 0 ?  "whitesmoke" : 'white')
 //            color: (index%2 == 0 ?  "PaleGreen" : 'Aquamarine')
 //            color: (index%2 == 0 ?  Qt.darker('white',1.03) : 'white')
                 MouseArea{
                     anchors.fill: parent
-                    onClicked: { root.ListView.view.currentIndex=index; }
+                    onClicked: { dlgroot.ListView.view.currentIndex=index; }
                 }
 
             Row{
                 anchors.fill: parent
-                Label{          // bid
+                Text{          // bid
                     width: parent.width*0.35;
                     height: parent.height
                     verticalAlignment: Text.AlignVCenter
                     horizontalAlignment: Text.AlignHCenter
                     text: Number(lbid)!==0 ? Number(lbid).toFixed(Number(lbid)<10?3:2) : "" //(bid==''||Number(bid)===0)?'':bid+"/"+lbid
-                    font.bold: Math.abs(Number(bid)-Number(lbid))>zero
-/*                    MouseArea{
+                    font.bold: web && Math.abs(Number(bid)-Number(lbid))>zero
+                    MouseArea{
                         anchors.fill: parent
                         hoverEnabled :true
                         onClicked: { bidedit.visible = true; bidedit.text=lbid; bidedit.forceActiveFocus() }
@@ -70,18 +94,20 @@ Window {
                         validator: DoubleValidator {bottom: 0; decimals: 4; notation: "StandardNotation"; locale: "en_US" }
                         onActiveFocusChanged: if (activeFocus) {selectAll()} else {visible = false}
                         onAccepted: {
-                            if ((Number(text)===0) || (Math.abs((Number(text)-Number(lbid))/Number(lbid)) < 0.04)) { lbid = text
-                            } else { text = lbid } // error
-                            // root.forceActiveFocus()
+                            dlgroot.ListView.view.upd(index, text)
+                            // if ((Number(text)===0) || (Math.abs((Number(text)-Number(lbid))/Number(lbid)) < 0.04)) { lbid = text
+                            // } else { text = lbid } // error
+                            visible = false
+                            dlgroot.forceActiveFocus()
                         }
-                    }*/
+                    }
                 }
-                Label{      // currency name
+                Text{      // currency name
                     width: parent.width*0.3;height:parent.height;
                     verticalAlignment: Text.AlignVCenter
                     horizontalAlignment: Text.AlignHCenter
                     text:(qty==='1'?'':(qty+' ')) + curchar
-                    font.bold: (Math.abs(Number(bid)-Number(lbid))>zero) || (Math.abs(Number(ask)-Number(lask))>zero)
+                    font.bold: web && ((Math.abs(Number(bid)-Number(lbid))>zero) || (Math.abs(Number(ask)-Number(lask))>zero))
                     MouseArea{
                         anchors.fill: parent
                         hoverEnabled :true
@@ -97,7 +123,7 @@ Window {
                         }
                         onEntered: {rateToolTip.visible = true}
                         onExited: rateToolTip.visible = false
-                        onDoubleClicked: { root.ListView.view.newDoc(index); }
+                        onDoubleClicked: { dlgroot.ListView.view.newDoc(index); }
                     }
                 }
                 Label{      // ask
@@ -106,9 +132,9 @@ Window {
                     verticalAlignment: Text.AlignVCenter
                     horizontalAlignment: Text.AlignHCenter
                     text: Number(lask)!==0 ? Number(lask).toFixed(Number(lask)<10?3:2) : ""
-                    font.bold: Math.abs(Number(ask)-Number(lask))>zero
+                    font.bold: web && Math.abs(Number(ask)-Number(lask))>zero
                     font.underline: lask !== dfltask
-/*                    MouseArea{
+                    MouseArea{
                         anchors.fill: parent
                         hoverEnabled :true
                         onClicked: { askedit.visible = true; askedit.text=lask; askedit.forceActiveFocus() }
@@ -121,11 +147,11 @@ Window {
                         validator: DoubleValidator {bottom: 0; decimals: 4; notation: "StandardNotation"; locale: "en_US" }
                         onActiveFocusChanged: if (activeFocus) {selectAll()} else {visible = false}
                         onAccepted: {
-                            if ((Number(text)===0) || (Math.abs((Number(text)-Number(lask))/Number(lask)) < 0.04)) { lask = text
-                            } else { text = lask } // error
-                            // root.forceActiveFocus()
+                            dlgroot.ListView.view.upd(index, text, "ask")
+                            visible = false
+                            dlgroot.forceActiveFocus()
                         }
-                    } */
+                    }
                 }
             }
         }
@@ -133,14 +159,16 @@ Window {
 
     Action{
         id: getWebAction
+        enabled: root.online
         text: "Курси з сайту"
-        onTriggered: vw.model.loadWebRates(queryData)
+        onTriggered: vw.model.loadWebRates(root.uri, root.queryData)
     }
 
     Action{
         id: saveWebAction
+        enabled: root.online
         text: "Встановити з сайту"
-        onTriggered: vw.model.updateLocalRates(db);
+        onTriggered: vw.model.updateLocalRates(dbDriver);
     }
 
     Pane{
@@ -187,7 +215,19 @@ Window {
 
                 delegate: dlg
 
-                function newDoc(vi){ vkEvent("rate.newDocum", jscur[vi].curid); }
+                function newDoc(row){
+                    funcCreateDcm(model.get(row).curid)
+                }
+
+                function upd(row, amnt, ba = "bid"){
+                    if ((Number(amnt) === 0) || model.get(row).lbid === 0 || (Math.abs(Number(amnt)- model.get(row).lbid)/model.get(row).lbid < 0.04))
+                        model.updateLocalRate(dbDriver, row, amnt, ba === "bid" ? "1" : "-1")
+                    else {
+                        // difference is too much
+                        rateWarningPopup.str = "Перевищення діапазону.\nДопустимі значення \n0, \nвід " + (model.get(row).lbid * 0.96).toFixed(4) + " до " + (model.get(row).lbid * 1.04).toFixed(4)
+                        rateWarningPopup.open()
+                    }
+                }
             }
 
             Button{
@@ -212,5 +252,6 @@ Window {
         }
 
     }
+
 
 }

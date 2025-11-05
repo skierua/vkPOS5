@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 // import QtQuick.Controls.Fusion
 import QtQuick.Layouts
+import "../lib.js" as Lib
 
 
 Item {
@@ -10,61 +11,61 @@ Item {
 //    height: 480
     property string title: "Чек"
     property string codeid: "bind"
-/*    property list<Action> vkMenuActions: [
-        test1Action,
-        test2Action
-    ]*/
-/*    property list<MenuItem> vkMenuItems: [
-        MenuItem { action: test1Action; },
-        MenuItem { action: test2Action; }
-    ]*/
-    property Menu vkContentMenu: Menu{
-        id: vkContentMenu_id
-        MenuItem { action: uahToAcntAction; }
-        MenuItem { action: curToAcntAction; }
-        MenuSeparator { padding: 5; }
-        MenuItem { action: drawerAction; }
-        MenuSeparator { padding: 5; }
-        MenuItem { action: checkAction; }
-        MenuItem { action: factureAction; }
-    }
+    property var dbDriver                 // DataBase driver
+    property var acnts
 
-    // property var fnTranBind      // object
-    property var fnCreateDcm  // vaid, {param}
+    property list<Action> vkContextActions: [
+        uahToAcntAction,
+        curToAcntAction,
+        incasToBulkAction
+    ]
+    // property list<MenuItem> vkContextItems: [
+    //     MenuItem { action: uahToAcntAction; },
+    //     MenuItem { action: curToAcntAction; },
+    //     MenuItem { action: incasToBulkAction; }
+    // ]
+    // property Menu vkContextMenu: Menu{
+    //     id: vkContextMenu_id
+    //     MenuItem { action: uahToAcntAction; }
+    //     MenuItem { action: curToAcntAction; }
+    //     MenuItem { action: incasToBulkAction; }
+    //     // MenuSeparator { padding: 5; }
+    //     // MenuItem { action: drawerAction; text: "Залишки"; }
+    //     // MenuSeparator { padding: 5; }
+    //     // MenuItem { action: checkAction; }
+    //     // MenuItem { action: factureAction; }
+    //     // MenuItem { action: taxcheckAction; }
+    // }
 
-    property string printDcm: ""
+    property var funcRESTUpload // (jbind)
+    property var funcFiscalizate  // (bindid)
+    // property var funcBatchIncasToBalk   // ()
+    property var funcLog  // (text, logid)
+
     property int dfltAmnt: 1
-    property var dfltClient
-    // onDfltClientChanged: crntClient = dfltClient
+    property var dfltClient: {'id':'', 'name':'', "bonusTotal": 0, "bonusAcnt":''};
     property var dfltAcnt
-    // onDfltAcntChanged: crntAcnt = dfltAcnt
+    property bool allowTax: false
+    property string printDcm: ""
     property bool autoPrint: false
     property bool autoTax: false
-//    property bool onlyLastPrice:false
 
-    property alias dcms: bindView.model
+    property int count: bindView.model.count
+    property real total: bindView.model.pmntTotal
     property real z0: 0.0000001
-
-//    property var domesticCrn    //: {"id":"","name":"UAH","fullname":"українська гривня","mask":"1","qty":"1","uktzed":"","taxchar":"","taxprc":"","unitid":"","prec":"2","unitchar":"","unitname":"","unitcode":"","term":"0"}
-//        onDomesticCrnChanged: if (domesticCrn !== undefined){ domesticCrn.id = ""; }
 
 
     property string parentCode: "check"
-    property string crntCode: "trade:sell"
-    property bool crntPrint
-    property var cashAcnt   //  {"acntno":"3000","clid":"","note":"","mask":"1","trade":"0","name":"Залишок"}
+    property var cashAcnt : {"acntno":"3000", "clid":"", "note":"", "mask":"7", "trade":"0", "name":"Залишок"}
+    // onCashAcntChanged: dataModel.cashAcnt = cashAcnt.acntno
     property var crntAcnt: { "acntno":"", "clid":"", "clname":"", "note":"", "mask":"", "clnote":"", "trade":"", "name":"" };
     onCrntAcntChanged: startNewRow()
-    property string crntAmnt
+    property int crntAmnt
     property var crntClient: {'id':'', 'name':'', "bonusTotal": 0, "bonusAcnt":''};
-    onCrntClientChanged: startNewRow()
-
-//    property var crntAtcl
-//    property var crntPrice
-
-    property string crntDsc: ''
-    property string crntBns: ''
-    property string crntRate: '1'
+    onCrntClientChanged: {
+        // cmbAcnt.model = Lib.getAcntList(dbDriver, cashAcnt.acntno, crntClient.id, "")
+        startNewRow()
+    }
 
     onVisibleChanged: startNewRow()
 
@@ -76,24 +77,33 @@ Item {
                 name: "facture"
                 PropertyChanges { target: root; title: "Фактура" }
                 PropertyChanges { target: root; parentCode: "facture" }
-                PropertyChanges { target: root; crntCode: "trade:buy" }
-//                PropertyChanges { target: root; onlyLastPrice: true }
+                PropertyChanges { target: dataModel; code: "facture" }
+                PropertyChanges { target: root; autoTax: false }
+                PropertyChanges { target: fldDsc; visible: true }
+                PropertyChanges { target: fldBns; visible: true }
                 PropertyChanges { target: fldRate; visible: true }
+                // PropertyChanges { target: viewArea; color: "white" }
             },
         State {
             name: "incas"
             PropertyChanges { target: root; title: "Інкасація" }
-            // PropertyChanges { target: root; parentCode: "facture" }
-            PropertyChanges { target: root; crntCode: "trade:inner" }
-//                PropertyChanges { target: root; onlyLastPrice: true }
+            PropertyChanges { target: root; parentCode: "check" }
+            PropertyChanges { target: dataModel; code: "check" }
+            PropertyChanges { target: root; autoTax: false }
             PropertyChanges { target: fldDsc; visible: false }
             PropertyChanges { target: fldBns; visible: false }
+            PropertyChanges { target: fldRate; visible: false }
             PropertyChanges { target: viewArea; color: "honeydew" }
         },
             State {
                 name: "taxcheck"
                 PropertyChanges { target: root; title: "Фіскальний чек" }
+                PropertyChanges { target: root; parentCode: "check" }
+                PropertyChanges { target: dataModel; code: "check" }
                 PropertyChanges { target: root; autoTax: true }
+                PropertyChanges { target: fldDsc; visible: false }
+                PropertyChanges { target: fldBns; visible: false }
+                PropertyChanges { target: fldRate; visible: false }
                 PropertyChanges { target: viewArea; color: "beige" }
         },
             State {
@@ -104,45 +114,62 @@ Item {
             }
         ]
 
+    function dbg(str, code ="") {
+        console.log( String("%1[Bind.qml] %2").arg(code).arg(str));
+    }
+
+
+    ModelBind{
+        id: dataModel
+        code: "check"
+    }
+
+    Action {
+        id: tranAction
+        icon.name: "save"
+        icon.source: "qrc:/icon/save.svg"
+        onTriggered: tranBind(2)
+    }
+
     Action {
         id: uahToAcntAction
         enabled: Number(crntAcnt.mask)&1 == 1
         text: "ГРН на рахунок"
         onTriggered: {
-            let vj = articleTotal(1)
-            // console.log("#38d tot="+JSON.stringify(vj))
-            for (let r=0; r<vj.length; ++r){
-                // console.log("#83h id="+vj[r].id + " amnt="+ String(0-vj[r].amnt))
-                insert(fnCreateDcm(vj[r].id, { "amnt": String(0-vj[r].amnt)} ))
-            }
+            dataModel.uahToAcnt(crntAcnt)
+            fldMainInput.forceActiveFocus()
+            // startNewRow()
         }
     }
 
     Action {
         id: curToAcntAction
-        enabled: Number(crntAcnt.mask)&3 == 3
-        text: "ГРН+ВАЛЮТА на рахунок"
+        enabled: Number(crntAcnt.mask)&2 == 2
+        text: "ВАЛЮТА на рахунок"
         onTriggered: {
-            let r = 0;
-            let vj = articleTotal(3)
-            // console.log("#38d tot="+JSON.stringify(vj))
-            let vdcm = []
-            for (r=0; r<vj.length; ++r){
-                // console.log("#83h r="+r+" id="+vj[r].id + " amnt="+ String(0-vj[r].amnt))
-                vdcm.push( fnCreateDcm(vj[r].id, { "amnt": String(0-vj[r].amnt)} ) )
-            }
-            for (r=0; r<vdcm.length; ++r){ insert(vdcm[r]); }
+            dataModel.curToAcnt(crntAcnt)
+            fldMainInput.forceActiveFocus()
+            // startNewRow()
+        }
+    }
+
+    Action {
+        id: incasToBulkAction
+        enabled: root.state === ""
+        text: "Зарахувати на ГУРТ"
+        onTriggered: {
+            newBatchIncasToBalk()
         }
     }
 
     Action {
         id: drawerAction
-        text: "Залишки"
+        icon.source: "qrc:/icon/drawer.svg"
         onTriggered: {vkEvent("drawer", "")}
     }
 
 
-    Action {
+/*    Action {
         id: checkAction
         enabled: !bindView.model.count
         text: "Чек"
@@ -156,114 +183,150 @@ Item {
         onTriggered: { root.state = 'facture' }
     }
 
+    Action {
+        id: taxcheckAction
+        enabled: root.allowTax && !bindView.model.count
+        text: "Фіскальний чек"
+        onTriggered: { root.state = 'taxcheck' }
+    } */
+
     function startNewRow() {
-        bindView.recalculate2()
-        crntAmnt = dfltAmnt
+        dataModel.recalculate()
+        root.crntAmnt = root.dfltAmnt
+        totalCurrencyView.model = dataModel.curBalanceList()
+        // dbg(JSON.stringify(totalCurrencyView.model), "#5wet")
         fldMainInput.text = ''
+
+        // if (totalCurrencyView.model.length) dbg(JSON.stringify(totalCurrencyView.model[0]), "#73h")
+
         fldMainInput.forceActiveFocus()
     }
 
     function startBind() {
         bindView.model.clear()
-        crntClient = dfltClient
+        root.crntClient = root.dfltClient
 //        crntAmnt = dfltAmnt
-        crntAcnt = dfltAcnt
-        crntPrint = autoPrint
-        crntRate = '1'
-        crntDsc = ""
-        crntBns = ""
+        root.crntAcnt = root.dfltAcnt
+        dataModel.setRate(1)
+        dataModel.setDsc(0)
+        dataModel.setBns(0)
         startNewRow()
     }
 
-    function makeBind() {
-        var vj = {"id":"dcmbind",
-                "dcm":parentCode,"dbt":cashAcnt.acntno,"cdt":"",
-                "amnt":bindView.pmntTotal.toFixed(2),"eq":bindView.eqTotal.toFixed(2),"dsc":bindView.dscMoney.toFixed(2),"bns":bindView.bnsMoney.toFixed(2),
-                "note":"", "clnt":crntClient.id,
-                "tm":Qt.formatDateTime(new Date(), "yyyy-MM-dd hh:mm:ss"),
-                "cshr":"",
-                "dcms":[]}
-        let m = bindView.model
-        for (var r =0; r < m.count; ++r) {
-            vj.dcms[r] = {"dcm":m.get(r).dcode,"dbt":cashAcnt.acntno,"cdt":m.get(r).dacnt.acntno,"crn":m.get(r).darticle.id,
-                "amnt":(m.get(r).dsign * Number(m.get(r).damnt)).toFixed(m.get(r).darticle.prec),"eq":(m.get(r).dsign * Number(m.get(r).damnt)*m.get(r).dprice).toFixed(2),"dsc":(-1 * m.get(r).dsign * Number(m.get(r).damnt)*m.get(r).dprice*m.get(r).ddsc).toFixed(2),"bns":(-1 * m.get(r).dsign * Number(m.get(r).damnt)*m.get(r).dprice*m.get(r).dbns).toFixed(2),
-                "note":m.get(r).dnote,"retfor":m.get(r).retfor}
-        }
-        return vj
+    function find(text){
+        Lib.findText(dbDriver, text, crntAcnt.mask,
+            (err, res)=>{
+                if (err){
+                    funcLog(err, 1)
+                } else {
+                    if (res.length === 1){
+                     // create docum
+                        if (Number(res[0].mask)===0){
+                            // set currentClient
+                            root.crntClient = Lib.getClient(dbDriver, res[0].id)
+                        } else {
+                            dataModel.addDcm(dbDriver, res[0].id, root.crntAcnt.acntno, crntAmnt)
+                            bindView.currentIndex = 0
+                            bindView.forceActiveFocus()
+                        }
+                    } else {
+                        vkEvent("find", res)
+                    }
+                }
+            })
+
     }
 
-/*    function tran(callback) {
-        var vj = {"id":"dcmbind",
-                "dcm":parentCode,"dbt":cashAcnt.acntno,"cdt":"",
-                "amnt":bindView.pmntTotal.toFixed(2),"eq":bindView.eqTotal.toFixed(2),"dsc":bindView.dscMoney.toFixed(2),"bns":bindView.bnsMoney.toFixed(2),
-                "note":"", "clnt":crntClient.id,
-                "tm":Qt.formatDateTime(new Date(), "yyyy-MM-dd hh:mm:ss"),
-                "cshr":"",
-                "dcms":[]}
-        let m = bindView.model
-        for (var r =0; r < m.count; ++r) {
-            vj.dcms[r] = {"dcm":m.get(r).dcode,"dbt":cashAcnt.acntno,"cdt":m.get(r).dacnt.acntno,"crn":m.get(r).darticle.id,
-                "amnt":(m.get(r).dsign * Number(m.get(r).damnt)).toFixed(m.get(r).darticle.prec),"eq":(m.get(r).dsign * Number(m.get(r).damnt)*m.get(r).dprice).toFixed(2),"dsc":(-1 * m.get(r).dsign * Number(m.get(r).damnt)*m.get(r).dprice*m.get(r).ddsc).toFixed(2),"bns":(-1 * m.get(r).dsign * Number(m.get(r).damnt)*m.get(r).dprice*m.get(r).dbns).toFixed(2),
-                "note":m.get(r).dnote,"retfor":m.get(r).retfor}
-        }
-        if (callback(vj,crntPrint ? printDcm : "",autoTax)){
-            startBind()
-        }
-    } */
+    function newDcm(atclid, acntno, amnt, price){
+        if (atclid === undefined) atclid = "";
+        if (acntno === undefined) acntno = root.crntAcnt.acntno;
+        if (amnt === undefined) amnt = root.crntAmnt;
+        dataModel.addDcm(root.dbDriver, atclid, acntno, amnt, price)
+        bindView.currentIndex = 0
+        bindView.forceActiveFocus()
+    }
 
-    function articleTotal(vmask){
-        if (vmask === undefined || vmask === '') { vmask = 1; }
-        let vj = []
-        if ((vmask&1)==1){
-            if (Number(bindView.pmntTotal) !== 0) { vj.push({ "id": "", "name":"ГРН", "amnt": Number(bindView.pmntTotal)});}
+    function newBonus(){
+        dataModel.addDcm(root.dbDriver, "", root.crntClient.bonusAcnt, 0 - root.crntClient.bonusTotal)
+        bindView.currentIndex = 0
+        bindView.forceActiveFocus()
+    }
+
+    function newRefused(param){
+        // return
+        const cl = Lib.getSQLData(dbDriver, "select coalesce(client,'') as cl from documall where id ="+param.pid);
+        if (!cl.length){
+            funcLog("Неможливо визначити клієнта.", 1)
+            return;
         }
-        if ((vmask&2)==2) {
-            for (let r =0; r < totalCurrencyView.model.count; ++r){
-                if (totalCurrencyView.model.get(r).amnt !== 0) { vj.push(totalCurrencyView.model.get(r)); }
+        // console.log("#94j cl="+cl+" bindclid="+stackBind.children[stackBind.currentIndex].crntClient.id)
+        if (root.crntClient.id === "" ){
+            root.crntClient = Lib.getClient(dbDriver, cl[0].cl);
+        }
+        if (root.crntClient.id !== cl[0].cl){
+            funcLog("Клієнт Чеку вже визначений і відрізняється від чеку повернення.", 1)
+            return;
+        }
+        dataModel.addRefused(dbDriver, param.dcmid)
+        startNewRow();
+    }
+
+    function newBatchIncasToBalk(){
+        const jdata = Lib.getIncas(root.dbDriver)
+        if (!jdata.length) { // nothing to do
+            funcLog("Немає документів для інкасації", 1)
+            return
+        }
+        if (root.acnts.bulk === undefined || root.acnts.bulk === ""){ // nothing to do
+            funcLog("Не визначено рахунку ГУРТ для інкасації", 1)
+            return
+        }
+        for (let i =0; i < jdata.length; ++i) {
+            dataModel.addDcm(root.dbDriver, jdata[i].curid, root.acnts.trade, Number(jdata[i].incas), Number(jdata[i].price)/Number(jdata[i].qty))
+            dataModel.addDcm(root.dbDriver, jdata[i].curid, root.acnts.bulk, 0 - Number(jdata[i].incas), Number(jdata[i].price)/Number(jdata[i].qty))
+        }
+        startNewRow();
+    }
+
+    function tranBind(prnMode){
+        if (!bindView.count){
+            funcLog("Відсутні документи." , 2)
+            startNewRow()
+            return
+        }
+        dataModel.cashno = cashAcnt.acntno
+
+        const jbind = dataModel.bindToJSON(root.crntClient.id, root.cashAcnt.acntno )
+        if (!jbind) {
+            funcLog("Помилка. Несумісні типи документів." , 0)
+            return
+        }
+// return
+        if (root.autotax && !dataModel.isTaxBindCorrect()) {
+            funcLog("Дукумент не проведено. Помилка фіскалізовації." , 0)
+            return
+        }
+        const bid = dataModel.tran(dbDriver, jbind)
+        if (bid === 0) {
+            // vkEvent("error", jbind)
+            funcLog( dataModel.lastError, 0)
+            return
+        }
+        if (root.autotax) {
+            funcFiscalizate(bid)
+        }
+
+        funcRESTUpload(jbind)
+
+        if (root.checkPrintDcm !== undefined && root.checkPrintDcm !== ""){
+            if ((prnMode === 1) ||
+                    (prnMode === 2 && root.checkAutoPrint !== undefined && root.checkAutoPrint !== 0)) {
+                vkEvent("printCheck", jbind)
             }
         }
-        return vj
-    }
 
-    function insert(vdcm, vrow){
-        // console.log("Bind.qml #928 artcl=" + JSON.stringify(vdcm.atcl))
-        if (!vdcm){
-            vkEvent('dialog', "Document is not alowed for this bind.");
-        }
-        let ok = true
-        if (root.state === "facture") {
-            ok &= ((Number(vdcm.atcl.mask) === 4 && vdcm.code === "trade:buy")
-                   || (Number(vdcm.atcl.mask) === 2) || (Number(vdcm.atcl.mask) === 1))
-        } else if (root.state === "taxcheck"){
-            ok &= (Number(vdcm.atcl.mask) === 4 && vdcm.code === "trade:sell" && Number(vdcm.amnt) < 0)
-        }
-        if (ok) {
-            vrow = vrow || 0;
-            bindView.model.insert(vrow,
-                {
-                    "dsign":Number(vdcm.amnt) < 0 ? -1 : 1,
-                    "dcode": vdcm.code,
-                    "darticle": vdcm.atcl,
-                    "dacnt": vdcm.acnt,
-                    "damnt": String(Math.abs(Number(vdcm.amnt))),  //String(crntAmnt),
-                    "dsubName":"#"+vdcm.atcl.id + (Number(vdcm.acnt.trade) === 0 ? (" ["+vdcm.acnt.acntno+"/"+vdcm.acnt.note+"]") : "") + vdcm.tag,
-                    "dnote": vdcm.atcl.name + (Number(vdcm.acnt.trade) === 0 ? (" ["+vdcm.acnt.clname+"/"+vdcm.acnt.note+"]") : "") + vdcm.tag,
-                    "dprice":vdcm.price,
-                    "ddsc": Number(vdcm.atcl.mask)===4 ? (vdcm.dsc < z0 ? Number(crntDsc) : vdcm.dsc) : 0,
-                    "dbns": Number(vdcm.atcl.mask)===4 ? (vdcm.bns < z0 ? Number(crntBns) : vdcm.bns) : 0,
-                    "dpratt": Number(vdcm.atcl.mask)===4 ? vdcm.pratt : (vdcm.pratt & 1),
-                    "drate":crntRate,
-                    "retfor":vdcm.retfor
-                }
-            )
-            bindView.currentIndex = vrow
-            // console.log("#84yj bind vr="+JSON.stringify(bindView.model.get(vrow)))
-            bindView.forceActiveFocus()
-        } else {    // error
-            // eDialog("Document is not alowed for this bind.",'error')
-            vkEvent('dialog', "Document is not alowed for this bind.");
-        }
 
+        startBind()
     }
 
     Component {
@@ -279,7 +342,7 @@ Item {
                 width: root.ListView.view.width
                 clip: true
                 spacing: 2
-                Label{
+                Text{
                     font{pointSize: 30; bold:true;}
                     visible: Number(dacnt.trade) && dprice === 0
                     color: "tomato"
@@ -287,7 +350,7 @@ Item {
 
                 }
 
-                Label{
+                Text{
                     id: fldSgn
                     property int value : (dsign < 0 ? -1 : 1)
                     Layout.preferredWidth: 30   //parent.height
@@ -306,13 +369,12 @@ Item {
     //                    Layout.preferredWidth: 120
                         spacing: 0
                         clip: true
-                        Label{
+                        Text{
                             text: dnote
                             font.pointSize: 12
                         }
-                        Label{
+                        Text{
                             text: dsubName
-    //                        elide: Label.ElideRight
                             color: 'dimgray'
                             font.pointSize: 10
                         }
@@ -329,14 +391,12 @@ Item {
                         anchors.fill: parent
                         visible: false
                         selectByMouse: true
-//                        validator: DoubleValidator {bottom: 0; decimals: 6; notation: "StandardNotation"; locale: "en_US" }
                         onActiveFocusChanged: if (activeFocus) {selectAll()} else {visible = false}
                         text: dnote
                         onAccepted: {
                             text = text.replace(/\\/g,"/")
                             dnote = text
                             root.ListView.view.restart()
-//                            startNewRow()
                         }
                     }
                 }
@@ -351,12 +411,12 @@ Item {
                         anchors.fill: parent
                         spacing: 0
                         RowLayout{
-                            Label{
+                            Text{
                                 id: fldAmnt
                                 Layout.fillWidth: true
                                 horizontalAlignment: Text.AlignHCenter
                                 verticalAlignment: Text.AlignVCenter
-                                text: Math.abs(Number(damnt)).toLocaleString(Qt.locale(),'f',Number(darticle.prec))
+                                text: damnt.toLocaleString(Qt.locale(),'f',Number(darticle.prec))
                                 font.pointSize: 14
                                 clip: true
                                 elide: Text.ElideLeft
@@ -365,15 +425,15 @@ Item {
                                     onClicked: {fldAmntEdit.visible = true; fldAmntEdit.forceActiveFocus();}
                                 }
                             }
-                            Label{
+                            Text{
                                 id: fldPrice
                                 Layout.fillWidth: true
-                                visible: Number(dacnt.trade)!==0
+                                visible: Number(dacnt.trade) === 1
                                 font.pointSize: 12
                                 horizontalAlignment: Text.AlignHCenter
-//                                text: dprice
-                                text: (Number(dprice)*Number(darticle.qty)/drate).toFixed((Number(darticle.mask)&2)==2 ? 3 : 2)
-                                      + (Number(darticle.qty)===1?'':('/'+darticle.qty))
+                                // text: root.ListView.view.model.getPriceStr(index)
+                                text: (Number(dprice) * Number(darticle.qty) / drate).toFixed((Number(darticle.mask) & 2) == 2 ? 3 : 2)
+                                      + (Number(darticle.qty) === 1?'':('/' + darticle.qty))
 //                                color: 'dimgray'
                                 MouseArea{
                                     anchors.fill: parent
@@ -388,7 +448,7 @@ Item {
 
                         RowLayout{
                             visible: Number(dacnt.trade)!==0
-                            Label{
+                            Text{
                                 id: fldEq
                                 Layout.fillWidth: true
                                 horizontalAlignment: Text.AlignHCenter
@@ -404,7 +464,7 @@ Item {
                                     }
                                 }
                             }
-                            Label{
+                            Text{
                                 id: fldDsc
                                 width: parent.width/2
                                 text: ddsc === 0 ? 'знижка' : 100*Math.abs(ddsc) +'%' //.toLocaleString(Qt.locale(),'f',4)
@@ -417,7 +477,7 @@ Item {
 //                                    onClicked: {fldPriceEdit.visible = true; fldPriceEdit.forceActiveFocus();}
                                 }
                             }
-                            Label{
+                            Text{
                                 id: fldBns
                                 width: parent.width/2
                                 text: dbns  === 0 ? 'бонус' : 100*Math.abs(dbns) +'%'
@@ -446,9 +506,10 @@ Item {
                         onActiveFocusChanged: if (activeFocus) {selectAll()} else {visible = false}
                         horizontalAlignment: Text.AlignHCenter
                         font.pixelSize: 20
-                        text: Math.abs(Number(damnt))
+                        text: damnt
                         onEditingFinished: {
-                            if (Number(text) !== 0){ damnt = Number(text).toFixed(darticle.prec); }
+                            // if (Number(text) !== 0){ damnt = Number(text).toFixed(darticle.prec); }
+                            if (Number(text) !== 0){ damnt = Number(text); }
                             root.ListView.view.restart()
                         }
                     }
@@ -516,29 +577,18 @@ Item {
             TextField{
                 id: fldMainInput
                 Layout.fillWidth: true
+                focus: true
                 selectByMouse: true
                 onAccepted: {
-                    if (text === ''){
-                        if (Number(crntAcnt.mask)&1) {
-//                                    msg(String("#6tww mask=%1 &1=%2").arg(crntAcnt.mask).arg(Number(crntAcnt.mask)&1),'CheckBind') //,Number(crntAcnt.mask)&1
-                            // vkEvent('createDcmUAH', ({}));
-                            insert(fnCreateDcm(''))
-                        }
+                    if (text === '*') {     // auto print
+                        tranBind(2)
+                        // vkEvent('tranBind', 2);
                         return;
-                    }
-                    if (text === '*') {
-                        // actionTran2.trigger()
-                        vkEvent('tranBind', 2);
+                    } else if (text === '*8') { // DO print
+                        tranBind(1)
                         return;
-                    } else if (text === '*8') {
-                        crntPrint = true;
-                        vkEvent('tranBind', 1);
-                        // tran()
-                        return;
-                    } else if (text === '*9') {
-                        crntPrint = false;
-                        vkEvent('tranBind', 0);
-                        // tran()
+                    } else if (text === '*9') { // NOT print
+                        tranBind(0)
                         return;
                     }
                     // TODO
@@ -555,15 +605,16 @@ Item {
                             crntAmnt = 0 - Math.abs(crntAmnt)
                         }
                     }
-                    if (text === ''){
-                        if (Number(crntAcnt.mask)&1) {
-                             // vkEvent('createDcmUAH', ({}));
-                            insert(fnCreateDcm(''))
-                        } //else { return; }
-                    } else {
-                        vkEvent('findText', {'text':text, 'mask':crntAcnt.mask})
+                    if (text === '' && (Number(root.crntAcnt.mask) & 1) === 1){
+                            dataModel.addDcm(root.dbDriver, "", root.crntAcnt.acntno, Number(root.crntAmnt))
+                        bindView.currentIndex = 0
+                        bindView.forceActiveFocus()
+                    } else if (text !== ""){
+                        find(text)
                     }
-
+                    // fldMainInput.forceActiveFocus()
+                    // bindView.currentIndex = 0
+                    // bindView.forceActiveFocus()
 
                 }
 
@@ -572,7 +623,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     visible: crntAcnt !== undefined && (Number(crntAcnt.mask)&1) == 1
                     text:'ГРН'
-                    onClicked: { insert(fnCreateDcm('')); /*vkEvent('createDcmUAH', {});*/ }
+                    onClicked: newDcm();
                 }
             }
 
@@ -590,7 +641,7 @@ Item {
 //                            Layout.preferredHeight: 32
                     visible: crntAcnt !== undefined && (crntAcnt.acntno).substring(0,2) !== '35' //crntAcnt.trade === '0'
                     icon {name:'undo'; source: "qrc:/icon/undo.svg"}
-                    onClicked: vkEvent('crntAcntToTrade', "")
+                    onClicked: root.crntAcnt = Lib.getAccount(dbDriver);  // vkEvent('crntAcntToTrade', "")
                 }
             }
 
@@ -609,44 +660,11 @@ Item {
             ListView{
                 id: bindView
                 anchors.fill: parent
-                property real pmntTotal: 0
-                property real eqTotal: 0
-                property real dscMoney: 0
-                property real bnsMoney: 0
-
                 spacing: 2
-                model: ListModel{ }
-                delegate: dlg1
-    //            onCountChanged:
+                // model: ListModel{ }
+                model: dataModel
 
-                function recalculate2() {
-                    var v_pmnt = 0; var v_eq = 0; var v_dsc =0; var v_bns =0; var i =0; var vtmp='';
-                    totalCurrencyView.model.clear()
-                    for (var r =0; r < model.count; ++r) {
-    //                    console.log('crn=['+model.get(r).crn+'] amnt='+model.get(r).damnt+' eq='+model.get(r).eq+' rate='+model.get(r).crnrate +' mask='+(model.get(r).crnmask==='2'))
-                        if ( model.get(r).darticle.id === ''
-                                 || model.get(r).darticle.id === '980') {
-                            v_pmnt += Number(model.get(r).damnt) * model.get(r).dsign
-                        } else if (Number(model.get(r).darticle.mask) === 2){
-                            for (i=0; (i< totalCurrencyView.model.count) &&(totalCurrencyView.model.get(i).id !== model.get(r).darticle.id); ++i){}
-                            if (i === totalCurrencyView.model.count){
-                                totalCurrencyView.model.append({'id':model.get(r).darticle.id, 'name':model.get(r).darticle.name, 'amnt': Number(model.get(r).damnt) * model.get(r).dsign})
-                            } else {
-                                totalCurrencyView.model.setProperty(i,'amnt', Number(totalCurrencyView.model.get(i).amnt)+Number(model.get(r).damnt) * model.get(r).dsign)
-                            }
-                        }
-                        vtmp = (Number(model.get(r).damnt)*model.get(r).dprice * model.get(r).dsign).toFixed(2)
-                        v_eq += Number(vtmp)
-                        v_dsc -= Number((Number(vtmp)*model.get(r).ddsc).toFixed(2))
-                        v_bns -= Number((Number(vtmp)*model.get(r).dbns).toFixed(2))
-                    }
-    //                console.log('total v_pmnt=['+v_pmnt+'] v_eq='+v_eq+' v_dsc='+v_dsc)
-                    pmntTotal = (v_pmnt - (v_eq + v_dsc)).toFixed(2)
-                    eqTotal = v_eq.toFixed(2)
-                    dscMoney = v_dsc.toFixed(2)
-                    bnsMoney = v_bns.toFixed(2)
-    //                footerText = String('Всього рядків: %1(%2грн)').arg(count).arg(pmntTotal.toLocaleString(Qt.locale(),'f',2))
-                }
+                delegate: dlg1
 
                 function restart(){
                     startNewRow();
@@ -655,31 +673,22 @@ Item {
             }
         }
 
-        Item{      // totalCurrencyView
+        Rectangle{      // totalCurrencyView
             Layout.fillWidth: true
             Layout.preferredHeight: 20
-//            color: 'ivory'
+            color: 'WhiteSmoke'
             RowLayout{
-                anchors.fill: parent
-                ListView{
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 2
+                Repeater {
                     id: totalCurrencyView
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    orientation: ListView.Horizontal
-                    spacing: 2
-                    model: ListModel{}
-                    delegate:
-                        Label{
-        //                        height: 25
-                            color: amnt>0?'blue': (amnt<0?'red':'whitesmoke')
-                            text: String(' %1%2 %3 ').arg(amnt<0?'-':'+').arg(name).arg(Math.abs(amnt))
-                            background:
-                            Rectangle{
-                                color: 'lightgrey'
-                            }
-                        }
-
-                }
+                    model: []
+                    Label {
+                        required property var modelData
+                        color: modelData.amnt > 0 ? 'blue': (modelData.amnt < 0?'red':'grey')
+                        text: String(' %1%2%3 ').arg(modelData.amnt > 0 ? "+" : "").arg(modelData.amnt === 0 ? "0" : modelData.amnt).arg(modelData.atcl.name)
+                    }
+                  }
             }
 
 
@@ -702,48 +711,52 @@ Item {
                     id: btnTran
                     Layout.preferredWidth: 40
                     Layout.preferredHeight: 40
-                    icon.name: "save"
-                    icon.source: "qrc:/icon/save.svg"
-//                        padding: 5
-                    // onClicked: vkEvent('tranBind', jbindToTran());
-                    onClicked: vkEvent('tranBind',2)       //tran2()
+                    action: tranAction
                 }
 
                 Label{
 //                    anchors.horizontalCenter: parent.horizontalCenter
                     Layout.fillWidth: true
                     horizontalAlignment: Text.AlignHCenter
-                    color: (bindView.pmntTotal) <0 ? 'red' : 'blue'
-                    text: ((bindView.pmntTotal) <0 ? '- ':'+ ')+Math.abs(bindView.pmntTotal).toLocaleString(Qt.locale(),'f',2)
+                    color: (dataModel.pmntTotal) < 0 ? 'red' : 'blue'
+                    text: ((dataModel.pmntTotal) <0 ? '- ':'+ ') + Math.abs(dataModel.pmntTotal).toLocaleString(Qt.locale(),'f',2)
                     font.pixelSize: 30
                     font.bold: true
                 }
 
                 Item{
+                    id:dbrArea
                     Layout.preferredWidth: childrenRect.width
                     Layout.fillHeight: true
 
                     RowLayout{
-                        id:dbrArea
                         spacing: 10
                         ColumnLayout{
                             Label{
                                 id: fldDsc
-                                text:String('Dsc: %1 %2').arg((100 * Math.abs(Number(crntDsc))).toFixed(1)+'%')
-                                     .arg(bindView.dscMoney == 0 ? '' : Math.abs(bindView.dscMoney).toLocaleString(Qt.locale(),'f',2))
+                                text:String('Dsc: %1 %2').arg((100 * Math.abs(dataModel.crntDsc)).toFixed(1)+'%')
+                                     .arg(dataModel.dscMoney == 0 ? '' : Math.abs(dataModel.dscMoney).toLocaleString(Qt.locale(),'f',2))
                                 MouseArea{
                                     anchors.fill: parent
-                                    onClicked: {fldDscEdit.text = 100*Math.abs(Number(crntDsc)); fldDscEdit.visible = true; fldDscEdit.forceActiveFocus();}
+                                    onClicked: {
+                                        fldDscEdit.text = 100 * Math.abs(dataModel.crntDsc);
+                                        fldDscEdit.visible = true;
+                                        fldDscEdit.forceActiveFocus();
+                                    }
                                 }
                             }
                             Label{
                                 id: fldBns
-                                text:String('Bns: %1 %2').arg((100 * Math.abs(Number(crntBns))).toFixed(1)+'%')
-                                     .arg(bindView.bnsMoney == 0 ? '' : Math.abs(bindView.bnsMoney).toLocaleString(Qt.locale(),'f',2))
+                                text:String('Bns: %1 %2').arg((100 * Math.abs(dataModel.crntBns)).toFixed(1)+'%')
+                                     .arg(dataModel.bnsMoney == 0 ? '' : Math.abs(dataModel.bnsMoney).toLocaleString(Qt.locale(),'f',2))
                                 MouseArea{
                                     anchors.fill: parent
                                     enabled: crntClient !== undefined && crntClient.id !==''
-                                    onClicked: { fldBnsEdit.text = 100*Math.abs(Number(crntBns)); fldBnsEdit.visible = true; fldBnsEdit.forceActiveFocus();}
+                                    onClicked: {
+                                        fldBnsEdit.text = 100 * Math.abs(dataModel.crntBns);
+                                        fldBnsEdit.visible = true;
+                                        fldBnsEdit.forceActiveFocus();
+                                    }
                                 }
                             }
                         }
@@ -752,14 +765,17 @@ Item {
                             id: fldRate
                             visible: false
                             Label{
-                                text:'Rate: '+ crntRate
+                                text:'Rate: '+ dataModel.crntRate
                                 MouseArea{
                                     anchors.fill: parent
-                                    onClicked: {console.log("094 clicked")
-                                        fldRateEdit.visible = true; fldRateEdit.text=crntRate; fldRateEdit.forceActiveFocus();}
+                                    onClicked: {    /*console.log("094 clicked")*/
+                                        fldRateEdit.visible = true;
+                                        fldRateEdit.text = String(dataModel.crntRate);
+                                        fldRateEdit.forceActiveFocus();
+                                    }
                                 }
                             }
-                            Label{ text: crntRate === '1' ? '' : (bindView.eqTotal/Number(crntRate)).toFixed(2); }
+                            Label{ text: dataModel.crntRate === 1 ? '' : (dataModel.eqTotal/dataModel.crntRate).toFixed(2); }
                         }
                     }
                     TextField{
@@ -772,11 +788,8 @@ Item {
                         horizontalAlignment: Text.AlignHCenter
                         font.pixelSize: 14
                         onAccepted:  {
-                            crntDsc = String(Number(text)/100)
-                            for (let r = 0; r < bindView.model.count; ++r){
-                                if ((Number(bindView.model.get(r).dpratt)&2) == 2){ bindView.model.setProperty(r,'ddsc', Number(crntDsc)); }
-                            }
-                            startNewRow()
+                            dataModel.setDsc(text)
+                            fldMainInput.forceActiveFocus()
                         }
                     }
                     TextField{
@@ -789,11 +802,8 @@ Item {
                         horizontalAlignment: Text.AlignHCenter
                         font.pixelSize: 14
                         onAccepted: {
-                            crntBns = String(Number(text)/100)
-                            for (let r = 0; r < bindView.model.count; ++r){
-                                if ((Number(bindView.model.get(r).dpratt)&4) == 4){ bindView.model.setProperty(r,'dbns', Number(crntBns)); }
-                            }
-                            startNewRow()
+                            dataModel.setBns(text)
+                            fldMainInput.forceActiveFocus()
                         }
                     }
                     TextField{
@@ -806,12 +816,8 @@ Item {
                         horizontalAlignment: Text.AlignHCenter
                         font.pixelSize: 12
                         onAccepted: {
-                            crntRate = text
-                            for (let r=0; r < bindView.model.count; ++r){
-                                bindView.model.setProperty(r,'drate', Number(crntRate));
-                                // if (Number(bindView.model.get(r).darticle.mask) === 4) { bindView.model.setProperty(r,'drate', Number(crntRate)); }
-                            }
-                            startNewRow()
+                            dataModel.setRate(text)
+                            fldMainInput.forceActiveFocus()
                         }
                     }
 
@@ -821,12 +827,7 @@ Item {
                     id: btnDrawer
                     Layout.preferredWidth: 40
                     Layout.preferredHeight: 40
-                    icon.source: "qrc:/icon/drawer.svg"
-//                        contentItem: Image { source: "qrc:/icon/drawer.svg" }
-    //                padding: 5
-//                        flat: true
-                    onClicked: {drawerAction.trigger();}
-                    // onClicked: eViewDrawer()
+                    action: drawerAction
                 }
 
 

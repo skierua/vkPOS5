@@ -1,13 +1,13 @@
 import QtQuick
 import QtQuick.Controls
 
-
+// 0-error | 1-warning | 2-info
 ListView {
     id: root
     property int level: 10 // error|warning|info
     // property list<color> palette: ["Pink",""]
     property int outdated: 60   // sec
-    property bool toConsole: false
+    property bool debug: false
 
 
     Timer{
@@ -21,6 +21,7 @@ ListView {
         }
     }
 
+    // 0-error | 1-warning | 2-info
     function append(vstr, vid =2) {
         if (Number(vid) < level){
             root.model.append(
@@ -31,7 +32,7 @@ ListView {
                             // "tm": Qt.formatDateTime(new Date(), "hh:mm:ss")
                         }
                         )
-            if (root.toConsole) console.log(vid + ": " + vstr)
+            if (root.debug) console.log(vid + ": " + vstr)
         }
         lifeTimer.start()
     }

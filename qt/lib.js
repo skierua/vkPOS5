@@ -125,7 +125,7 @@ function findText(db, vtext, mask, callback) {
         }
 
         if (vartjs.rowCount === 0) {
-            callback({code:'Info', text:'Main/bind\nНічого не знайдено'},res)
+            callback('Нічого не знайдено',res)
             return
         }
         res = vartjs.rows
@@ -137,7 +137,7 @@ function getSQLData(db, vsql) {
     // console.log("#dr3 sql="+vsql)
     var jdata = parse(db.dbSelectRows(vsql));
     if (jdata){ return jdata.rows; }
-    // console.log("#235 article="+JSON.stringify(ret))
+    // console.log("#52t article="+JSON.stringify(ret))
     return [];
 }
 
@@ -211,7 +211,7 @@ function getAcntSettings(db) {
 // +"from item left join itemunit on (defunit=itemunit.pkey) left join articlepriceqty using(pkey) where folder=0;
 function getArticle(db, vaid) {
     var jdata = ({})
-    const vsql = "select item.pkey as id, itemchar as name, coalesce(itemname, itemnote,'') as fullname, itemmask as mask, coalesce(qty,1) as qty, coalesce(scancode,'') as scan, uktzed, taxchar, taxprc, "
+    const vsql = "select item.pkey as id, itemchar as name, coalesce(itemname, itemnote,'') as fullname, coalesce(itemnote,'') as note, itemmask as mask, coalesce(qty,1) as qty, coalesce(scancode,'') as scan, uktzed, taxchar, taxprc, "
     +" coalesce(defunit,'') as unitid ,coalesce(unitprec,2) as prec, coalesce(unitchar,'') as unitchar, coalesce(unitname,'') as unitname, coalesce(code,'') as unitcode, "
     +" coalesce(term,0) as term from item left join itemunit on(defunit=itemunit.pkey) left join articlepriceqty on (item.pkey=articlepriceqty.pkey) left join warranty on (item.pkey=article) ";
     let ret = {"id":"", "name":"", "fullname":"", "mask":"", "qty":"1", "scan":"", "uktzed":"", "taxchar":"","taxprc":"",
@@ -383,6 +383,32 @@ function getDbList(db, path){
 //                    databaseView.model.append({'id':pathToDb+dbList[i], 'name':dbList[i]})
   }
   return vj
+}
+
+// ba = 1 | -1
+function getPrice(db, atclid, ba, acntno =""){
+    let res = {"pkey":"", "price":"0" , "offer":"0", "dsc":"0"}
+
+    let vsql = String("select item as pkey, CAST(price.price AS REAL)/price.qtty as price, coalesce(CAST(selloffer.price AS REAL),0)/coalesce(selloffer.qtty,1) as offer, coalesce(selldsc.price,0) as dsc "
+            + "from price left join selloffer on(item=selloffer.article) left join selldsc on(item=selldsc.article) "
+            + "where item = '%1' and prbidask=%2;").arg(atclid).arg(ba)
+    let vj = parse(db.dbSelectRows(vsql));
+    // console.log("#6wg lib getPrice data=" + JSON.stringify(vj) + " \nsql=" + vsql)
+    if (vj && vj.rows.length) {
+        res = vj.rows[0]
+    } else {
+        if (acntno !== ""){
+            vsql = String("select article as pkey, %1 as price, 0 as offer, 0 as dsc from acntrade where article = '%2' and acntno='%3';")
+            .arg(ba === -1 ? 'lastpricesell':'lastpricebuy')
+            .arg(atclid)
+            .arg(acntno)
+            vj = parse(db.dbSelectRows(vsql));
+            if (vj && vj.rows.length) {
+                res = vj.rows[0]
+            }
+        }
+    }
+    return res;
 }
 
 function getRate(db, id){
@@ -603,6 +629,7 @@ function uploadReport(db, ifrom, ito/*, rest*/) {
 }
 
 
+
 function makeBind_balancingTrade(db, acnts){
     let r =0;
     let total = 0;
@@ -784,7 +811,7 @@ function updRate(db, price, qty, id, curid, ba){
 
 }
 
-function bindFromDb(db, bindid, cb){
+function bindFromDb(db, bindid/*, cb*/){
   let tbl = "docum";
   const vsql = String("select id, dcmtype, amount,coalesce(eqamount,0) eq,coalesce(discount,0) dsc, coalesce(dcmnote,itemchar,'') note, dcmtime, coalesce(itemchar,'ГРН') ichar, coalesce(' ('||itemname||')','') iname, "
   + "coalesce(itemmask,1) mask, coalesce(unitprec,2) prec, coalesce(itemunit.code,'') ucode, coalesce(unitchar,'') uchar, coalesce(qty,1) qty, coalesce(term,0) term, coalesce(item.pkey,'') iid, coalesce(dcmno,'') dcmno "
@@ -798,8 +825,8 @@ function bindFromDb(db, bindid, cb){
     jbind = db.dbSelectRow(vsql.arg(tbl) + fltBind.arg(tbl).arg(bindid))
     if (jbind.errid === 1){ // error
       log(jbind.errname, "lib.printCheck", "EE")
-      cb(jbind.errname)
-      // return jbind
+      // cb(jbind.errname)
+      return false
     }
   }
   const fltDcm = String(" where %1.parentid = %2;")
@@ -809,25 +836,23 @@ function bindFromDb(db, bindid, cb){
   if (!jdcm){
     jbind.errid = 1
     jbind.errname = "Bind documents not found"
-    log("Bind documents not found","lib.printCheck", "EE")
+    // log("Bind documents not found","lib.printCheck", "EE")
     cb(jbind.errname)
-    // return jbind
+    return false
   }
   jbind.dcms = jdcm.rows
 
   // log("#898 printCheck " + JSON.stringify(jbind))
-  cb(null, jbind)
-  // return jbind
+  // cb(null, jbind)
+  return jbind
 }
 
 /**
   CashDesk
   */
-function cdtaxFromBind(db, jbind, cb) {
-  if (jbind.dcmno !== "") {
-    cb("Неможливо повторно фіскалізувати чек")
-    return
-  }
+function cdtaxFromBind(db, bindid) {
+    let jbind = bindFromDb(db, bindid)
+    if (!jbind || jbind.dcmno !== "") return false;
 
   let ok = true;
   const rows = jbind.dcms
@@ -840,15 +865,21 @@ function cdtaxFromBind(db, jbind, cb) {
                 "cost": Math.abs(rows[r].eq).toFixed(2),
                 "sum_discount":(0-Number(rows[r].dsc).toFixed(2))} )
   }
-  if (!ok) { cb("Чек не підлягає фіскалізації"); return; }
+  if (!ok) {
+      // cb("Чек не підлягає фіскалізації");
+      return false; }
 
   let lnmb = 0;
   lnmb = db.dbInsert("insert into taxdcm (dcmid) values ('"+jbind.id+"')");
-  if (lnmb == 0) { cb("Не отримано локальний номер фіскалізації"); return; }
+  if (lnmb == 0) {
+      // cb("Не отримано локальний номер фіскалізації");
+      return false; }
 
   let tsum = Math.round(10*Math.abs(jbind.amount))/10;
   let rsum = tsum - Math.abs(jbind.amount)
-  if (tsum == 0) { cb("Помидка фіскалізації. Сума чеку 0"); return; }
+  if (tsum == 0) {
+      // cb("Помидка фіскалізації. Сума чеку 0");
+      return false; }
 
   // cashDesc bind
   let taxbind = {
@@ -863,7 +894,8 @@ function cdtaxFromBind(db, jbind, cb) {
     "no_text_print":true,"no_pdf":true,"no_qr":true,"open_shift":true,"print_width": 32,"pdf_width": 48
   }
 
-  cb(null, taxbind)
+  // cb(null, taxbind)
+  return taxbind
 }
 
 

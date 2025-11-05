@@ -81,7 +81,16 @@ ListModel {
             }
 
         }
+        // console.log("#73yh ModelRate data="+JSON.stringify(get(0)))
         // loadWebRates()
+    }
+
+    function updateLocalRate(dbDriver, row, amnt, ba){
+        // console.log("ModelRate row="+ row + " amnt="+ amnt + " ba=" + ba); return
+        Lib.updRate(dbDriver, amnt === undefined || amnt === "" ? "0" : amnt, get(row).qty,
+                    get(row).lbidid, get(row).curid, ba)
+        if (Number(ba) > 0) setProperty(row, "lbid", amnt)
+        else setProperty(row, "lask", amnt)
     }
 
     function updateLocalRates(dbDriver){

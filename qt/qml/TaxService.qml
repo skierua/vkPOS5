@@ -30,6 +30,10 @@ Window {
             }
         }
 
+    function newMessage(sender, text, code){
+        taxModel.addMessage(sender, text, code)
+    }
+
     ListModel{
         id: taxModel
 

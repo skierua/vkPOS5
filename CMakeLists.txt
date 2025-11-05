@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(vkPOS5 VERSION 6.2.10 LANGUAGES CXX)
+project(vkPOS5 VERSION 6.2.11 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -28,7 +28,7 @@ qt_add_executable(appvkPOS5
 
 qt_add_qml_module(appvkPOS5
     URI vkPOS5
-    VERSION 2.10
+    VERSION 2.11
     QML_FILES qt/qml/Main.qml
         # qt/qml/MainKant.qml
         # qt/qml/MainShop.qml
@@ -36,8 +36,9 @@ qt_add_qml_module(appvkPOS5
         qt/qml/Client.qml
         qt/qml/DcmView.qml
         qt/qml/DrawerItem.qml
-        qt/qml/Login.qml
+
         qt/qml/LogView.qml
+        qt/qml/ModelBind.qml
         qt/qml/ModelDbDcms.qml
         qt/qml/ModelDrawer.qml
         qt/qml/ModelRates.qml
