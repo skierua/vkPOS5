@@ -270,7 +270,7 @@ function getBalAccounts(db, bal) {
 // mask 1|2|4
 function getBalance(db, bal=[], mask = 3, reverse =false){
     let amount = "(beginamnt+turndbt-turncdt) as total, turndbt as income, turncdt as outcome"
-    if (reverse) { amount = "(0 - beginamnt+turndbt-turncdt) as total, turncdt as income, turndbt as outcome"; }
+    if (reverse) { amount = "(0 - (beginamnt+turndbt-turncdt)) as total, turncdt as income, turndbt as outcome"; }
     let balFlt = "1"
     if (bal.length) {
         balFlt = ""
@@ -287,7 +287,7 @@ function getBalance(db, bal=[], mask = 3, reverse =false){
 
     const vsql = String("select coalesce(acntnote,'') as bind, coalesce(itemchar, item, 'ГРН') as name,'[' || coalesce(item,'980') || '] ' || coalesce(itemname, item, 'гривня україни') as subname,"
     + " %1, item.pkey as key, coalesce(unitprec,2) as prec,"
-    + " scancode as scan, 0 as totaleq, coalesce(client,'') as clid, clchar, acnt.acntno as ano, coalesce(itemmask,1) as mask  "
+    + " scancode as scan, 0 as totaleq, coalesce(client,'') as clid, clchar, acnt.acntno as ano, coalesce(itemmask,1) as mask, itemnote, acntno, coalesce(acntnote,acntno) as aname  "
     + " from acntbal join acnt using(acntno) left join item on (item = item.pkey)  left join itemunit on (defunit=itemunit.pkey) LEFT JOIN client ON(clid = client.pkey)"
     + " where %2 and %3 and (abs(total) > 0.0009 or dbtupd>date(coalesce((select max(shftdate) from shift),date('now')), '-0 days')"
     + " or  cdtupd>date(coalesce((select max(shftdate) from shift),date('now')), '-0 days')) order by bind, itemmask, itemnote;").arg(amount).arg(balFlt).arg(maskFlt);

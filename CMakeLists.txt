@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(vkPOS5 VERSION 6.2.11 LANGUAGES CXX)
+project(vkPOS5 VERSION 6.2.12 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -28,7 +28,7 @@ qt_add_executable(appvkPOS5
 
 qt_add_qml_module(appvkPOS5
     URI vkPOS5
-    VERSION 2.11
+    VERSION 2.12
     QML_FILES qt/qml/Main.qml
         # qt/qml/MainKant.qml
         # qt/qml/MainShop.qml

@@ -11,11 +11,20 @@ ListModel {
 
     function load(db, bal, mask =0, reverse =false) {
         // dbg("loaded bal="+bal+" cur="+mask, "#sh48")
-        root.data = Lib.getBalance(db, bal, mask, reverse)
+        let jdata = Lib.getBalance(db, bal, mask, reverse)
+/*        jdata.sort((a,b) => {
+                       if (a.mask < b.mask) return -1;
+                       else if (a.mask > b.mask) return 1;
+                       else if (a.itemnote < b.itemnote) return -1
+                       else if (a.itemnote > b.itemnote) return 1
+                       return 1
+                   }
+                       ) */
         // dbg("")
         // for (let i=0; i < root.data.length && i < 10; ++i){
         //     console.log(JSON.stringify(root.data[i]))
         // }
+        root.data = jdata
         filterData()
     }
 
@@ -24,6 +33,8 @@ ListModel {
                 || ~(root.data[row].name.toLowerCase()).indexOf(flt.toLowerCase())
                 || ~(root.data[row].subname.toLowerCase()).indexOf(flt.toLowerCase())
                 || ~(root.data[row].clchar.toLowerCase()).indexOf(flt.toLowerCase())
+                || ~(root.data[row].acntno.toLowerCase()).indexOf(flt.toLowerCase())
+                || ~(root.data[row].aname.toLowerCase()).indexOf(flt.toLowerCase())
                 || ~(root.data[row].scan).indexOf(flt));
     }
 
