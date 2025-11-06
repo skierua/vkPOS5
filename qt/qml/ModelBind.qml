@@ -48,6 +48,26 @@ ListModel {
         return ok
     }
 
+    function isTaxBindCorrect(){
+        let ok = true
+        for (var r =0; r < count && ok; ++r) {
+            ok &= get(r).dcode === "trade:sell"
+            ok &= get(r).darticle.mask === "4"
+            ok &= get(r).dprice !== 0
+        }
+        return ok
+    }
+
+    function isTradeInner(){
+        let ok = true
+        for (var r =0; r < count && ok; ++r) {
+            if (get(r).dacnt.trade === "1") continue
+            ok &= get(r).dacnt.acntno.substring(0,2) === "36"
+            ok &= get(r).dacnt.acntno.substring(0,4) !== "3607"
+        }
+        return !ok
+    }
+
     function addDcm(db, atclid, acntno, amnt, price){
         const datcl = Lib.getArticle(db, atclid)
         const dacnt = Lib.getAccount(db, acntno)
@@ -153,7 +173,9 @@ ListModel {
         if (acnt.trade === "0") {
             res = (amnt < 0 ?  "pay:out" : "pay:in")
         } else if (acnt.trade === "1"){
-            res = (amnt < 0 ?  "trade:sell" : "trade:buy")
+            if (isTradeInner()) res = "trade:buy"
+                else res = (amnt < 0 ?  "trade:sell" : "trade:buy")
+
             // if (root.code == "check") {
             //     if (atcl.mask === "4") { res = "trade:sell" }
             //     else if (atcl.mask === "2") {
@@ -186,31 +208,26 @@ ListModel {
         return res
     }
 
-    function uahToAcnt(acnt){
+    function uahToAcnt(db, acnt){
         addDcm(db, "", acnt, -1 * root.pmntTotal)
         recalculate()
     }
 
     function curToAcnt(db, acnt){
         const tarr = curBalanceList()
+        // dbg(JSON.stringify(tarr), "#7h2")
         for (let i =0; i < tarr.length; ++i)
-            addDcm(db, tarr[i].atcl, acnt, -1 * tarr[i].amnt)
+            addDcm(db, tarr[i].atcl.id, acnt, -1 * tarr[i].amnt)
         recalculate()
-    }
-
-    function isTaxBindCorrect(){
-        let ok = true
-        for (var r =0; r < count && ok; ++r) {
-            ok &= get(r).dcode === "trade:sell"
-            ok &= get(r).darticle.mask === "4"
-            ok &= get(r).dprice !== 0
-        }
-        return ok
     }
 
     function bindToJSON(client ="", dbt ="", cdt =""){
         // let ok = true
-        // if (tax && !sTaxBindCorrect()) return false;
+        if (client === "" && isTradeInner()) {
+            for (let i =0; i < count; ++i){
+                if (get(i).dacnt.trade === "1") setProperty(i,"dcode", "trade:inner")
+            }
+        }
 
         var vj = {
             "id": "dcmbind",
@@ -247,6 +264,8 @@ ListModel {
 
     function tran(db, jbind){
         if (jbind === undefined) jbind = bindToJSON()
+        // dbg(JSON.stringify(jbind), "#49h");
+        // return 0;
         const bid = Lib.tranBind(db, jbind)
         if (!bid) {
             root.lastError = "Помилка. Дукумент не проведено."

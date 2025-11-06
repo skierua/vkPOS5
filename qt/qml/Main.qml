@@ -17,7 +17,7 @@ import com.singleton.dbdriver4 1.0
 ApplicationWindow {
     id: root
     visible: true
-    title: String("vkPOS5#%1").arg("2.11")
+    title: String("vkPOS5#%1").arg("2.12")
 
     // property string pathToDb: "/data/"
     property string dbname: ''
@@ -894,35 +894,49 @@ ApplicationWindow {
                     onClicked:  contextMenu.popup()
 
                     Menu{
+                        id: batchMenu
+                        title: "Пакетне додавання"
+                        // MenuItem{ action: bindContainer.currentItem.incasToBulkAction; }
+                    }
+
+                    Menu{
                         id: contextMenu
                         y: parent.height
 
                         onVisibleChanged: {
                             // dbg("contextMenu_toolbtn vsbl="+ visible, "#72js")
+                            let i =0
                             if (visible){
                                 if (bindContainer.currentItem.vkContextActions !== undefined){
-                                      for (let i =0; i < bindContainer.currentItem.vkContextActions.length; ++i){
+                                      for (i =0; i < bindContainer.currentItem.vkContextActions.length; ++i){
                                           contextMenu.addAction(bindContainer.currentItem.vkContextActions[i])
                                       }
-                                      contextMenu.addItem( Qt.createQmlObject('import QtQuick.Controls; MenuSeparator {}',
-                                                                                                    contextMenu,
-                                                                                                    "dynamicSeparator") )
                                 }
-                                for (let i = bindContainer.depth -1, r =1; i > 0; --i, ++r){
+                                if (bindContainer.currentItem.vkBatchActions !== undefined
+                                        && bindContainer.currentItem.state === ""){
+                                    for (i =0; i < bindContainer.currentItem.vkBatchActions.length; ++i){
+                                        batchMenu.addAction(bindContainer.currentItem.vkBatchActions[i])
+                                    }
+                                    contextMenu.addMenu(batchMenu)
+                                }
+
+                                contextMenu.addItem( Qt.createQmlObject('import QtQuick.Controls; MenuSeparator {}',
+                                                                                              contextMenu.contentItem,
+                                                                                              "dynamicSeparator") )
+                                for (i = bindContainer.depth -1; i > 0; --i){
                                     // dbg(bindContainer.get(i, StackView.DontLoad).title, "#34gs")
                                     contextMenu.addAction(activateBind.createObject(contextMenu
                                                                                   ,{ cindex: i
                                                                                     , ctext: String("%1. %2 (%3грн/%4)")
-                                                                                        .arg(r)
+                                                                                        .arg(bindContainer.depth - i)
                                                                                         .arg(bindContainer.get(i, StackView.DontLoad).title)
                                                                                         .arg(bindContainer.get(i, StackView.DontLoad).total)
                                                                                         .arg(bindContainer.get(i, StackView.DontLoad).count)
                                                                                     }))
                                 }
                             } else {
-                                for (let j =contextMenu.count -1; j >=0; --j){
-                                    contextMenu.removeItem(contextMenu.itemAt(j))
-                                }
+                                for (i =batchMenu.count -1; i >=0; --i) batchMenu.removeItem(batchMenu.itemAt(i))
+                                for (i =contextMenu.count -1; i >=0; --i) contextMenu.removeItem(contextMenu.itemAt(i))
                             }
 
                         }

@@ -17,6 +17,10 @@ Item {
     property list<Action> vkContextActions: [
         uahToAcntAction,
         curToAcntAction,
+        // incasToBulkAction
+    ]
+
+    property list<Action> vkBatchActions: [
         incasToBulkAction
     ]
     // property list<MenuItem> vkContextItems: [
@@ -136,9 +140,9 @@ Item {
         enabled: Number(crntAcnt.mask)&1 == 1
         text: "ГРН на рахунок"
         onTriggered: {
-            dataModel.uahToAcnt(crntAcnt)
-            fldMainInput.forceActiveFocus()
-            // startNewRow()
+            dataModel.uahToAcnt(root.dbDriver, crntAcnt.acntno)
+            // fldMainInput.forceActiveFocus()
+            startNewRow()
         }
     }
 
@@ -147,16 +151,16 @@ Item {
         enabled: Number(crntAcnt.mask)&2 == 2
         text: "ВАЛЮТА на рахунок"
         onTriggered: {
-            dataModel.curToAcnt(crntAcnt)
-            fldMainInput.forceActiveFocus()
-            // startNewRow()
+            dataModel.curToAcnt(root.dbDriver, crntAcnt.acntno)
+            // fldMainInput.forceActiveFocus()
+            startNewRow()
         }
     }
 
     Action {
         id: incasToBulkAction
         enabled: root.state === ""
-        text: "Зарахувати на ГУРТ"
+        text: "ТОРГІВЛЯ на ГУРТ"
         onTriggered: {
             newBatchIncasToBalk()
         }
@@ -194,6 +198,7 @@ Item {
         dataModel.recalculate()
         root.crntAmnt = root.dfltAmnt
         totalCurrencyView.model = dataModel.curBalanceList()
+        btnCreditAcnt.text = (crntAcnt !== undefined && crntAcnt.note !== "") ? crntAcnt.note : crntAcnt.name
         // dbg(JSON.stringify(totalCurrencyView.model), "#5wet")
         fldMainInput.text = ''
 
@@ -224,6 +229,7 @@ Item {
                         if (Number(res[0].mask)===0){
                             // set currentClient
                             root.crntClient = Lib.getClient(dbDriver, res[0].id)
+                            root.crntAcnt = Lib.getAccount(dbDriver)
                         } else {
                             dataModel.addDcm(dbDriver, res[0].id, root.crntAcnt.acntno, crntAmnt)
                             bindView.currentIndex = 0
@@ -296,16 +302,12 @@ Item {
         }
         dataModel.cashno = cashAcnt.acntno
 
-        const jbind = dataModel.bindToJSON(root.crntClient.id, root.cashAcnt.acntno )
-        if (!jbind) {
-            funcLog("Помилка. Несумісні типи документів." , 0)
-            return
-        }
-// return
         if (root.autotax && !dataModel.isTaxBindCorrect()) {
             funcLog("Дукумент не проведено. Помилка фіскалізовації." , 0)
             return
         }
+        const jbind = dataModel.bindToJSON(root.crntClient.id, root.cashAcnt.acntno )
+        // return
         const bid = dataModel.tran(dbDriver, jbind)
         if (bid === 0) {
             // vkEvent("error", jbind)

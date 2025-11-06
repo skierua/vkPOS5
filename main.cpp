@@ -20,8 +20,8 @@ int main(int argc, char *argv[])
     QGuiApplication app(argc, argv);
 
     QCoreApplication::setOrganizationName("vksoft");
-    // QCoreApplication::setApplicationName("TEST-vkPOS3");
-    QCoreApplication::setApplicationName("vkPOS5");
+    QCoreApplication::setApplicationName("TEST-vkPOS3");
+    // QCoreApplication::setApplicationName("vkPOS5");
 
    // QCoreApplication::setOrganizationName("vksoftme");
    // QCoreApplication::setApplicationName("vkcheck3");

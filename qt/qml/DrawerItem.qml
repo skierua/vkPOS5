@@ -24,31 +24,51 @@ Item{
     Action{
         id: viewCashAction
         text: "Каса"
-        onTriggered: drawerModel.load(dbDriver, ["30"], 3)
+        onTriggered: {
+            filterEdit.text = ""
+            vw.section.property = "bind"
+            drawerModel.load(dbDriver, ["30"], 3)
+        }
     }
 
     Action{
         id: viewDebtAction
         text: "Дебітори"
-        onTriggered: drawerModel.load(dbDriver, ["36", "38", "42"], 3, true)
+        onTriggered: {
+            filterEdit.text = ""
+            vw.section.property = ""
+            drawerModel.load(dbDriver, ["36", "38", "42"], 3, true)
+        }
     }
 
     Action{
         id: viewTradeAction
         text: "TRADE"
-        onTriggered: drawerModel.load(dbDriver, [35], 3, true)
+        onTriggered: {
+            filterEdit.text = ""
+            vw.section.property = "bind"
+            drawerModel.load(dbDriver, [35], 3, true)
+        }
     }
 
     Action{
         id: viewArticleAction
         text: "Товар"
-        onTriggered: drawerModel.load(dbDriver, ["3000"], 4, false)
+        onTriggered: {
+            filterEdit.text = ""
+            vw.section.property = ""
+            drawerModel.load(dbDriver, ["3000"], 4, false)
+        }
     }
 
     Action{
         id: viewDeffectiveAction
         text: "Брак"
-        onTriggered: drawerModel.load(dbDriver, ["3020"], 4, false)
+        onTriggered: {
+            filterEdit.text = ""
+            vw.section.property = ""
+            drawerModel.load(dbDriver, ["3020"], 4, false)
+        }
     }
 
 //    color: 'lightgray'
@@ -128,10 +148,10 @@ Item{
 //                                    spacing: 0
                             clip: true
                             Text{
-                                text: name + (clchar !== "" ? String(" %1[%2]").arg(clchar).arg(clid) : "")
+                                text: String("%1 %2").arg(name).arg(clchar !== "" ? String(" %1[%2]").arg(clchar).arg(clid) : bind)
                                 font.pixelSize: 12
                             }
-                            Text{text: subname; font.pixelSize: 10; color: 'grey'; }
+                            Text{text: String("[%1] %2").arg(acntno).arg(subname); font.pixelSize: 10; color: 'grey'; }
                         }
                         Column{
                             width: parent.width *0.4
