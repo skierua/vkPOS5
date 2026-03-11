@@ -14,15 +14,47 @@ Item {
     property string title: "Налаштування"
     property string codeid: "settings"
 
+    property list<Action> vkContextActions: [
+        actBasic,
+        actREST,
+        actTAX,
+        actAccounts
+    ]
 
     signal vkEvent(string id, var param)
+
+    function textForMenu() { return root.title; }
+
+    Action {
+        id: actBasic
+        text: stack.currentIndex === 0 ? "<b>Базові</b>" : "Базові"
+        onTriggered: () => stack.currentIndex = 0
+    }
+
+    Action {
+        id: actREST
+        text: stack.currentIndex === 1 ? "<b>REST</b>" : "REST"
+        onTriggered: () => stack.currentIndex = 1
+    }
+
+    Action {
+        id: actTAX
+        text: stack.currentIndex === 2 ? "<b>ПРРО CashDesk</b>" : "ПРРО CashDesk"
+        onTriggered: () => stack.currentIndex = 2
+    }
+
+    Action {
+        id: actAccounts
+        text: stack.currentIndex === 3 ? "<b>Рахунки</b>" : "Рахунки"
+        onTriggered: () => stack.currentIndex = 3
+    }
 
     Item {
         anchors{fill:parent; margins:5,10;}
 
         ColumnLayout{
 
-            TabBar {
+ /*           TabBar {
                 id: settingBar
                 width: parent.width
                 TabButton {
@@ -41,14 +73,15 @@ Item {
                     text: qsTr("Accounts")
                     width: implicitWidth
                 }
-            }
+            } */
 
             StackLayout {
+                id: stack
                 width: parent.width
-                currentIndex: settingBar.currentIndex
+                // currentIndex: settingBar.currentIndex
                 // Item {
                     // id: basicTab
-                    ColumnLayout{
+                ColumnLayout{
                         id: basicTab
                         RowLayout { //Term code
                             spacing: 10

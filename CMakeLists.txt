@@ -28,15 +28,15 @@ qt_add_executable(appvkPOS5
 
 qt_add_qml_module(appvkPOS5
     URI vkPOS5
-    VERSION 2.12
+    VERSION 2.20
     QML_FILES qt/qml/Main.qml
         # qt/qml/MainKant.qml
         # qt/qml/MainShop.qml
         qt/qml/Bind.qml
+        qt/qml/Balance.qml
         qt/qml/Client.qml
         qt/qml/DcmView.qml
         qt/qml/DrawerItem.qml
-
         qt/qml/LogView.qml
         qt/qml/ModelBind.qml
         qt/qml/ModelDbDcms.qml
@@ -51,7 +51,13 @@ qt_add_qml_module(appvkPOS5
         qt/lib.js
         qt/libREST.js
         qt/libTAX.js
-        RESOURCES README.md .gitignore
+        qt/qml/js/sqlAcnt.js
+        qt/qml/js/sqlItem.js
+        qt/qml/js/sqlPrice.js
+        qt/qml/ModelBalance.qml
+        RESOURCES data/db.sqlite data/vkPOS5-init.sql data/vkPOS5.sql
+        # RESOURCES README.md .gitignore
+        # RESOURCES TODO.txt
         # SOURCES print.h print.cpp
         # SOURCES singleton.h singleton.cpp
         # libSettings.js
@@ -69,6 +75,8 @@ qt_add_qml_module(appvkPOS5
 qt_add_resources(appvkPOS5 "app_icons"
     PREFIX "/"
     FILES
+        README.md .gitignore
+        TODO.txt
         icon/account.svg
         icon/add.svg
         icon/close.svg

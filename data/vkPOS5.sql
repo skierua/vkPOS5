@@ -70,7 +70,6 @@ CREATE TABLE docum
   dcmtime text not null default ( strftime('%Y-%m-%dT%H:%M:%S', 'now','localtime') ),
   dcmaker text 		-- користувач, що ввів документ
 , retfor integer);
-CREATE TABLE sqlite_sequence(name,seq);
 CREATE TABLE strgdocum
 (
   dcmid integer primary key,
@@ -131,17 +130,7 @@ CREATE TABLE acntbal (
   mask INTEGER DEFAULT (0),
   trade INTEGER DEFAULT (0)
 );
-CREATE TABLE strgprice
-(
-    id integer primary key,
-    item text not null references item (pkey) on update cascade on delete restrict,
-    prbidask integer, -- 1 bid, -1 ask
-    qtty numeric,
-    price numeric,		-- курс купівлі
-    prtype text,
-    pricetime text default ( strftime('%Y-%m-%dT%H:%M:%S', 'now','localtime') ),
-    diff numeric default 0	-- різниця зміни курсу
-);
+
 CREATE TABLE price (
     id integer primary key,
     item text not null references item (pkey) on update cascade on delete restrict,
@@ -164,18 +153,7 @@ CREATE TABLE selloffer
     price numeric not null default 0 check (price >=0),
     pricetime text default ( strftime('%Y-%m-%dT%H:%M:%S', 'now','localtime') )
 );
-CREATE TRIGGER t_selloffer_ai
-  after insert on selloffer for each row 
-  begin
-   insert into strgprice ( item, prbidask, qtty, price, prtype)
-    values ( new.article, -1, new.qtty, new.price, 'offer');
-  end;
-CREATE TRIGGER t_selldsc_ai
-  after insert on selldsc for each row 
-  begin
-   insert into strgprice ( item, prbidask, qtty, price, prtype)
-    values ( new.article, -1, 0, new.price, 'discount');
-  end;
+
 CREATE TABLE documtran
 (
   dcmid integer not null references docum (id) on update cascade on delete cascade,
@@ -292,13 +270,7 @@ CREATE TABLE warranty
     article text primary key references item (pkey) on update cascade on delete restrict,
     term integer not null  check (term >= 0) -- warranty term in days
 );
-CREATE TRIGGER t_price_au
-  after update on price for each row when (((new.price!=old.price) or (new.qtty!=old.qtty)) and (old.price!=0))
-  begin
-  update price set diff =  new.price-old.price, pricetime = strftime('%Y-%m-%dT%H:%M:%S', 'now','localtime') where id = new.id;
-  insert into strgprice (item, prbidask, qtty, price, prtype, diff)
-    values ( new.item, new.prbidask, new.qtty, new.price, new.prtype,new.price-old.price);
-  end;
+
 CREATE TABLE taxdcm
 (
   pkey  integer primary key autoincrement, 	-- номер документу

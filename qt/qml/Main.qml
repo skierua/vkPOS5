@@ -1,8 +1,8 @@
 import QtCore
 import QtQuick
-// import QtQuick.Controls
+import QtQuick.Controls
+// import QtQuick.Controls.Fusion   // best
 // import QtQuick.Controls.Basic
-import QtQuick.Controls.Fusion
 // import QtQuick.Controls.Material
 //import QtQuick.Controls.Universal
 import QtQuick.Layouts
@@ -11,13 +11,17 @@ import "../lib.js" as Lib
 import "../libREST.js" as REST
 import "../libTAX.js" as CashDesk
 
+// TEST
+// import "js/sqlItem.js" as LibItem
+// import "js/sqlAcnt.js" as LibAcnt
+
 import com.print 1.0
 import com.singleton.dbdriver4 1.0
 
 ApplicationWindow {
     id: root
     visible: true
-    title: String("vkPOS5#%1").arg("2.12")
+    title: String("vkPOS5#%1").arg("2.20")
 
     // property string pathToDb: "/data/"
     property string dbname: ''
@@ -26,18 +30,18 @@ ApplicationWindow {
             Db.setDbParameter(dbname);
             root.crntShift = Lib.crntShift(Db)
             root.acnts = Lib.getAcntSettings(Db)
+            bindCheckAction.trigger()
 
             Prn.setTerm(root.term)
             Prn.setUser(crntShift.cshrname)
             Prn.setCheck(root.checkPrintDcm)
 
-            if (bindContainer.depth){
-                bindContainer.currentItem.dfltClient = Lib.getClient(Db)
-                bindContainer.currentItem.cashAcnt = Lib.getAccount(Db,acnts.cash)
-                bindContainer.currentItem.dfltAcnt = Lib.getAccount(Db)
-                bindContainer.currentItem.startBind()
+            if (stack.count > 0){
+                stack.children[stack.currentIndex].dfltClient = Lib.getClient(Db)
+                stack.children[stack.currentIndex].cashAcnt = Lib.getAccount(Db,acnts.cash)
+                stack.children[stack.currentIndex].dfltAcnt = Lib.getAccount(Db)
+                stack.children[stack.currentIndex].startBind()
             }
-            // Lib.log("#72g dfltAcnt="+JSON.stringify(bindContainer.currentItem.dfltAcnt))
 
             if (root.crntShift.shftend !== '') {   // shift is closed
                 // Lib.log("222 here")
@@ -137,21 +141,11 @@ ApplicationWindow {
         id: activateBind
         Action{
             id: croot
-            property string ctext
             property int cindex
             text: croot.ctext
-            onTriggered: {
-                if (cindex === bindContainer.depth -1) return;
-                let list = []
-                // dbg("STA cindex=" + cindex +" container count="+ bindContainer.depth + " list.count=" + list.length, "#333")
-                while (bindContainer.depth > croot.cindex +1) list[list.length] = bindContainer.pop()
-                list.reverse()
-                list[list.length] = bindContainer.pop()
-                // dbg("MID cindex=" + cindex +" container count="+ bindContainer.depth + " list.count=" + list.length, "#333")
-                for (let i =0; i < list.length; ++i) {bindContainer.push(list[i]); }
-                // dbg("END cindex=" + cindex +" container count="+ bindContainer.depth + " list.count=" + list.length, "#333")
-            }
+            onTriggered:  stack.currentIndex = cindex
         }
+
     }
 
     Action {
@@ -164,15 +158,22 @@ ApplicationWindow {
         }
     }
 
- /*   Action {
+    Action {
         id: testAction
         text: "TEST"
+        checkable: true
+        checked: testLoader.active
 //        icon.name: "edit-copy"
 //        shortcut: StandardKey.Copy
         onTriggered: {
-            Lib.log(Lib.ttest(Db))
+            testLoader.active = checked;
+            // LibAcnt.dbBalance(Db, "substr(acntno,1,3)='300'")
+            // const a = LibItem.getItemById(Db, "200023")
+            // const a = LibItem.getItemById(Db, "")
+            // Lib.log("#w93 a=" + JSON.stringify(a))
+            // LibItem.fillFolderCache(Db)
         }
-    } */
+    }
 
 
     function closeChildWindow(){
@@ -202,8 +203,6 @@ ApplicationWindow {
         text: "Новий Чек"        //qsTr("Check")
         onTriggered: {
             actionBind.trigger(bindCheckAction)
-            bindContainer.currentItem.forceActiveFocus()
-            // bindContainer.currentItem.startBind()
         }
     }
 
@@ -214,7 +213,6 @@ ApplicationWindow {
         text: "Нова Фактура"
         onTriggered: {
             actionBind.trigger(bindFactureAction)
-            // bindContainer.currentItem.startBind()
         }
     }
 
@@ -229,7 +227,80 @@ ApplicationWindow {
     Action {
         id: actionBind
         onTriggered: (source) => {
+                        const component = Qt.createComponent("Bind.qml");
+                        if (component.status === Component.Ready) {
+                            const newObj = component.createObject(stack,
+                                {
+                                      dbDriver: Db,
+                                      funcRESTUpload: (jbind) => {
+                                          if (isOnline()) REST.uploadBindTran(root.term, root.term, jbind, Lib.uploadAcnt(Db, true).rows,
+                                                               (err) =>{ if (err !== null) logView.append("[uploadBindTran] " + err, 0); })
+                                       },
+                                       funcFiscalizate: (bindid) =>{
+                                          if (!isTaxMode()) {
+                                               logView("Fiscalization is unsupported", 1)
+                                               return
+                                          }
+                                          let jbind = Lib.cdtaxFromBind(Db, bindid)
+                                          if (!jbind) {
+                                              logView("Fiscalization local error", 0)
+                                              return
+                                          }
+                                          CashDesk.sale(jbind, (err, resp) =>{
+                                                            if (err) {
+                                                                logView("Fiscalization server error", 0)
+                                                                if (taxServiceLoader.active) taxServiceLoader.item.newMessage(
+                                                                    "SALE", "Fiscalization server error", "error")
+                                                            } else {
+                                                                if (taxServiceLoader.active) taxServiceLoader.item.newMessage(
+                                                                    "SALE", JSON.stringify(resp), "info")
+                                                            }
+                                                        }
+                                                            )
+                                      },
+                                        acnts: root.acnts,
+                                        funcLog: (text, logid =2) => { logView.append("[Bind] " + text, logid); },
+                                        allowTax: isTaxMode(),
+                                        printDcm: root.checkPrintDcm,
+                                        autoPrint: root.checkAutoPrint,
+                                        dfltAmnt: source.dfltAmnt,
+                                        dfltClient: Lib.getClient(Db),
+                                        cashAcnt: Lib.getAccount(Db,acnts.cash),
+                                        dfltAcnt: Lib.getAccount(Db),
+                                        state: source.code
+                                });
+                            // newObj.acnts = root.acnts
+                            // newObj.dfltAmnt = source.dfltAmnt
+                            // newObj.dfltClient = Lib.getClient(Db)
+                            // newObj.cashAcnt = Lib.getAccount(Db,acnts.cash)
+                            // newObj.dfltAcnt = Lib.getAccount(Db)
+                            newObj.vkEvent.connect( (id, param)=>{
+                                 if (id === 'drawer'){
+                                     drawer2Right.open();
+                                 } else if (id === 'find'){
+                                     selectPopup.code = param[0].mask === "0" ? "client" : "article"
+                                     selectPopup.jsdata = param
+                                     selectPopup.open()
+                                 } else if (id === 'creditAcntClicked'){
+                                     selectPopup.code = "acntno"
+                                     selectPopup.jsdata = Lib.getAcntList(Db, param.cashno, param.clid, param.mode);
+                                     // Lib.log("#34rs HERE")
+                                     selectPopup.open()
+                                 } else if (id === 'printCheck'){
+                                     Prn.saveCheck(param)
+                                     Prn.printCheck(param)
+                                 } else {
+                                     logView.append("[Bind] Bad event", 1)
+                                 }
+                            })
+                            // newObj.forceActiveFocus()
+                            newObj.startBind()
+                            stack.currentIndex = stack.count - 1;
+                        } else {
+                            Lib.log("Помилка завантаження:" + component.errorString(), "main", "EE" );
+                        }
 
+                         /*
                          bindContainer.push("Bind.qml",
                                {
                                 dbDriver: Db,
@@ -293,16 +364,27 @@ ApplicationWindow {
                         logView.append("[Bind] Bad event", 1)
                     }
                   })
-                         bindContainer.currentItem.forceActiveFocus()
+
+                bindContainer.currentItem.forceActiveFocus()
                 bindContainer.currentItem.startBind()
+                         */
         }
     }
 
     Action {
         id: removeBindAction
-        enabled: bindContainer.depth > 2
+        enabled: stack.count > 1
         text: "Видалити поточний"
-        onTriggered: bindContainer.popCurrentItem()
+        onTriggered: {
+            if (stack.count > 1) { // Залишаємо хоча б один екран
+                    const itemToRemove = stack.children[stack.currentIndex];
+
+                    stack.currentIndex--;
+
+                    itemToRemove.destroy();
+            }
+
+        }
     }
 
 
@@ -313,6 +395,14 @@ ApplicationWindow {
 //        enabled: false
         text: "Архів докум."
         onTriggered: { dcmViewLoader.active = checked; }
+    }
+
+    Action {
+        id: winBalanceAction
+        text: "Залишки"
+        checkable: true
+        checked: balanceLoader.active
+        onTriggered:  balanceLoader.active = checked;
     }
 
     Action {
@@ -330,11 +420,67 @@ ApplicationWindow {
         text: qsTr("Settings")
         onTriggered: {
             closeChildWindow()
-            if (bindContainer.depth >1) {
-                bindContainer.pop()
+
+            for (let i =0; i < stack.count; ++i ) {
+                // Lib.log(String("#w9j id=%1 codeid=%2").arg(i).arg(stack.children[i].codeid))
+                if (stack.children[i].codeid === "settings") {
+                    stack.currentIndex = i
+                    return
+                }
+            }
+            const component = Qt.createComponent("Settings.qml");
+            if (component.status === Component.Ready) {
+                const newObj = component.createObject(stack,
+                    {
+                        dfltTerminal: {term:root.term, posPrinter: root.posPrinter, checkAmnt:root.checkAmnt, checkAutoPrint:root.checkAutoPrint, checkPrintDcm: root.checkPrintDcm },
+                        dfltAcnt: { cash: root.acnts.cash, trade: root.acnts.trade, bulk: root.acnts.bulk, incas: root.acnts.incas, profit: root.acnts.profit  },
+                        dfltREST: { resthost: root.resthost, restapi: root.restapi, restuser: root.restuser, restpassword: root.restpassword, resttoken: root.resttoken },
+                        dfltCashDisc: { cdhost: root.cdhost, cdprefix: root.cdprefix, cdcash: root.cdcash, cdtoken: root.cdtoken }
+                    })
+                newObj.vkEvent.connect( (id, param) => {
+                     if (id === "saveTerminal"){
+                                               root.term = newObj.dfltTerminal.term
+                                               root.posPrinter = newObj.dfltTerminal.posPrinter
+                                               root.checkAmnt = newObj.dfltTerminal.checkAmnt
+                                               root.checkAutoPrint = newObj.dfltTerminal.checkAutoPrint
+                                               root.checkPrintDcm = newObj.dfltTerminal.checkPrintDcm
+                                           } else if (id === "saveAcnts"){
+                                                                     root.acnts = newObj.dfltAcnt
+                                                                     Db.dbUpdate("update settings set acnts = '" + JSON.stringify(newObj.dfltAcnt) + "' where rowid=1;")
+                     } else if (id === "loginREST"){
+                                               root.resthost = newObj.dfltREST.resthost
+                                               root.restapi = newObj.dfltREST.restapi
+                                               root.restuser = newObj.dfltREST.restuser
+                                               root.restpassword = newObj.dfltREST.restpassword
+                                               root.resttoken = ''
+                                               REST.login(restuser, restpassword, (err) => {
+                                                   // Lib.log("#984u token="+token);
+                                                   if (err === null){
+                                                       root.resttoken = REST.gl_token
+                                                   } else {
+                                                       logView.appenr(err, 0)
+                                                   }
+                                                   newObj.dfltREST = { resthost: root.resthost, restapi: root.restapi, restuser: root.restuser, restpassword: root.restpassword, resttoken: root.resttoken }
+                                               } )
+                     } else if (id === "saveCD"){
+                                               root.cdhost = newObj.dfltCashDisc.cdhost
+                                               root.cdprefix = newObj.dfltCashDisc.cdprefix
+                                               root.cdcash = newObj.dfltCashDisc.cdcash
+                                               root.cdtoken = newObj.dfltCashDisc.cdtoken
+                     } else {
+                         logView.append("[Bind] Bad event", 1)
+                     }
+                })
+                stack.currentIndex = stack.count - 1;
+
+            } else {
+                Lib.log("Помилка завантаження Settings.qml:" + component.errorString(), "main", "EE" );
             }
 
-            bindContainer.push("Settings.qml", {
+
+
+
+/*            bindContainer.push("Settings.qml", {
                             dfltTerminal: {term:root.term, posPrinter: root.posPrinter, checkAmnt:root.checkAmnt, checkAutoPrint:root.checkAutoPrint, checkPrintDcm: root.checkPrintDcm },
                             dfltAcnt: { cash: root.acnts.cash, trade: root.acnts.trade, bulk: root.acnts.bulk, incas: root.acnts.incas, profit: root.acnts.profit  },
                             dfltREST: { resthost: root.resthost, restapi: root.restapi, restuser: root.restuser, restpassword: root.restpassword, resttoken: root.resttoken },
@@ -377,6 +523,7 @@ ApplicationWindow {
                     // bad event
                 }
             })
+            */
         }
     }
 
@@ -422,19 +569,6 @@ ApplicationWindow {
     }
 
     Action {
-        id: actionBalancingTrade
-        text: "Збалансувати дохід"
-        onTriggered: {
-            const jbind = Lib.makeBind_balancingTrade(Db, root.acnts/*, {"url":root.resthost+root.restapi, "token": root.resttoken, "term": root.term}*/);
-            // console.log("#72h Main actionBalancingTrade " + JSON.stringify(jbind)); return;
-            const bindId = Lib.tranBind(Db, jbind);
-            if (bindId !== 0 ){
-                if (bindId !== 0 && isOnline()) REST.uploadBindTran(root.term, root.term, jbind, Lib.uploadAcnt(Db, true).rows,
-                                     (err) =>{ if (err !== null) logView.append("[uploadBindTran] " + err, 0); })        }
-            }
-    }
-
-    Action {
         id: changeDBAction
         enabled: false
         text: "Змінити БД ["+root.dbname.substring(dbname.lastIndexOf('/')+1)+"]"
@@ -460,7 +594,7 @@ ApplicationWindow {
                              item.funcOnShiftChanged = (newShift) => { root.crntShift = newShift; }
                              item.funcUploadBind = (jbind) => {
                                 if (!isOnline()){ return; }// isOnline
-                                dbg("Shift upload ...", "#w7g"); return;
+                                // dbg("Shift upload ...", "#w7g"); return;
 
 
                                 REST.uploadBindTran(root.term, root.term, jbind, Lib.uploadAcnt(Db, true).rows,
@@ -531,9 +665,39 @@ ApplicationWindow {
             function onVkEvent(id, param) {
                 if (id === "refuse"){
                     // console.log("[MAIN>DcnView] dcmid=" + param.dcmid + " pid=" + param.pid)
-                    bindContainer.currentItem.newRefused(param)
+                    stack.children[stack.currentIndex].newRefused(param)
                 }
             }
+        }
+    }
+
+    Loader{
+        id: balanceLoader
+        active: false
+        source: 'Balance.qml'
+        onActiveChanged: if (active) {
+                            item.dbDriver = Db
+                            item.visible = true
+                            item.title = String("%1(%2)").arg(root.title).arg("Balance")
+                         }
+        Connections {
+            target: balanceLoader.item
+            function onClosing() { balanceLoader.active = false ; }
+        }
+    }
+
+    Loader{
+        id: testLoader
+        active: false
+        source: 'Balance.qml'
+        onActiveChanged: if (active) {
+                            item.dbDriver = Db
+                            item.visible = true
+                            item.title = String("%1(%2)").arg(root.title).arg("Balance")
+                         }
+        Connections {
+            target: testLoader.item
+            function onClosing() { testLoader.active = false ; }
         }
     }
 
@@ -579,7 +743,9 @@ ApplicationWindow {
                              item.uri = resthost + restapi + "/rates?api_token=" + resttoken
                              item.queryData = {"term": root.term, "reqid": "sel", "shop": root.term}
                              item.dbDriver = Db
-                             item.funcCreateDcm = (atclid) => {bindContainer.currentItem.newDcm(atclid);}
+
+                             item.funcCreateDcm = (atclid) => {stack.children[stack.currentIndex].newDcm(atclid);
+                                 }
                          }
         Connections {
             target: rateLoader.item
@@ -657,16 +823,16 @@ ApplicationWindow {
                     anchors.fill: parent
                     onClicked: {
                         if (selectPopup.code==="client"){                  // client
-                            bindContainer.currentItem.crntClient = Lib.getClient(Db,id);
-                            bindContainer.currentItem.crntAcnt = Lib.getAccount(Db)
+                            stack.children[stack.currentIndex].crntClient = Lib.getClient(Db,id);
+                            stack.children[stack.currentIndex].crntAcnt = Lib.getAccount(Db)
                         } else if (selectPopup.code==="database") {        // database
                             root.dbname = id
                             // openConnection(id)
                         } else if (selectPopup.code==="acntno") {        // acntno
-                            bindContainer.currentItem.crntAcnt = Lib.getAccount(Db, id)
+                            stack.children[stack.currentIndex].crntAcnt = Lib.getAccount(Db, id)
                             // setAccount(id)
                         } else if (selectPopup.code==="article") {
-                            bindContainer.currentItem.newDcm(id)
+                            stack.children[stack.currentIndex].newDcm(id)
                         } else {
                             Lib.log("selectPopup bad code, nothing to do","Main", "EE")
                             // bad code, nothing to do
@@ -770,9 +936,11 @@ ApplicationWindow {
     }
 
 
-    StackView {
+/*    StackView {
         id: bindContainer
-        anchors.fill: parent
+        // anchors.fill: parent
+        width: 0; height: 0
+        clip: true
         initialItem: Bind{} // blank item
         // onCurrentItemChanged:  {
             // currentItem.findChild("fldMainInput").forceActiveFocus()
@@ -780,6 +948,15 @@ ApplicationWindow {
         // onDepthChanged:  {
         //     // Lib.log("#2804 bindContainer =" + depth )
         // }
+    }
+*/
+    StackLayout {
+        id: stack
+        anchors.fill: parent
+        // width: 0; height: 0
+        clip: true
+        // onCountChanged: Lib.log(String("#18g count=%1").arg(count))
+        onCurrentIndexChanged: stack.children[stack.currentIndex].forceActiveFocus()
     }
 
     LogView{
@@ -815,18 +992,22 @@ ApplicationWindow {
                         MenuItem { action: removeBindAction; }
                         MenuSeparator { padding: 5; }
                         MenuItem { action: winDcmsAction; }
+                        MenuItem { action: winBalanceAction; }
                         MenuItem { action: winClientAction; }
-                        MenuItem { action: winCashWizardAction; }
                         // MenuItem { action: winStatAction; }      // TODO
                         MenuItem { action: winRateAction; }
-                        MenuItem { action: winTaxServiceAction; }
                         MenuItem { action: winShiftAction; }
-                        MenuSeparator { padding: 5; }
-                        MenuItem { action: actionBalancingTrade; }
                         MenuSeparator {  padding: 5; }
-                        MenuItem { action: actionSetting; }
-                        MenuItem { action: changeDBAction; }
-                        // MenuItem { action: testAction; }
+                        Menu{
+                            id: serviceMenu
+                            title: "Сервіс"
+                            MenuItem { action: winCashWizardAction; }
+                            MenuSeparator {  padding: 5; }
+                            MenuItem { action: winTaxServiceAction; }
+                            MenuItem { action: changeDBAction; }
+                            MenuSeparator {  padding: 5; }
+                            MenuItem { action: actionSetting; }
+                        }
                         MenuSeparator { padding: 5; }
                         MenuItem {
                             text: "Вийти"
@@ -841,13 +1022,13 @@ ApplicationWindow {
                     horizontalAlignment: Qt.AlignHCenter
                     verticalAlignment: Qt.AlignVCenter
                     Layout.fillWidth: true
-                    text: bindContainer.currentItem.title
+                    text: stack.children[stack.currentIndex].title
                 }
                 Row {
                     id: btnClient
-                    visible: bindContainer.currentItem.crntClient !== undefined
+                    visible: stack.children[stack.currentIndex].crntClient !== undefined
                     ToolButton{
-                        text: bindContainer.currentItem.crntClient !== undefined ? bindContainer.currentItem.crntClient.name : ''
+                        text: stack.children[stack.currentIndex].crntClient !== undefined ? stack.children[stack.currentIndex].crntClient.name : ''
                         icon.source: "qrc:/icon/account.svg"
 //                        flat: true
                         onClicked: {
@@ -859,27 +1040,24 @@ ApplicationWindow {
                     ToolButton{
                         width: 32
     //                    Layout.preferredHeight: 35
-                        visible: bindContainer.currentItem.crntClient !== undefined && bindContainer.currentItem.crntClient.id !== ''
+                        visible: stack.children[stack.currentIndex].crntClient !== undefined && stack.children[stack.currentIndex].crntClient.id !== ''
                         font.pointSize: 16
                         text:"⌫"
 //                        flat: true
 //                        icon.source:"qrc:/icon/undo.svg"
                         onClicked: {
-                            bindContainer.currentItem.crntClient = Lib.getClient(Db);
+                            stack.children[stack.currentIndex].crntClient = Lib.getClient(Db);
                         }
                     }
                     Label{
-                        visible: bindContainer.currentItem.crntClient !== undefined && Math.abs(Number(bindContainer.currentItem.crntClient.bonusTotal)) >= 0.01
-    //                        Layout.preferredWidth: visible?35:0
+                        visible: stack.children[stack.currentIndex].crntClient !== undefined && Math.abs(Number(stack.children[stack.currentIndex].crntClient.bonusTotal)) >= 0.01
                         Layout.preferredHeight: 35
                         color:'slategray'
-    //                        background: Rectangle{color:'gold'}
-    //                        flat: true
-                        text: bindContainer.currentItem.crntClient !== undefined ? Number(bindContainer.currentItem.crntClient.bonusTotal).toFixed(0) : ''
+                        text: stack.children[stack.currentIndex].crntClient !== undefined ? Number(stack.children[stack.currentIndex].crntClient.bonusTotal).toFixed(0) : ''
                         MouseArea{
                             anchors.fill: parent
                             onDoubleClicked: {
-                                bindContainer.currentItem.newBonus()
+                                stack.children[stack.currentIndex].newBonus()
                             }
 
                         }
@@ -895,8 +1073,7 @@ ApplicationWindow {
 
                     Menu{
                         id: batchMenu
-                        title: "Пакетне додавання"
-                        // MenuItem{ action: bindContainer.currentItem.incasToBulkAction; }
+                        title: "Додатково"
                     }
 
                     Menu{
@@ -907,15 +1084,14 @@ ApplicationWindow {
                             // dbg("contextMenu_toolbtn vsbl="+ visible, "#72js")
                             let i =0
                             if (visible){
-                                if (bindContainer.currentItem.vkContextActions !== undefined){
-                                      for (i =0; i < bindContainer.currentItem.vkContextActions.length; ++i){
-                                          contextMenu.addAction(bindContainer.currentItem.vkContextActions[i])
+                                if (stack.children[stack.currentIndex].vkContextActions !== undefined){
+                                      for (i =0; i < stack.children[stack.currentIndex].vkContextActions.length; ++i){
+                                          contextMenu.addAction(stack.children[stack.currentIndex].vkContextActions[i])
                                       }
                                 }
-                                if (bindContainer.currentItem.vkBatchActions !== undefined
-                                        && bindContainer.currentItem.state === ""){
-                                    for (i =0; i < bindContainer.currentItem.vkBatchActions.length; ++i){
-                                        batchMenu.addAction(bindContainer.currentItem.vkBatchActions[i])
+                                if (stack.children[stack.currentIndex].vkBatchActions !== undefined){
+                                    for (i =0; i < stack.children[stack.currentIndex].vkBatchActions.length; ++i){
+                                        batchMenu.addAction(stack.children[stack.currentIndex].vkBatchActions[i])
                                     }
                                     contextMenu.addMenu(batchMenu)
                                 }
@@ -923,17 +1099,27 @@ ApplicationWindow {
                                 contextMenu.addItem( Qt.createQmlObject('import QtQuick.Controls; MenuSeparator {}',
                                                                                               contextMenu.contentItem,
                                                                                               "dynamicSeparator") )
-                                for (i = bindContainer.depth -1; i > 0; --i){
-                                    // dbg(bindContainer.get(i, StackView.DontLoad).title, "#34gs")
-                                    contextMenu.addAction(activateBind.createObject(contextMenu
-                                                                                  ,{ cindex: i
-                                                                                    , ctext: String("%1. %2 (%3грн/%4)")
-                                                                                        .arg(bindContainer.depth - i)
-                                                                                        .arg(bindContainer.get(i, StackView.DontLoad).title)
-                                                                                        .arg(bindContainer.get(i, StackView.DontLoad).total)
-                                                                                        .arg(bindContainer.get(i, StackView.DontLoad).count)
+                                for (i =0; i < stack.count; ++i) {
+                                    contextMenu.addAction(activateBind.createObject(contextMenu,
+                                                                                    { cindex: i,
+                                                                                      text: String(i === stack.currentIndex ? "<b>%1. %2</b>" : "%1. %2").arg(i).arg(stack.children[i].textForMenu())
                                                                                     }))
+
                                 }
+/*
+                                // for (i = bindContainer.depth -1; i > 0; --i){
+                                //     // dbg(bindContainer.get(i, StackView.DontLoad).title, "#34gs")
+                                //     contextMenu.addAction(activateBind.createObject(contextMenu
+                                //                                                   ,{ cindex: i
+                                //                                                     , ctext: String("%1. %2")
+                                //                                                         .arg(bindContainer.depth - i)
+                                //                                                         .arg(bindContainer.get(i, StackView.DontLoad).textForMenu())
+                                //                                                         // .arg(bindContainer.get(i, StackView.DontLoad).title)
+                                //                                                         // .arg(bindContainer.get(i, StackView.DontLoad).total)
+                                //                                                         // .arg(bindContainer.get(i, StackView.DontLoad).count)
+                                //                                                     }))
+                                // }
+                                */
                             } else {
                                 for (i =batchMenu.count -1; i >=0; --i) batchMenu.removeItem(batchMenu.itemAt(i))
                                 for (i =contextMenu.count -1; i >=0; --i) contextMenu.removeItem(contextMenu.itemAt(i))
@@ -976,7 +1162,7 @@ ApplicationWindow {
         // console.log("env=")
         // console.log(applicationDirPath)
         // console.log("+++")
-        bindCheckAction.trigger()
+        // bindCheckAction.trigger()
         if (resthost != undefined && resthost != "") {
             actionLogin.trigger();
         }

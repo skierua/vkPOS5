@@ -13,6 +13,7 @@ Item {
     property string codeid: "bind"
     property var dbDriver                 // DataBase driver
     property var acnts
+    onAcntsChanged: incasToBulkAction.enabled &= (acnts.bulk !== undefined && acnts.bulk !== "")
 
     property list<Action> vkContextActions: [
         uahToAcntAction,
@@ -21,6 +22,7 @@ Item {
     ]
 
     property list<Action> vkBatchActions: [
+        actionBalancingTrade,
         incasToBulkAction
     ]
     // property list<MenuItem> vkContextItems: [
@@ -122,6 +124,7 @@ Item {
         console.log( String("%1[Bind.qml] %2").arg(code).arg(str));
     }
 
+    function textForMenu() { return String("%1 (%2грн/%3)").arg(root.title).arg(root.total).arg(root.count); }
 
     ModelBind{
         id: dataModel
@@ -158,41 +161,33 @@ Item {
     }
 
     Action {
-        id: incasToBulkAction
-        enabled: root.state === ""
-        text: "ТОРГІВЛЯ на ГУРТ"
-        onTriggered: {
-            newBatchIncasToBalk()
-        }
-    }
-
-    Action {
         id: drawerAction
         icon.source: "qrc:/icon/drawer.svg"
         onTriggered: {vkEvent("drawer", "")}
     }
 
-
-/*    Action {
-        id: checkAction
-        enabled: !bindView.model.count
-        text: "Чек"
-        onTriggered: { root.state = '' }
+    Action {
+        id: incasToBulkAction
+        enabled: root.state === ""
+        text: "ТОРГІВЛЯ на ГУРТ"
+        onTriggered: {
+            newBatchIncasToBulk()
+        }
     }
 
     Action {
-        id: factureAction
-        enabled: !bindView.model.count
-        text: "Фактура"
-        onTriggered: { root.state = 'facture' }
+        id: actionBalancingTrade
+        enabled: root.state === ""
+        text: "Збалансувати дохід"
+        onTriggered: {
+            const jbind = Lib.makeBind_balancingTrade(dbDriver, root.acnts);
+            // Lib.log(JSON.stringify(jbind), "Bind.qml/actionBalancingTrade", "EE");
+            for (let i =0; i < jbind.dcms.length; ++i){
+                if (!dataModel.addMemo(dbDriver, jbind.dcms[i]))
+                    Lib.log(dataModel.lastError, "Bind.qml/actionBalancingTrade", "EE")
+            }
+        }
     }
-
-    Action {
-        id: taxcheckAction
-        enabled: root.allowTax && !bindView.model.count
-        text: "Фіскальний чек"
-        onTriggered: { root.state = 'taxcheck' }
-    } */
 
     function startNewRow() {
         dataModel.recalculate()
@@ -277,7 +272,7 @@ Item {
         startNewRow();
     }
 
-    function newBatchIncasToBalk(){
+    function newBatchIncasToBulk(){
         const jdata = Lib.getIncas(root.dbDriver)
         if (!jdata.length) { // nothing to do
             funcLog("Немає документів для інкасації", 1)
@@ -567,11 +562,14 @@ Item {
 
         RowLayout {
             Layout.fillWidth: true
+            Layout.preferredHeight: 50
+            spacing: 10
             Button{
                 id: btnAmnt
-                Layout.preferredWidth: 32   //parent.height
-                Layout.preferredHeight: 32   //parent.height
-                font.pointSize: 30
+                Layout.preferredWidth: 40   //parent.height
+                Layout.preferredHeight: 40   //parent.height
+                font.pixelSize: 30
+                // font.bold: true
                 text: Number(crntAmnt) < 0 ? '-' : '+'
 //                    icon {name:"add"; source:"qrc:/icon/add.svg"}
                 onClicked: {crntAmnt = -1 * Number(crntAmnt); fldMainInput.forceActiveFocus()}
@@ -621,6 +619,9 @@ Item {
                 }
 
                 Button{
+                    Layout.preferredWidth: 35
+                    Layout.preferredHeight: 35
+                    font.pixelSize: 16
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     visible: crntAcnt !== undefined && (Number(crntAcnt.mask)&1) == 1
@@ -629,20 +630,25 @@ Item {
                 }
             }
 
-            Row{
-                spacing: 0
+            RowLayout{
+                spacing: 5
                 Button{
                     id: btnCreditAcnt
+                    // Layout.preferredWidth: 40
+                    Layout.preferredHeight: 40
+                    font.pixelSize: 18
                     text: (crntAcnt !== undefined && crntAcnt.note !== "") ? crntAcnt.note : crntAcnt.name   // 'ТОРГІВЛЯ'
     //                visible: crntAcnt.trade === '0'
                     onClicked: vkEvent('creditAcntClicked', {cashno:cashAcnt.acntno, clid:crntClient.id, mode:''})
                 }
                 Button{
                     id: btnReturnToTrade
-                    width: 32
-//                            Layout.preferredHeight: 32
+                    Layout.preferredWidth: 40
+                    Layout.preferredHeight: 40
+                    font.pixelSize: 20
                     visible: crntAcnt !== undefined && (crntAcnt.acntno).substring(0,2) !== '35' //crntAcnt.trade === '0'
-                    icon {name:'undo'; source: "qrc:/icon/undo.svg"}
+                    text: "⌫"
+                    // icon {name:'undo'; source: "qrc:/icon/undo.svg"}
                     onClicked: root.crntAcnt = Lib.getAccount(dbDriver);  // vkEvent('crntAcntToTrade', "")
                 }
             }
