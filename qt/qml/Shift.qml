@@ -20,7 +20,7 @@ Window {
         // vshift = Lib.crntShift(dbDriver)
         // dbg(JSON.stringify(vshift, "#25fj"))
         vcashiers = Lib.getSQLData(dbDriver,"select '' code, ' без касира' note, '' psw union select code, note, psw from cashier order by note;")
-        vpopulate(Lib.getIncas(dbDriver))
+        populateIncas()
 
     }
     property var funcUploadBind     // (jbind)
@@ -30,6 +30,7 @@ Window {
     // property Menu vkContentMenu: Menu{
     // }
     property var acnts
+    onAcntsChanged: root.toBulk = (acnts.bulk !== undefined && acnts.bulk !== "")
     property var vshift //: { "id":0,"cshr":"","cshrname":"","errid":1,"errname":"","shftbegin":"","shftdate":"","shftend":""}
         onVshiftChanged: {
             if (vshift.shftend === ""){
@@ -60,8 +61,12 @@ Window {
         console.log( String("%1[Shift] %2").arg(code).arg(str));
     }
 
-    function vpopulate( vtrades) {
+    function populateIncas() {
         vw.model.clear()
+        // console.log(String("Shift/vpopulate#q7y %1").arg(JSON.stringify(vtrades)))
+        if (!root.toBulk) return
+
+        const vtrades = Lib.getIncas(dbDriver)
         let vam = 0
         for (let r =0; vtrades !=='' && r < vtrades.length; ++r){
             vw.model.append(vtrades[r])
@@ -78,11 +83,15 @@ Window {
             funcOnShiftChanged(root.vshift)
             if (isNewMonth && root.acnts.profit !== undefined &&  root.acnts.profit !== ""){
                 const jbind = Lib.makeBind_balancingTrade(dbDriver, root.acnts);
-                const bindId = Lib.tranBind(dbDriver, jbind);
-                if (bindId !== 0 ){
-                    root.funcUploadBind(jbind)
-                } else {
-                    // TODO error
+                if (jbind.dcms.length > 0) {
+                    const bindId = Lib.tranBind(dbDriver, jbind);
+                    if (bindId !== 0 ){
+                        root.funcUploadBind(jbind)
+                    } else {
+                        // TODO error
+                        Lib.log(String("Transaction error. Bind:\n%1").arg(JSON.stringify(jbind)), "Shift.qml", "EE")
+                    }
+
                 }
             }
             funcUploadBalace()
@@ -115,7 +124,7 @@ Window {
         } else {
             // TODO error
         }
-        vpopulate(Lib.getIncas(dbDriver))
+        populateIncas()
     }
 
     Action{
@@ -137,7 +146,7 @@ Window {
     Action{
         id: incasAction
         text: "Зарахувати на ГУРТ"
-        enabled: vw.amntTotal > 0.5
+        enabled: vw.amntTotal > 0.5 && root.toBulk
         onTriggered: { shIncas(); }
     }
 
@@ -381,10 +390,6 @@ Window {
                     }
                     Button{
                         action: closeAction
-                        // text: "Закрити зміну"
-                        // // visible: false
-                        // enabled: vw.amntTotal < 1 || !root.toBulk
-                        // onClicked: vkEvent('shift.close', {"shid":shid.text,"shdate":shdate.text, "cshr":cmb.currentValue});
                     }
                     Button{
                         visible: root.toBulk

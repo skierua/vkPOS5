@@ -168,6 +168,37 @@ ListModel {
         return true
     }
 
+    // dcm stru {"dcm":"memo","dbt":acnts.cash,"cdt":jsrow.rows[r].acntno,"crn":"","amnt":Number(jsrow.rows[r].amnt).toFixed(2),"eq":"0","dsc":"0","bns":"0","note":"","retfor":""}
+    function addMemo(db, dcm){
+        const datcl = Lib.getArticle(db, dcm.crn)
+        const dacnt = Lib.getAccount(db, dcm.cdt)
+        const damnt = Number(dcm.amnt)
+        const dtag = ""
+        if (!isCorrect(datcl, dacnt, dcm.dcm, damnt)){
+            lastError = String("Unsupported document parameters.\n%1").arg(JSON.stringify(dcm))
+            return false
+        }
+
+        insert(0,
+            {
+                "dsign": damnt < 0 ? -1 : 1,
+                "dcode": dcm.dcm,
+                "darticle": datcl,
+                "dacnt": dacnt,
+                "damnt": Math.abs(Number(damnt)),
+                "dsubName":"#"+datcl.id + (Number(dacnt.trade) === 0 ? (" ["+dacnt.acntno+"/"+dacnt.note+"]") : "") + dtag,
+                "dnote": dcm.note + dtag,
+                "dprice": 0,
+                "ddsc": 0,
+                "dbns": 0,
+                "dpratt": 0,
+                "drate": root.rate,
+                "retfor": ""
+            }
+        )
+        return true
+    }
+
     function resolveCode(atcl, acnt, amnt){
         let res = ""
         if (acnt.trade === "0") {

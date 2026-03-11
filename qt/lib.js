@@ -7,11 +7,14 @@ function version() { return "1.5*";}
 
 const glBonusPrefix = "3800";
 const glDomesticCrn = "980";
+const zero = 0.0000001
+
 
 function log(vstring, vmodule, vtype) {
     if (vtype === undefined) { vtype = 'II'}
     if (vmodule === undefined) { vmodule = '???main.qml'}
-    console.log(String("%1[%2]: %3").arg(vtype).arg(vmodule).arg(vstring))
+    if (vtype === "EE") console.error(String("%1[%2]: %3").arg(vtype).arg(vmodule).arg(vstring))
+    else console.log(String("%1[%2]: %3").arg(vtype).arg(vmodule).arg(vstring))
 }
 
 function ttest(db){ // clear duccent data
@@ -148,9 +151,11 @@ function getIncas(db) {
                         +"bscprice, qtty as qty, price, 0-(acnt.beginamnt+acnt.turndbt-acnt.turncdt) amnt, (acnt.beginamnt+acnt.turndbt-acnt.turncdt) incas, (eq.beginamnt+eq.turndbt-eq.turncdt) as eqamnt, "
                         +"round(0-(acnt.beginamnt+acnt.turndbt-acnt.turncdt) * bscprice - (eq.beginamnt+eq.turndbt-eq.turncdt),2) as profit "
                         +"from  acntrade join acnt on (acntrade.pkey = acnt.id) left join price using(item) join item on (acnt.item=item.pkey) join acnt as eq "
-                        +"on (('eqvl.'||acntrade.acntno||'/'||acntrade.article) = eq.acntno) where substr(acnt.acntno,1,4)='3500' and prbidask=1 and itemmask=2 AND amnt!=0 AND eqamnt!=0 "
+                        +"on (('eqvl.'||acntrade.acntno||'/'||acntrade.article) = eq.acntno) where substr(acnt.acntno,1,4)='3500' and prbidask=1"
+                        + " AND (prtype IS NULL OR prtype='') and itemmask=2 AND amnt!=0 AND eqamnt!=0 "
                         +"order by acnt.acntno,itemnote;")
     const jdata = parse(db.dbSelectRows(vsql));
+    // console.log(("lib.js/getIncas#2w5 vsql=%1").arg(vsql))
     // console.log("#235 article="+JSON.stringify(jdata.rows))
     if (jdata){ return jdata.rows; }
     return [];
@@ -159,14 +164,15 @@ function getIncas(db) {
 function getAccount(db, vno) {
     let vsql = "select acntno, coalesce(pkey,'') as clid, coalesce(clchar, '') as clname, coalesce(acntnote,balname,'') as note, mask, clnote, acntbal.trade as trade, balname as name "
     vsql += "from acntbal left join client on (pkey=client) left join balname on (substr(acntno,1,2)=bal) ";
-    let ret = { "acntno":"", "clid":"", "clname":"", "note":"", "mask":"", "clnote":"", "trade":"", "name":"" };
+    let ret = { "acntno": vno, "clid":"", "clname":"", "note":"", "mask":"1", "clnote":"", "trade":"", "name":"" };
     var jdata = ({})
     vsql += ((vno === undefined || vno === '')
                  ? (" where acntbal.trade=1 and mask!=0 order by acntno")
                  : (" where acntno='"+vno+"' order by acntno"))
     jdata = parse(db.dbSelectRows(vsql));
     // log("no="+(vno || '')+"  "+JSON.stringify(jdata))
-    return (jdata && jdata.rows.length) ? jdata.rows[0] : { "acntno":"", "clid":"", "clname":"", "note":"", "mask":"", "clnote":"", "trade":"", "name":"" };
+    return (jdata && jdata.rows.length) ? jdata.rows[0] : ret;
+    // return (jdata && jdata.rows.length) ? jdata.rows[0] : { "acntno":"", "clid":"", "clname":"", "note":"", "mask":"", "clnote":"", "trade":"", "name":"" };
 }
 
 
@@ -196,7 +202,7 @@ function getAcntSettings(db) {
     //     // Lib.log('#671g acnts='+va.acnts)
         const aa = parse(va.acnts)
         if(aa) {
-            return aa;/* Lib.log('#671g acnts='+JSON.stringify(root.acnts));*/}
+            return aa;  /* Lib.log('#671g acnts='+JSON.stringify(root.acnts));*/}
         else {
             log('JSON.parse error acnt=' + JSON.stringify(va),'lib getAcntSettings', 'EE');
         }
@@ -638,10 +644,11 @@ function makeBind_balancingTrade(db, acnts){
     // for testing only START !!!
     // jsrow = [{"acntno":"rslt.3500/840","amnt":"55.11"},{"acntno":"rslt.3500/978","amnt":"-66.2"}]
     // for testing only FINISH !!!
-
-    const jsrow = parse(db.dbSelectRows("select acntno, beginamnt+turndbt-turncdt as amnt from acnt where substr(acntno,1,4)='rslt' and amnt!=0;"))
+    const vsql = String("select acntno, beginamnt+turndbt-turncdt as amnt from acnt where substr(acntno,1,4)='rslt' AND ABS(amnt)>%1;").arg(zero)
+    const jsrow = parse(db.dbSelectRows(vsql))
     // if (!jsrow){ log('balancingTrade #32gt JSON.parse error','lib balancingTrade', 'EE' ); return; }
     // if (!jsrow.rows.length) { log('balancingTrade #1e2 Nothing to do','lib balancingTrade', 'II' ); return; }
+    // log(String("vsql=%1\njsrow=").arg(vsql).arg(jsrow), "lib.js/makeBind_balancingTrade#1e2"); return;
 
     vj = {"id":"dcmbind","dcm":"folder","dbt":"profit","cdt":"blnc","amnt":"0","eq":"0","dsc":"0","bns":"0","note":"rslt>profit", "clnt":"","cshr":"", "dcms":[]}
     total = 0
@@ -717,12 +724,12 @@ function makeBind_reval(db, cshr ){
 
 
 function isIncas(db, acnts) {
-  // log(JSON.stringify(acnts) )
+  // log(JSON.stringify(acnts), "lib.js/isIncas" )
   // log(JSON.parse(acnts) )
     if (acnts.bulk === undefined || acnts.bulk === "") { return false; }
     let vsql = "select sum(abs(beginamnt+turndbt-turncdt)) as total from acnt where acntno='3500';";
     let vj = parse(db.dbSelectRows(vsql));
-    // log(JSON.stringify(vj) )
+    log(JSON.stringify(vj) )
     if (vj && vj.rows.length){
        // log("#e8u isIncas="+(vj.rows[0].total>0))
         return (Number(vj.rows[0].total) > 0);
