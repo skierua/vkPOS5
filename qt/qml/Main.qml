@@ -21,7 +21,7 @@ import com.singleton.dbdriver4 1.0
 ApplicationWindow {
     id: root
     visible: true
-    title: String("vkPOS5#%1").arg("2.20")
+    title: String("vkPOS5#%1").arg("2.21")
 
     // property string pathToDb: "/data/"
     property string dbname: ''
