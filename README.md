@@ -1,40 +1,28 @@
-# vkPOS5
-POS terminal.
+# POS Terminal
 
-Працює у Linux | Windows | MacOS
+Works on **Linux | Windows | MacOS**
 
-Компілювання та тестування проводилось у середовищі Qt 6.10
+### Technical Stack
+- **Framework:** Compiled and tested using **Qt 6.10**
+- **Local Database:** **SQLite3** for data storage
 
-Однокористувацький POS термінал для обслуговування клієнтів.
+### Key Features
+- **Single-user POS terminal** for customer service.
+- **Cloud Integration:** Supports data exchange with cloud services for online monitoring.
+- **Printing:** Generates non-fiscal receipts and invoices.
+- **Document Format:** All printable documents are generated as **.pdf**.
+- **Fiscalization:** Includes optional integration with the **CashDesk** service.
+- **Ready to Use:** Can be deployed for currency exchange offices out-of-the-box (without fiscalization).
 
-Надає можливість обміну даними з Cloud-сервісом для on-line моніторингу 
+### Retail Requirements
+To use this terminal in a retail store environment, the following modules are required:
+*   **vkArticle:** Products/items management (adding, naming, monitoring).
+*   **vkRater:** Pricing, discounts, and promotions (setup and monitoring).
 
-Local Database for storage - SQLite3.
-
-Друкує не фіскальні чеки та накладні.
-
-Формат документів для друку - .pdf.
-
-Включає можливість фіскалізації через сервіс CashDesk.
-
-Готовий для використання в обмінному пункті без фіскалізації.
-
-Для використання в магазині додатково потрібні      
-- vkArticle товари/артикули (додавання, найменування, моніторинг)    
-- vkRater ціни, знижки, акції (встановлення, моніторинг)
-
-Робочий каталог для Linux | Windows
-
+### Directory Structure
+For **Linux** and **Windows**, the working directory structure is:
+```text
 ./
-
- app
-
- /data/
- 
- /report/
- 
-Для MacOS використовується bundle, який в собі містить таку ж структуро робочого каталогу
-
-
-Issuases
-- при додаванні нового елементу(Новий Чек|Фактура|ФІСК.чек) до StackView фокус вводу залишається(або переводиться) у попередньому елементі контейнера після закінчення Transition
+└── app/
+    ├── data/
+    └── report/
