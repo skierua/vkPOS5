@@ -10,23 +10,12 @@ Window {
 
     property var dbDriver                 // DataBase driver
     onDbDriverChanged: {
-        loadAction.trigger()
+        // loadAction.trigger()
     }
     property real zero: 0.0000001
 
     function dbg(str, code ="") {
-        console.log( String("%1[Balance] %2").arg(code).arg(str));
-    }
-
-    function humanDate(vdate) {
-        var vtmp = Date()
-        var vdiff = Math.floor(((new Date().getTime())-(new Date(String(vdate).substring(0,10)).getTime()))/(1000*60*60*24))
-        if (vdiff === 0) { return vdate.substring(11,16) // Qt.formatDate(new Date(vdate), 'hh:mm')
-        } else if (vdiff === 1) { return 'вч '+vdate.substring(11,16)  //Qt.formatDate(new Date(vdate), 'вч hh:mm')
-        // } else if (vdiff < 8) { return Math.floor(((new Date().getTime())-(new Date(String(vdate).substring(0,10)).getTime()))/(1000*60*60*24))+' дн.'
-        } else if (vdiff < 360) { return Qt.formatDate(new Date(vdate), 'dd MMM')
-        } else { return Qt.formatDate(new Date(vdate), 'MMM yy'); /*String(vdate).substring(0,10);*/ }
-
+        console.log( String("[Balance.qml]#%1 %2").arg(code).arg(str));
     }
 
     Action {
@@ -41,7 +30,9 @@ Window {
 
     Action {
         id: nextAction
-        enabled: vw.model !== null && Number(vcrntEdit.text) < vw.model.pager.length +1
+        enabled: vw.model !== null
+                 && vw.model.data !== undefined
+                 && Number(vcrntEdit.text) < Math.ceil(vw.model.data.length / vw.model.pageCapacity)
         text: "❯"
         onTriggered: {
             vcrntEdit.text = Number(vcrntEdit.text) +1
@@ -49,30 +40,334 @@ Window {
         }
     }
 
+
     Action {
-        id: loadAction
-        icon.source:"qrc:/icon/reload.svg"
+        id: loadStockAction
+        text: qsTr("Stock")
         onTriggered: {
-            vfilterEdit.text = ""
-            // console.log(String("Balance/loadAction \n%1\n%2").arg(cmbBal.currentValue).arg(cmbSort.currentValue))
-            vw.model.load(root.dbDriver,cmbBal.currentValue, cmbSort.currentValue)
+            // vfilterEdit.text = ""
+            headerTitle.text = text
+            vw.balAcnt = "300"
+            vw.load()
         }
+    }
+
+    Action {
+        id: loadBrackAction
+        text: qsTr("Brack")
+        onTriggered: {
+            // vfilterEdit.text = ""
+            headerTitle.text = text
+            vw.balAcnt = "302"
+            vw.load()
+        }
+    }
+
+    Action {
+        id: loadTradeAction
+        text: qsTr("TRADE")
+        onTriggered: {
+            // vfilterEdit.text = ""
+            headerTitle.text = text
+            vw.balAcnt = "3500"
+            vw.load()
+        }
+    }
+
+    Action {
+        id: loadBulkAction
+        text: qsTr("BULK")
+        onTriggered: {
+            // vfilterEdit.text = ""
+            headerTitle.text = text
+            vw.balAcnt = "3501"
+            vw.load()
+        }
+    }
+
+    Action {
+        id: sortAction
+        onTriggered: source => {
+            vw.sortOrder = source.order
+            vw.load()
+        }
+    }
+
+    Action {
+        id: sortByIdAction
+        property string order: "id"
+        text: qsTr("Sort by ID")
+        onTriggered: sortAction.trigger(sortByIdAction)
+    }
+
+    Action {
+        id: sortByNameAction
+        property string order: "name"
+        text: qsTr("Sort by name")
+        onTriggered: sortAction.trigger(sortByNameAction)
+    }
+
+    Action {
+        id: sortByCostAction
+        property string order: "cost"
+        text: qsTr("Sort by cost")
+        onTriggered: sortAction.trigger(sortByCostAction)
+    }
+
+    Action {
+        id: sortByDateinAction
+        property string order: "datein"
+        text: qsTr("Sort by income date")
+        onTriggered: sortAction.trigger(sortByDateinAction)
+    }
+
+    Action {
+        id: sortByDateoutAction
+        property string order: "dateout"
+        text: qsTr("Sort by outcome date")
+        onTriggered: sortAction.trigger(sortByDateoutAction)
     }
 
     ModelBalance{
         id: dataModel
     }
 
+
+    Component {
+        id: vwHeader
+        Rectangle{
+            id : root
+            width: root.ListView.view.width //childrenRect.width;
+            height: 30
+            opacity: 0.7
+            RowLayout{
+                anchors{fill:parent}
+                spacing: 5
+                Item{
+                    // color:"orange"
+                    Layout.preferredWidth: 60
+                    Layout.fillHeight: true
+                    Row{
+                        anchors{centerIn: parent}
+                        // anchors.horizontalCenter: parent.horizontalCenter
+                        // anchors.verticalCenter: parent.verticalCenter
+                        Label{
+                            text: "ID"
+                            // background: Rectangle{color:"khaki"}
+                        }
+                        ToolButton{
+                            width: 20
+                            height: 20
+                            visible: root.ListView.view.sortOrder === "id"
+                            text:"↑"
+                        }
+
+                    }
+                    MouseArea{
+                        anchors.fill: parent
+                        onDoubleClicked: root.ListView.view.sortOrder = "id"
+                    }
+                }
+                Item{
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Row{
+                        anchors{centerIn: parent}
+                        Label{
+                            text: qsTr("NAME")
+                        }
+                        ToolButton{
+                            width: 20
+                            height: 20
+                            visible: root.ListView.view.sortOrder === "name"
+                            text:"↑"
+                        }
+
+                    }
+                    MouseArea{
+                        anchors.fill: parent
+                        onDoubleClicked: root.ListView.view.sortOrder = "name"
+                    }
+                }
+
+                Label{
+                    Layout.preferredWidth: 60
+                    horizontalAlignment: Text.AlignHCenter
+                    text: "QTY"
+                    // font.bold: true
+                    // background: Rectangle{color:"khaki"}
+                }
+                Label{
+                    Layout.preferredWidth: 60
+                    horizontalAlignment: Text.AlignHCenter
+                    text: "PRICE"
+                    MouseArea{
+                        anchors.fill: parent
+                        hoverEnabled :true
+                        ToolTip{
+                            id: headerPriceToolTip
+                            delay: 1000
+                            timeout: 5000
+                            text: qsTr("Current sell price")
+                        }
+                        onEntered: headerPriceToolTip.visible = true
+                        onExited: headerPriceToolTip.visible = false
+                    }
+                }
+                Item{
+                    Layout.preferredWidth: 60
+                    Layout.fillHeight: true
+                    Row{
+                        anchors{centerIn: parent}
+                        Label{
+                            text: qsTr("COST")
+                        }
+                        ToolButton{
+                            width: 20
+                            height: 20
+                            visible: root.ListView.view.sortOrder === "cost"
+                            text:"↓"
+                        }
+
+                    }
+                    MouseArea{
+                        anchors.fill: parent
+                        onDoubleClicked: root.ListView.view.sortOrder = "cost"
+                        hoverEnabled :true
+                        ToolTip{
+                            id: headerCostToolTip
+                            delay: 1000
+                            timeout: 5000
+                            text: qsTr("Cost in stock")
+                        }
+                        onEntered: headerCostToolTip.visible = true
+                        onExited: headerCostToolTip.visible = false
+                    }
+                }
+                Item{
+                    Layout.preferredWidth: 60
+                    Layout.fillHeight: true
+                    Row{
+                        anchors{centerIn: parent}
+                        Label{
+                            text: qsTr("D-IN")
+                        }
+                        ToolButton{
+                            width: 20
+                            height: 20
+                            visible: root.ListView.view.sortOrder === "datein"
+                            text:"↓"
+                        }
+
+                    }
+                    MouseArea{
+                        anchors.fill: parent
+                        onDoubleClicked: root.ListView.view.sortOrder = "datein"
+                        hoverEnabled :true
+                        ToolTip{
+                            id: headerDinToolTip
+                            delay: 1000
+                            timeout: 5000
+                            text: qsTr("Last income date")
+                        }
+                        onEntered: headerDinToolTip.visible = true
+                        onExited: headerDinToolTip.visible = false
+                    }
+                }
+                Item{
+                    Layout.preferredWidth: 60
+                    Layout.fillHeight: true
+                    Row{
+                        anchors{centerIn: parent}
+                        Label{
+                            text: qsTr("D-OUT")
+                        }
+                        ToolButton{
+                            width: 20
+                            height: 20
+                            visible: root.ListView.view.sortOrder === "dateout"
+                            text:"↓"
+                        }
+
+                    }
+                    MouseArea{
+                        anchors.fill: parent
+                        onDoubleClicked: root.ListView.view.sortOrder = "dateout"
+                        hoverEnabled :true
+                        ToolTip{
+                            id: headerDoutToolTip
+                            delay: 1000
+                            timeout: 5000
+                            text: qsTr("Last outcome date")
+                        }
+                        onEntered: headerDoutToolTip.visible = true
+                        onExited: headerDoutToolTip.visible = false
+                    }
+                }
+            }
+
+        }
+    }
+
+
     Component {
         id: dlg
         FocusScope {
-            id: dlgroot
-            width: dlgroot.ListView.view.width //childrenRect.width;
+            id: root
+            width: root.ListView.view.width //childrenRect.width;
             height: 28;
             Rectangle{
-                width: parent.width
-                height: parent.height
-                color: "red"
+                width: vw.width
+                height: childrenRect.height * 1.2
+                // height: 35       //visible ? childrenRect.height+2 : 0
+                clip: true
+                Row{
+                    width: parent.width
+                    spacing: root.ListView.view.headerItem.children[0].spacing
+                    Text{
+                        width: root.ListView.view.headerItem.children[0].children[0].width //- parent.spacing
+                        text: item.id
+                    }
+                   Text{
+                       width: root.ListView.view.headerItem.children[0].children[1].width //- parent.spacing
+                       text: item.itemchar
+                       clip: true
+                   }
+                   Text{
+                       width: root.ListView.view.headerItem.children[0].children[2].width //- parent.spacing
+                       horizontalAlignment: Text.AlignRight
+                       // anchors.horizontalCenter: parent.horizontalCenter
+                       text: Math.abs(Number(total)).toLocaleString(Qt.locale(),'f', Number(item.unitprec))
+                       color: Number(total) < 0 ? 'red' : 'black'
+                   }
+                   Text{
+                       width: root.ListView.view.headerItem.children[0].children[3].width //- parent.spacing
+                       horizontalAlignment: Text.AlignRight
+                       text: price.toFixed(price < 10 ? 2 : 0)
+                       clip: true
+                   }
+                   Text{
+                       width: root.ListView.view.headerItem.children[0].children[4].width //- parent.spacing
+                       horizontalAlignment: Text.AlignRight
+                       text: Math.abs(price * Number(total)).toLocaleString(Qt.locale(),'f', 0)
+                       clip: true
+                       color: (price * Number(total)) < 0 ? 'red' : 'black'
+                   }
+
+                   Text{
+                       width: root.ListView.view.headerItem.children[0].children[5].width //- parent.spacing
+                       horizontalAlignment: Text.AlignRight
+                       text: root.ListView.view.humanDate(intm)
+                       clip: true
+                   }
+                   Text{
+                       width: root.ListView.view.headerItem.children[0].children[6].width //- parent.spacing
+                       // width: 60    //parent.width *0.15 - parent.spacing
+                       horizontalAlignment: Text.AlignRight
+                       text: root.ListView.view.humanDate(outm)
+                       clip: true
+                   }
+                }
             }
 
         }
@@ -86,6 +381,11 @@ Window {
 
             ListView{
                 id: vw
+                property string balAcnt
+                // onBalAcntChanged: load()
+                property string sortOrder: "id" // id | name | cost | datein | dateout
+                onSortOrderChanged: load()
+
                 anchors.fill: parent
                 // property var totalEq: []
                 // Layout.fillHeight: true
@@ -94,61 +394,22 @@ Window {
                 clip: true
                 // model: ListModel{ }
                 model: dataModel
-                delegate:
-                    Rectangle{
-                        width: vw.width
-                        height: childrenRect.height * 1.2
-                        // height: 35       //visible ? childrenRect.height+2 : 0
-                        clip: true
-                        Row{
-                            width: parent.width
-                            spacing: 5
-                           // anchors{fill: parent;}
-                            Text{
-                                width: 50 // parent.width *0.18 - parent.spacing
-                                text: item.id
-                            }
-                           Text{
-                               width: parent.width - 330 -  6 * parent.spacing
-                               text: item.itemchar
-                               clip: true
-                           }
-                           Text{
-                               width: 50    //parent.width *0.17 - parent.spacing
-                               horizontalAlignment: Text.AlignRight
-                               // anchors.horizontalCenter: parent.horizontalCenter
-                               // text: Math.abs(Number(total))
-                               text: Math.abs(Number(total)).toLocaleString(Qt.locale(),'f', Number(item.unitprec))
-                               // font.pixelSize: 12
-                               color: Number(total) < 0 ? 'red' : 'black'
-                           }
-                           Text{
-                               width: 60    //parent.width *0.15 - parent.spacing
-                               horizontalAlignment: Text.AlignRight
-                               text: price.toFixed(price < 10 ? 2 : 0)
-                               clip: true
-                           }
-                           Text{
-                               width: 50    //parent.width *0.15 - parent.spacing
-                               horizontalAlignment: Text.AlignRight
-                               text: Math.abs(eq).toLocaleString(Qt.locale(),'f', 0)
-                               clip: true
-                               color: eq < 0 ? 'red' : 'black'
-                           }
-
-                           Text{
-                               width: 60    //parent.width *0.15 - parent.spacing
-                               horizontalAlignment: Text.AlignRight
-                               text: humanDate(intm)
-                               clip: true
-                           }
-                           Text{
-                               width: 60    //parent.width *0.15 - parent.spacing
-                               horizontalAlignment: Text.AlignRight
-                               text: humanDate(outm)
-                               clip: true
-                           }
+                header: vwHeader
+                delegate: dlg
+                add: Transition {
+                        NumberAnimation { properties: "x,y"; from: 100; duration: 300 }
+                    }
+                addDisplaced: Transition {
+                        NumberAnimation { properties: "x,y"; duration: 300 }
+                    }
+                remove: Transition {
+                        ParallelAnimation {
+                            NumberAnimation { property: "opacity"; to: 0; duration: 300 }
+                            NumberAnimation { properties: "x,y"; to: 100; duration: 300 }
                         }
+                    }
+                removeDisplaced: Transition {
+                        NumberAnimation { properties: "x,y"; duration: 300 }
                     }
                 section.property: "bind"
                 section.criteria: ViewSection.FullString
@@ -164,7 +425,7 @@ Window {
                             Text{
                                 width: parent.width - 100 - parent.spacing
                                 anchors{verticalCenter: parent.verticalCenter;leftMargin: 50}
-                                text:section
+                                text:section.substring(section.lastIndexOf("/") +1)
                 //                    font.bold: true
                                 font.pixelSize: 14
                             }
@@ -181,77 +442,91 @@ Window {
 
                     }
                 }
+
+                function load(){
+                                   // if (root.filter === undefined) return
+                     // dbg("molel load flt=["+(root.filter===""? "EMPTY":"NO EMPTY")+"]","s78")
+                    vcrntEdit.text = 1
+                    model.load(root.dbDriver,
+                                 balAcnt || "300",
+                                 sortOrder || "",
+                                 vfilterEdit.text
+                                 )
+                    footerCount.text = String(" з %1").arg(Math.ceil(vw.model.data.length / vw.model.pageCapacity))
+                }
+
+                function humanDate(vdate) {
+                    var vtmp = Date()
+                    var vdiff = Math.floor(((new Date().getTime())-(new Date(String(vdate).substring(0,10)).getTime()))/(1000*60*60*24))
+                    if (vdiff === 0) { return vdate.substring(11,16) // Qt.formatDate(new Date(vdate), 'hh:mm')
+                    } else if (vdiff === 1) { return 'вч '+vdate.substring(11,16)  //Qt.formatDate(new Date(vdate), 'вч hh:mm')
+                    // } else if (vdiff < 8) { return Math.floor(((new Date().getTime())-(new Date(String(vdate).substring(0,10)).getTime()))/(1000*60*60*24))+' дн.'
+                    } else if (vdiff < 360) { return Qt.formatDate(new Date(vdate), 'dd MMM')
+                    } else { return Qt.formatDate(new Date(vdate), 'MMM yy'); /*String(vdate).substring(0,10);*/ }
+
+                }
             }
 
         }
+
         header: ToolBar {
-            RowLayout {
-                anchors.fill: parent
-                ToolButton {
-                    action: loadAction
-                    // text: "☰"
-                    // onClicked: loadAction.trigger()
-                    // onClicked: naviMenu.open()
-                    // Menu {
-                    //     id: naviMenu
-                    //     y: parent.height
-                    //     // MenuItem { action: actionNew; }
+            id: appToolBar
+            height: 32
+            Rectangle{
+                width: parent.width
+                height: childrenRect.height // 30
+
+                RowLayout {
+                    width: parent.width
+                    // anchors.fill: parent
+                    ToolButton {
+                        // action: loadAction
+                        text: "☰"
+                        onClicked: naviMenu.open()
+                        Menu {
+                            id: naviMenu
+                            y: parent.height
+                            MenuItem { action: loadStockAction; }
+                            MenuItem { action: loadBrackAction; }
+                            MenuItem { action: loadTradeAction; }
+                            MenuItem { action: loadBulkAction; }
+                        }
+                    }
+                    Label {
+                        id: headerTitle
+                        elide: Label.ElideRight
+                        horizontalAlignment: Qt.AlignHCenter
+                        verticalAlignment: Qt.AlignVCenter
+                        Layout.fillWidth: true
+                        font.pointSize: 20
+                        // text: stack.currentItem.title
+                    }
+
+                    // Item{
+                    //     Layout.fillWidth: true
+                    //     Text{
+                    //         id: title
+                    //         anchors{horizontalCenter: parent.horizontalCenter; verticalCenter: parent.verticalCenter }
+                    //         font.pointSize: 20
+                    //     }
                     // }
-                }
-                ComboBox{
-                    id: cmbBal
-                    flat: true
-                    Layout.preferredWidth: 150
-                    model: ListModel {
-                        ListElement { text: "ТОВАР"; code: "300"; }
-                        ListElement { text: "БРАК"; code: "302"; }
-                        ListElement { text: "TRADE"; code: "3500"; }
-                        ListElement { text: "TRADE, гурт"; code: "3501"; }
-                    }
-                    textRole: 'text'
-                    valueRole: 'code'
-                    // onCurrentIndexChanged: loadAction.trigger()
-                }
-                ComboBox{
-                    id: cmbSort
-                    flat: true
-                    model: ListModel {
-                        ListElement { text: "код.     ↓"; code: "code_asc"; }
-                        ListElement { text: "назва.   ↓"; code: "name_asc"; }
-                        ListElement { text: "назва.   ↑"; code: "name_desc"; }
-                        ListElement { text: "вартість ↓"; code: "remind_asc"; }
-                        ListElement { text: "вартість ↑"; code: "remind_desc"; }
-                        ListElement { text: "прихід   ↓"; code: "income_asc"; }
-                        ListElement { text: "прихід   ↑"; code: "income_desc"; }
-                        ListElement { text: "розхід   ↓"; code: "outcome_asc"; }
-                        ListElement { text: "розхід   ↑"; code: "outcome_desc"; }
-                    }
-                    textRole: 'text'
-                    valueRole: 'code'
-                    // onCurrentIndexChanged: loadAction.trigger()
-                }
-                // ToolButton{
-                //     id: sortDirection
-                //     text:"↑"
-                //     checkable: true
-                //     // flat: true
-                //     onClicked: {
-                //         text = (checked ? "↓" : "↑")
-                //     }
-                // }
+                    // Item{
+                    //     Layout.fillWidth: true
+                    // }
 
-                Item{
-                    Layout.fillWidth: true
-                }
-
-                ToolButton {
-                    // id: contextMenu
-                    text: "⋮"
-                    onClicked: toolMenu.open()
-                    Menu {
-                        id: toolMenu
-                        y: parent.height
-                        // MenuItem { action: actionNew; }
+                    ToolButton {
+                        // id: contextMenu
+                        text: "⋮"
+                        onClicked: toolMenu.open()
+                        Menu {
+                            id: toolMenu
+                            y: parent.height
+                            MenuItem { action: sortByIdAction; }
+                            MenuItem { action: sortByNameAction; }
+                            MenuItem { action: sortByCostAction; }
+                            MenuItem { action: sortByDateinAction; }
+                            MenuItem { action: sortByDateoutAction; }
+                        }
                     }
                 }
             }
@@ -273,8 +548,7 @@ Window {
                     // text: vw.vfilter
                     // onAccepted: {
                     onEditingFinished: {
-                        vw.model.filterData(text)
-                        vcrntEdit.text = 1
+                        vw.load()
                     }
                 }
                 Item{
@@ -293,7 +567,7 @@ Window {
                         text: "1"
                         // onTextChanged: {
                         onEditingFinished: {
-                            if (Number(text) > vw.model.pager.length +1 ) text = vw.model.pager.length +1
+                            if (Number(text) > Math.ceil(vw.model.data.length / vw.model.pageCapacity) ) text = Math.ceil(vw.model.data.length / vw.model.pageCapacity)
                             vw.model.populate(text)
                         }
                     }
@@ -304,7 +578,7 @@ Window {
 
                 Label{
                     id: footerCount
-                    text: String(" з %1").arg(vw.model === null ? 0 : vw.model.pager.length +1)
+                    // text: String(" з %1").arg(vw.model === null ? 0 : Math.ceil(vw.model.data.length / vw.model.pageCapacity))
                 }
             }
         }

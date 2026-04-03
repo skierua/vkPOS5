@@ -55,6 +55,7 @@ let itemCache = [];
 
 function dummyFolder(){
     return {
+        "id": "",
         "pid": "",
         "pathid": "",
         "name": "",
@@ -83,8 +84,8 @@ function dummyItem(){
     };
 }
 
-function findFolder(pid){
-    return folderPathCache.findIndex( (v) => v.pid === pid );
+function findFolder(id){
+    return folderPathCache.findIndex( (v) => v.id === id );
 }
 
 // binary search
@@ -92,13 +93,14 @@ function b_findFolder(pid){
     if (folderPathCache.length  === 0) return -1
     let lf =0, rt = folderPathCache.length -1;
     let i =0;
-    while (lf != rt) {
-        i = lf + Math.floor((rt - lf) / 2);
-        if (pid < folderPathCache[i].pid) rt = i
-        else lf = i+1
+    while (lf <= rt) {
+        i = Math.floor((rt + lf) / 2);
+        if (pid === folderPathCache[i].id) break
+        if (pid < folderPathCache[i].id) rt = i -1
+        else lf = i +1
     }
     // console.log("sqlItem/findFolder pid=" + pid + " cache=" + folderPathCache[i].pid +" lf="+ lf + " rt=" + rt)
-    if (folderPathCache[lf].pid === pid) return lf
+    if (folderPathCache[lf].id === pid) return lf
 
     return -1;
 }
@@ -124,8 +126,8 @@ function fillFolderCache(db){
     for (i =0; i < jdata.rows.length; ++i){
         vid = jdata.rows[i].id;
         vpid = jdata.rows[i].pid;
-        vpathid = "/" + jdata.rows[i].id;
-        vpathname = "/" + jdata.rows[i].itemchar
+        vpathid = "/"  // + jdata.rows[i].id + "/"
+        vpathname = "/"    // + jdata.rows[i].itemchar + "/"
         while (vpid !== "") {
             // TODO rewrite with binary search
             idx = jdata.rows.findIndex( (v) => v.id === vpid );
@@ -135,16 +137,17 @@ function fillFolderCache(db){
             vpid = jdata.rows[idx].pid;
         }
         folderPathCache.push({
-                     "pid": jdata.rows[i].id,
-                     "pathid": vpathid,
-                     "name": jdata.rows[i].itemchar,
-                     "pathname": vpathname
+                    "id": jdata.rows[i].id,
+                    "pid": jdata.rows[i].pid,
+                    "pathid": vpathid,
+                    "name": jdata.rows[i].itemchar,
+                    "pathname": vpathname
                  }
                 )
         // console.log(jdata.rows[i].id + "\t" + jdata.rows[i].pid + "\t" + vpathid + "\t" + jdata.rows[i].itemchar)
     }
     folderPathCache.sort((a,b) => {
-                 return a.pid > b.pid ? 1 : -1;
+                 return a.id > b.id ? 1 : -1;
                  // return a.pathid.localeCompare(b.pathid);
              })
     // console.log("sqlItem/fillFolderCache #73ry \n")
@@ -170,8 +173,8 @@ function pushItemToCache(db, id){
     if (fidx < 0) fillFolderCache(db)
     fidx = findFolder(res.pid)
     if (fidx !== -1) {
-        res.pathid = folderPathCache[fidx].pathid
-        res.pathname = folderPathCache[fidx].pathname
+        res.pathid = folderPathCache[fidx].pathid + folderPathCache[fidx].id    // + "/"
+        res.pathname = folderPathCache[fidx].pathname + folderPathCache[fidx].name  // + "/"
     }
     itemCache.push(res);
     // console.log("sqlItem #36g len=" + itemCache.length)

@@ -21,7 +21,7 @@ import com.singleton.dbdriver4 1.0
 ApplicationWindow {
     id: root
     visible: true
-    title: String("vkPOS5#%1").arg("2.21")
+    title: String("vkPOS5#%1").arg("2.22")
 
     // property string pathToDb: "/data/"
     property string dbname: ''
@@ -37,10 +37,14 @@ ApplicationWindow {
             Prn.setCheck(root.checkPrintDcm)
 
             if (stack.count > 0){
-                stack.children[stack.currentIndex].dfltClient = Lib.getClient(Db)
-                stack.children[stack.currentIndex].cashAcnt = Lib.getAccount(Db,acnts.cash)
-                stack.children[stack.currentIndex].dfltAcnt = Lib.getAccount(Db)
-                stack.children[stack.currentIndex].startBind()
+                // dbg("count=" + stack.count
+                //     + " cidx=" + stack.currentIndex
+                //     + " title=" + stack.currentItem.title
+                //             ,"36g")
+                stack.currentItem.dfltClient = Lib.getClient(Db)
+                stack.currentItem.cashAcnt = Lib.getAccount(Db,acnts.cash)
+                stack.currentItem.dfltAcnt = Lib.getAccount(Db)
+                stack.currentItem.startBind()
             }
 
             if (root.crntShift.shftend !== '') {   // shift is closed
@@ -129,7 +133,7 @@ ApplicationWindow {
     }
 
     function dbg(str, code ="") {
-        console.log( String("%1[Main.qml] %2").arg(code).arg(str));
+        console.log( String("[Main.qml]#%1 %2").arg(code).arg(str));
     }
 
     function isOnline() { return REST.gl_token != ""; }
@@ -137,6 +141,21 @@ ApplicationWindow {
 
     function isTaxMode() { return root.cdtoken != "" && root.cdhost != "" && !root.cdhost.startsWith('*') }
 
+    function setClientFromBind(){
+        if (stack.currentItem.crntClient !== undefined){
+            btnClient.visible = true
+            btnClient.clName = stack.currentItem.crntClient.name
+            btnClient.clBonus = Number(stack.currentItem.crntClient.bonusTotal) !== 0
+                            ? Number(stack.currentItem.crntClient.bonusTotal).toFixed(0) : ""
+        } else {
+            btnClient.visible = false
+            btnClient.clName = ""
+            btnClient.clBonus = ""
+        }
+
+    }
+
+    // for context menu
     Component{
         id: activateBind
         Action{
@@ -377,7 +396,7 @@ ApplicationWindow {
         text: "Видалити поточний"
         onTriggered: {
             if (stack.count > 1) { // Залишаємо хоча б один екран
-                    const itemToRemove = stack.children[stack.currentIndex];
+                    const itemToRemove = stack.currentItem;
 
                     stack.currentIndex--;
 
@@ -423,7 +442,7 @@ ApplicationWindow {
 
             for (let i =0; i < stack.count; ++i ) {
                 // Lib.log(String("#w9j id=%1 codeid=%2").arg(i).arg(stack.children[i].codeid))
-                if (stack.children[i].codeid === "settings") {
+                if (stack.contentChildren[i].codeid === "settings") {
                     stack.currentIndex = i
                     return
                 }
@@ -665,7 +684,7 @@ ApplicationWindow {
             function onVkEvent(id, param) {
                 if (id === "refuse"){
                     // console.log("[MAIN>DcnView] dcmid=" + param.dcmid + " pid=" + param.pid)
-                    stack.children[stack.currentIndex].newRefused(param)
+                    stack.currentItem.newRefused(param)
                 }
             }
         }
@@ -744,7 +763,7 @@ ApplicationWindow {
                              item.queryData = {"term": root.term, "reqid": "sel", "shop": root.term}
                              item.dbDriver = Db
 
-                             item.funcCreateDcm = (atclid) => {stack.children[stack.currentIndex].newDcm(atclid);
+                             item.funcCreateDcm = (atclid) => {stack.currentItem.newDcm(atclid);
                                  }
                          }
         Connections {
@@ -823,16 +842,17 @@ ApplicationWindow {
                     anchors.fill: parent
                     onClicked: {
                         if (selectPopup.code==="client"){                  // client
-                            stack.children[stack.currentIndex].crntClient = Lib.getClient(Db,id);
-                            stack.children[stack.currentIndex].crntAcnt = Lib.getAccount(Db)
+                            stack.currentItem.crntClient = Lib.getClient(Db,id);
+                            stack.currentItem.crntAcnt = Lib.getAccount(Db)
+                            setClientFromBind()
                         } else if (selectPopup.code==="database") {        // database
                             root.dbname = id
                             // openConnection(id)
                         } else if (selectPopup.code==="acntno") {        // acntno
-                            stack.children[stack.currentIndex].crntAcnt = Lib.getAccount(Db, id)
+                            stack.currentItem.crntAcnt = Lib.getAccount(Db, id)
                             // setAccount(id)
                         } else if (selectPopup.code==="article") {
-                            stack.children[stack.currentIndex].newDcm(id)
+                            stack.currentItem.newDcm(id)
                         } else {
                             Lib.log("selectPopup bad code, nothing to do","Main", "EE")
                             // bad code, nothing to do
@@ -936,29 +956,41 @@ ApplicationWindow {
     }
 
 
-/*    StackView {
-        id: bindContainer
-        // anchors.fill: parent
-        width: 0; height: 0
-        clip: true
-        initialItem: Bind{} // blank item
-        // onCurrentItemChanged:  {
-            // currentItem.findChild("fldMainInput").forceActiveFocus()
-        // }
-        // onDepthChanged:  {
-        //     // Lib.log("#2804 bindContainer =" + depth )
-        // }
-    }
-*/
-    StackLayout {
+    // StackLayout {
+    //     id: stack
+    //     anchors.fill: parent
+    //     // width: 0; height: 0
+    //     clip: true
+    //     // onCountChanged: Lib.log(String("#18g count=%1").arg(count))
+    //     onCurrentIndexChanged: stack.children[stack.currentIndex].forceActiveFocus()
+    // }
+
+    SwipeView {
         id: stack
+
+        // currentIndex: 1
         anchors.fill: parent
-        // width: 0; height: 0
-        clip: true
-        // onCountChanged: Lib.log(String("#18g count=%1").arg(count))
-        onCurrentIndexChanged: stack.children[stack.currentIndex].forceActiveFocus()
+
+        onCurrentIndexChanged: {
+            headerTitle.text = currentItem.title
+            setClientFromBind()
+
+            stack.currentItem.forceActiveFocus()
+            // dbg("currentIndex=" + currentIndex
+            //             ,"63gb")
+        }
     }
 
+    PageIndicator {
+        id: indicator
+
+        count: stack.count
+        currentIndex: stack.currentIndex
+
+        anchors{bottom: stack.bottom;
+            horizontalCenter: parent.horizontalCenter;
+            bottomMargin: 65;}
+    }
     LogView{
         id: logView
         width: parent.width
@@ -972,16 +1004,18 @@ ApplicationWindow {
         id: appToolBar
         height: 32
         Rectangle{
-//            anchors.fill: parent
+            // border{color:"lightsteelblue"; width: 2}
             width: parent.width
-            height: 30
+            height: childrenRect.height // 30
             // color: stackBind.children[stackBind.currentIndex].state === "taxcheck" ? "khaki" : "transparent"
             RowLayout {
-                anchors.fill: parent
+                width: parent.width
+                // anchors.fill: parent
     //            width: parent.width
                 ToolButton {    //  ☰
                     text: "☰"
                     onClicked: naviMenu.open()
+                    flat: true
                     Menu{
                         id: naviMenu
                         y: parent.height
@@ -1022,48 +1056,60 @@ ApplicationWindow {
                     horizontalAlignment: Qt.AlignHCenter
                     verticalAlignment: Qt.AlignVCenter
                     Layout.fillWidth: true
-                    text: stack.children[stack.currentIndex].title
+                    font.pointSize: 20
+                    // text: stack.currentItem.title
                 }
-                Row {
+                Item{
                     id: btnClient
-                    visible: stack.children[stack.currentIndex].crntClient !== undefined
-                    ToolButton{
-                        text: stack.children[stack.currentIndex].crntClient !== undefined ? stack.children[stack.currentIndex].crntClient.name : ''
-                        icon.source: "qrc:/icon/account.svg"
-//                        flat: true
-                        onClicked: {
-                            selectPopup.code = "client"
-                            selectPopup.jsdata = Lib.getClientList(Db)
-                            selectPopup.open()
+                    Layout.preferredWidth: childrenRect.width
+                    Layout.preferredHeight: childrenRect.height
+                    property string clName
+                    property string clBonus
+                    Row {
+                        // visible: stack.currentItem.crntClient !== undefined
+                        ToolButton{
+                            text: btnClient.clName
+                            // text: stack.currentItem.crntClient !== undefined ? stack.currentItem.crntClient.name : ''
+                            icon.source: "qrc:/icon/account.svg"
+    //                        flat: true
+                            onClicked: {
+                                selectPopup.code = "client"
+                                selectPopup.jsdata = Lib.getClientList(Db)
+                                selectPopup.open()
+                            }
                         }
-                    }
-                    ToolButton{
-                        width: 32
-    //                    Layout.preferredHeight: 35
-                        visible: stack.children[stack.currentIndex].crntClient !== undefined && stack.children[stack.currentIndex].crntClient.id !== ''
-                        font.pointSize: 16
-                        text:"⌫"
-//                        flat: true
-//                        icon.source:"qrc:/icon/undo.svg"
-                        onClicked: {
-                            stack.children[stack.currentIndex].crntClient = Lib.getClient(Db);
+                        ToolButton{
+                            width: 32
+        //                    Layout.preferredHeight: 35
+                            // visible: stack.currentItem.crntClient !== undefined && stack.currentItem.crntClient.id !== ''
+                            font.pointSize: 16
+                            text:"⌫"
+    //                        flat: true
+    //                        icon.source:"qrc:/icon/undo.svg"
+                            onClicked: {
+                                stack.currentItem.crntClient = Lib.getClient(Db);
+                                setClientFromBind()
+                            }
                         }
-                    }
-                    Label{
-                        visible: stack.children[stack.currentIndex].crntClient !== undefined && Math.abs(Number(stack.children[stack.currentIndex].crntClient.bonusTotal)) >= 0.01
-                        Layout.preferredHeight: 35
-                        color:'slategray'
-                        text: stack.children[stack.currentIndex].crntClient !== undefined ? Number(stack.children[stack.currentIndex].crntClient.bonusTotal).toFixed(0) : ''
-                        MouseArea{
-                            anchors.fill: parent
-                            onDoubleClicked: {
-                                stack.children[stack.currentIndex].newBonus()
+                        Label{
+                            // visible: stack.currentItem.crntClient !== undefined && Math.abs(Number(stack.currentItem.crntClient.bonusTotal)) >= 0.01
+                            Layout.preferredHeight: 35
+                            color:'slategray'
+                            text: btnClient.clBonus
+                            // text: stack.currentItem.crntClient !== undefined ? Number(stack.currentItem.crntClient.bonusTotal).toFixed(0) : ''
+                            MouseArea{
+                                anchors.fill: parent
+                                onDoubleClicked: {
+                                    stack.currentItem.newBonus()
+                                }
+
                             }
 
                         }
-
                     }
+
                 }
+
 
                 ToolButton {    // ⋮
                     id:contextMenu_toolbtn
@@ -1084,14 +1130,14 @@ ApplicationWindow {
                             // dbg("contextMenu_toolbtn vsbl="+ visible, "#72js")
                             let i =0
                             if (visible){
-                                if (stack.children[stack.currentIndex].vkContextActions !== undefined){
-                                      for (i =0; i < stack.children[stack.currentIndex].vkContextActions.length; ++i){
-                                          contextMenu.addAction(stack.children[stack.currentIndex].vkContextActions[i])
+                                if (stack.currentItem.vkContextActions !== undefined){
+                                      for (i =0; i < stack.currentItem.vkContextActions.length; ++i){
+                                          contextMenu.addAction(stack.currentItem.vkContextActions[i])
                                       }
                                 }
-                                if (stack.children[stack.currentIndex].vkBatchActions !== undefined){
-                                    for (i =0; i < stack.children[stack.currentIndex].vkBatchActions.length; ++i){
-                                        batchMenu.addAction(stack.children[stack.currentIndex].vkBatchActions[i])
+                                if (stack.currentItem.vkBatchActions !== undefined){
+                                    for (i =0; i < stack.currentItem.vkBatchActions.length; ++i){
+                                        batchMenu.addAction(stack.currentItem.vkBatchActions[i])
                                     }
                                     contextMenu.addMenu(batchMenu)
                                 }
@@ -1102,24 +1148,10 @@ ApplicationWindow {
                                 for (i =0; i < stack.count; ++i) {
                                     contextMenu.addAction(activateBind.createObject(contextMenu,
                                                                                     { cindex: i,
-                                                                                      text: String(i === stack.currentIndex ? "<b>%1. %2</b>" : "%1. %2").arg(i).arg(stack.children[i].textForMenu())
+                                                                                      text: String(i === stack.currentIndex ? "<b>%1. %2</b>" : "%1. %2").arg(i).arg(stack.contentChildren[i].textForMenu())
                                                                                     }))
 
                                 }
-/*
-                                // for (i = bindContainer.depth -1; i > 0; --i){
-                                //     // dbg(bindContainer.get(i, StackView.DontLoad).title, "#34gs")
-                                //     contextMenu.addAction(activateBind.createObject(contextMenu
-                                //                                                   ,{ cindex: i
-                                //                                                     , ctext: String("%1. %2")
-                                //                                                         .arg(bindContainer.depth - i)
-                                //                                                         .arg(bindContainer.get(i, StackView.DontLoad).textForMenu())
-                                //                                                         // .arg(bindContainer.get(i, StackView.DontLoad).title)
-                                //                                                         // .arg(bindContainer.get(i, StackView.DontLoad).total)
-                                //                                                         // .arg(bindContainer.get(i, StackView.DontLoad).count)
-                                //                                                     }))
-                                // }
-                                */
                             } else {
                                 for (i =batchMenu.count -1; i >=0; --i) batchMenu.removeItem(batchMenu.itemAt(i))
                                 for (i =contextMenu.count -1; i >=0; --i) contextMenu.removeItem(contextMenu.itemAt(i))

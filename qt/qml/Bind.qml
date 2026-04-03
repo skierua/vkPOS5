@@ -9,7 +9,7 @@ Item {
     id: root
 //    width: 480
 //    height: 480
-    property string title: "Чек"
+    property string title: "ЧЕК"
     property string codeid: "bind"
     property var dbDriver                 // DataBase driver
     property var acnts
@@ -81,7 +81,7 @@ Item {
     states: [
             State {
                 name: "facture"
-                PropertyChanges { target: root; title: "Фактура" }
+                PropertyChanges { target: root; title: "ФАКТУРА" }
                 PropertyChanges { target: root; parentCode: "facture" }
                 PropertyChanges { target: dataModel; code: "facture" }
                 PropertyChanges { target: root; autoTax: false }
@@ -103,7 +103,7 @@ Item {
         },
             State {
                 name: "taxcheck"
-                PropertyChanges { target: root; title: "Фіскальний чек" }
+                PropertyChanges { target: root; title: "ФІСКАЛЬНИЙ" }
                 PropertyChanges { target: root; parentCode: "check" }
                 PropertyChanges { target: dataModel; code: "check" }
                 PropertyChanges { target: root; autoTax: true }
@@ -686,17 +686,27 @@ Item {
             Layout.preferredHeight: 20
             color: 'WhiteSmoke'
             RowLayout{
-                anchors.verticalCenter: parent.verticalCenter
+                anchors{fill: parent; rightMargin: 5; leftMargin: 5;}
+                // anchors.verticalCenter: parent.verticalCenter
                 spacing: 2
-                Repeater {
-                    id: totalCurrencyView
-                    model: []
-                    Label {
-                        required property var modelData
-                        color: modelData.amnt > 0 ? 'blue': (modelData.amnt < 0?'red':'grey')
-                        text: String(' %1%2%3 ').arg(modelData.amnt > 0 ? "+" : "").arg(modelData.amnt === 0 ? "0" : modelData.amnt).arg(modelData.atcl.name)
+                Row{
+                    Layout.fillWidth: true
+                    spacing: 2
+                    Repeater {
+                        id: totalCurrencyView
+                        model: []
+                        Label {
+                            required property var modelData
+                            color: modelData.amnt > 0 ? 'blue': (modelData.amnt < 0?'red':'grey')
+                            text: String(' %1%2%3 ').arg(modelData.amnt > 0 ? "+" : "").arg(modelData.amnt === 0 ? "0" : modelData.amnt).arg(modelData.atcl.name)
+                        }
                     }
-                  }
+
+                }
+                Text{
+                    horizontalAlignment: Text.AlignRight
+                    text: bindView.count
+                }
             }
 
 

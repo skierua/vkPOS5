@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 
 project(vkPOS5
-    VERSION 2.21
+    VERSION 2.22
     LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -32,9 +32,9 @@ set(JS_FILES
     qt/lib.js
     qt/libREST.js
     qt/libTAX.js
-    qt/qml/js/sqlAcnt.js
-    qt/qml/js/sqlItem.js
-    qt/qml/js/sqlPrice.js
+    qt/qml/js/v146/sqlAcnt.js
+    qt/qml/js/v146/sqlItem.js
+    qt/qml/js/v146/sqlPrice.js
 
 )
 
@@ -66,7 +66,7 @@ qt_add_executable(appvkPOS5
 
 qt_add_qml_module(appvkPOS5
     URI vkPOS5
-    VERSION 2.20
+    # VERSION 2.20
     QML_FILES
         qt/qml/Main.qml
         # qt/qml/MainKant.qml
@@ -93,7 +93,6 @@ qt_add_qml_module(appvkPOS5
         ${CPP_FILES}
     RESOURCES
         # ${DB_FILES}
-        # ${ICON_FILES}
         # data/vkPOS5-init.sql
         # data/vkPOS5.sql
         # README.md
@@ -117,7 +116,7 @@ qt_add_resources(appvkPOS5 "app_res"
         data/vkPOS5-init.sql
         data/vkPOS5.sql
         README.md
-        # .gitignore
+        .gitignore
         TODO.txt
 )
 

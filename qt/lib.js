@@ -652,12 +652,20 @@ function makeBind_balancingTrade(db, acnts){
 
     vj = {"id":"dcmbind","dcm":"folder","dbt":"profit","cdt":"blnc","amnt":"0","eq":"0","dsc":"0","bns":"0","note":"rslt>profit", "clnt":"","cshr":"", "dcms":[]}
     total = 0
+    let atmp = []
     for (r =0; r < jsrow.rows.length; ++r) {
         total += Number(jsrow.rows[r].amnt)
-        vj.dcms.push({"dcm":"memo","dbt":acnts.cash,"cdt":jsrow.rows[r].acntno,"crn":"","amnt":Number(jsrow.rows[r].amnt).toFixed(2),"eq":"0","dsc":"0","bns":"0","note":"","retfor":""})
-        vj.dcms.push({"dcm":"memo","dbt":acnts.cash,"cdt":acnts.profit,"crn":"",
-            "amnt":((0-Number(jsrow.rows[r].amnt)).toFixed(2)),"eq":"0","dsc":"0","bns":"0","note":"","retfor":""})
+        atmp.push({"dcm":"memo","dbt":acnts.cash,"cdt":jsrow.rows[r].acntno,"crn":"","amnt":Number(jsrow.rows[r].amnt).toFixed(2),"eq":"0","dsc":"0","bns":"0","note":"","retfor":""})
+        // vj.dcms.push({"dcm":"memo","dbt":acnts.cash,"cdt":acnts.profit,"crn":"",
+        //     "amnt":((0-Number(jsrow.rows[r].amnt)).toFixed(2)),"eq":"0","dsc":"0","bns":"0","note":"","retfor":""})
     }
+    atmp.sort((a,b) => {
+                  if (Number(a.amnt) > Number(b.amnt)) return 1
+                  return -1
+              })
+    atmp.push({"dcm":"memo","dbt":acnts.cash,"cdt":acnts.profit,"crn":"",
+        "amnt":(0-total).toFixed(2),"eq":"0","dsc":"0","bns":"0","note":"","retfor":""})
+    vj.dcms = atmp
     vj.amnt = total.toFixed(2)
     vj.eq = (0-total).toFixed(2)
 
