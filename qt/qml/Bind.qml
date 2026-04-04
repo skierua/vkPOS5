@@ -89,6 +89,8 @@ Item {
                 PropertyChanges { target: fldBns; visible: true }
                 PropertyChanges { target: fldRate; visible: true }
                 // PropertyChanges { target: viewArea; color: "white" }
+                PropertyChanges { target: incasToBulkAction; enabled: false }
+                PropertyChanges { target: actionBalancingTrade; enabled: false }
             },
         State {
             name: "incas"
@@ -100,6 +102,8 @@ Item {
             PropertyChanges { target: fldBns; visible: false }
             PropertyChanges { target: fldRate; visible: false }
             PropertyChanges { target: viewArea; color: "honeydew" }
+            PropertyChanges { target: incasToBulkAction; enabled: false }
+            PropertyChanges { target: actionBalancingTrade; enabled: false }
         },
             State {
                 name: "taxcheck"
@@ -111,6 +115,8 @@ Item {
                 PropertyChanges { target: fldBns; visible: false }
                 PropertyChanges { target: fldRate; visible: false }
                 PropertyChanges { target: viewArea; color: "beige" }
+                PropertyChanges { target: incasToBulkAction; enabled: false }
+                PropertyChanges { target: actionBalancingTrade; enabled: false }
         },
             State {
                 name: "kantor"
@@ -168,7 +174,7 @@ Item {
 
     Action {
         id: incasToBulkAction
-        enabled: root.state === ""
+        enabled: true   //root.state === ""
         text: "ТОРГІВЛЯ на ГУРТ"
         onTriggered: {
             newBatchIncasToBulk()
@@ -177,7 +183,7 @@ Item {
 
     Action {
         id: actionBalancingTrade
-        enabled: root.state === ""
+        enabled: true   //   root.state === ""
         text: "Збалансувати дохід"
         onTriggered: {
             const jbind = Lib.makeBind_balancingTrade(dbDriver, root.acnts);

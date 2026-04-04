@@ -737,7 +737,7 @@ function isIncas(db, acnts) {
     if (acnts.bulk === undefined || acnts.bulk === "") { return false; }
     let vsql = "select sum(abs(beginamnt+turndbt-turncdt)) as total from acnt where acntno='3500';";
     let vj = parse(db.dbSelectRows(vsql));
-    log(JSON.stringify(vj) )
+    // log("#7wy" + JSON.stringify(vj), "lib.js" )
     if (vj && vj.rows.length){
        // log("#e8u isIncas="+(vj.rows[0].total>0))
         return (Number(vj.rows[0].total) > 0);

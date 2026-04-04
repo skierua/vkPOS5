@@ -21,7 +21,7 @@ import com.singleton.dbdriver4 1.0
 ApplicationWindow {
     id: root
     visible: true
-    title: String("vkPOS5#%1").arg("2.22")
+    title: String("vkPOS5#%1").arg("2.23")
 
     // property string pathToDb: "/data/"
     property string dbname: ''
@@ -139,7 +139,7 @@ ApplicationWindow {
     function isOnline() { return REST.gl_token != ""; }
     // function isOnline() { return root.resttoken != "" }
 
-    function isTaxMode() { return root.cdtoken != "" && root.cdhost != "" && !root.cdhost.startsWith('*') }
+    function isTaxMode() { return root.cdtoken !== "" && root.cdhost !== "" && !root.cdhost.startsWith('*') }
 
     function setClientFromBind(){
         if (stack.currentItem.crntClient !== undefined){
@@ -156,15 +156,59 @@ ApplicationWindow {
     }
 
     // for context menu
-    Component{
+ /*   Component{
         id: activateBind
         Action{
             id: croot
             property int cindex
-            text: croot.ctext
+            // text: croot.ctext
             onTriggered:  stack.currentIndex = cindex
         }
 
+    } */
+
+    Component{
+        id: containerBindAction
+        MenuItem{
+            id: root
+            property string title
+            property int index
+            // width: parent.width
+            // height: contentItem.
+            contentItem:
+                // Item{
+                // hei
+                RowLayout{
+                    anchors{fill: parent; leftMargin: 10 }
+                    Label{
+                        Layout.fillWidth: true
+                        font.bold: root.index === stack.currentIndex
+                        clip: true
+                        elide: Label.ElideRight
+                        text: root.title
+                    }
+                    ToolButton{
+                        Layout.preferredHeight: 20
+                        Layout.preferredWidth: 20
+                        visible: root.index > 0
+                        flat: false
+                        text: "X"
+                        font.pixelSize: 16
+                        onClicked: {
+                            if (root.index > 0) { // can't remove forst tab
+                                const itemToRemove = stack.contentChildren[root.index]
+                                if (stack.currentIndex === root.index){
+                                    stack.currentIndex--;
+                                }
+                                itemToRemove.destroy();
+                            }
+                            root.triggered()
+                        }
+                    }
+                }
+            // }
+            onTriggered: stack.currentIndex = root.index
+        }
     }
 
     Action {
@@ -318,79 +362,10 @@ ApplicationWindow {
                         } else {
                             Lib.log("Помилка завантаження:" + component.errorString(), "main", "EE" );
                         }
-
-                         /*
-                         bindContainer.push("Bind.qml",
-                               {
-                                dbDriver: Db,
-                                funcRESTUpload: (jbind) => {
-                                    if (isOnline()) REST.uploadBindTran(root.term, root.term, jbind, Lib.uploadAcnt(Db, true).rows,
-                                                         (err) =>{ if (err !== null) logView.append("[uploadBindTran] " + err, 0); })
-                                 },
-                                 funcFiscalizate: (bindid) =>{
-                                    if (!isTaxMode()) {
-                                         logView("Fiscalization is unsupported", 1)
-                                         return
-                                    }
-                                    let jbind = Lib.cdtaxFromBind(Db, bindid)
-                                    if (!jbind) {
-                                        logView("Fiscalization local error", 0)
-                                        return
-                                    }
-                                    CashDesk.sale(jbind, (err, resp) =>{
-                                                      if (err) {
-                                                          logView("Fiscalization server error", 0)
-                                                          if (taxServiceLoader.active) taxServiceLoader.item.newMessage(
-                                                              "SALE", "Fiscalization server error", "error")
-                                                      } else {
-                                                          if (taxServiceLoader.active) taxServiceLoader.item.newMessage(
-                                                              "SALE", JSON.stringify(resp), "info")
-                                                      }
-                                                  }
-                                                      )
-                                },
-                                // funcBatchIncasToBalk: () => {
-                                //  },
-                                acnts: root.acnts,
-                                funcLog: (text, logid =2) => { logView.append("[Bind] " + text, logid); },
-                                allowTax: isTaxMode(),
-                                printDcm: root.checkPrintDcm,
-                                autoPrint: root.checkAutoPrint,
-                                dfltAmnt: source.dfltAmnt,
-                                dfltClient: Lib.getClient(Db),
-                                cashAcnt: Lib.getAccount(Db,acnts.cash),
-                                dfltAcnt: Lib.getAccount(Db),
-                                state: source.code
-                               },
-                               StackView.PushTransition)
-
-                bindContainer.currentItem.vkEvent.connect( (id, param)=>{
-                    if (id === 'drawer'){
-                        drawer2Right.open();
-                    } else if (id === 'find'){
-                        selectPopup.code = param[0].mask === "0" ? "client" : "article"
-                        selectPopup.jsdata = param
-                        selectPopup.open()
-                    } else if (id === 'creditAcntClicked'){
-                        selectPopup.code = "acntno"
-                        selectPopup.jsdata = Lib.getAcntList(Db, param.cashno, param.clid, param.mode);
-                        // Lib.log("#34rs HERE")
-                        selectPopup.open()
-                    } else if (id === 'printCheck'){
-                        Prn.saveCheck(param)
-                        Prn.printCheck(param)
-                    } else {
-                        logView.append("[Bind] Bad event", 1)
-                    }
-                  })
-
-                bindContainer.currentItem.forceActiveFocus()
-                bindContainer.currentItem.startBind()
-                         */
         }
     }
 
-    Action {
+/*    Action {
         id: removeBindAction
         enabled: stack.count > 1
         text: "Видалити поточний"
@@ -405,7 +380,7 @@ ApplicationWindow {
 
         }
     }
-
+*/
 
     Action {
         id: winDcmsAction
@@ -497,52 +472,6 @@ ApplicationWindow {
             }
 
 
-
-
-/*            bindContainer.push("Settings.qml", {
-                            dfltTerminal: {term:root.term, posPrinter: root.posPrinter, checkAmnt:root.checkAmnt, checkAutoPrint:root.checkAutoPrint, checkPrintDcm: root.checkPrintDcm },
-                            dfltAcnt: { cash: root.acnts.cash, trade: root.acnts.trade, bulk: root.acnts.bulk, incas: root.acnts.incas, profit: root.acnts.profit  },
-                            dfltREST: { resthost: root.resthost, restapi: root.restapi, restuser: root.restuser, restpassword: root.restpassword, resttoken: root.resttoken },
-                            dfltCashDisc: { cdhost: root.cdhost, cdprefix: root.cdprefix, cdcash: root.cdcash, cdtoken: root.cdtoken }
-                         }
-                             , StackView.PushTransition)
-
-            bindContainer.currentItem.vkEvent.connect( (id, param)=>{
-                if (id === "saveTerminal") {
-                    root.term = bindContainer.currentItem.dfltTerminal.term
-                    root.posPrinter = bindContainer.currentItem.dfltTerminal.posPrinter
-                    root.checkAmnt = bindContainer.currentItem.dfltTerminal.checkAmnt
-                    root.checkAutoPrint = bindContainer.currentItem.dfltTerminal.checkAutoPrint
-                    root.checkPrintDcm = bindContainer.currentItem.dfltTerminal.checkPrintDcm
-                } else if (id === "saveAcnts") {
-                    // Lib.log('#893 param=' + JSON.stringify(param))
-                    root.acnts = bindContainer.currentItem.dfltAcnt
-                    Db.dbUpdate("update settings set acnts = '" + JSON.stringify(bindContainer.currentItem.dfltAcnt) + "' where rowid=1;")
-                } else if (id === "loginREST") {
-                    root.resthost = bindContainer.currentItem.dfltREST.resthost
-                    root.restapi = bindContainer.currentItem.dfltREST.restapi
-                    root.restuser = bindContainer.currentItem.dfltREST.restuser
-                    root.restpassword = bindContainer.currentItem.dfltREST.restpassword
-                    root.resttoken = ''
-                    REST.login(restuser, restpassword, (err) => {
-                        // Lib.log("#984u token="+token);
-                        if (err === null){
-                            root.resttoken = REST.gl_token
-                        } else {
-                            logView.appenr(err, 0)
-                        }
-                        bindContainer.currentItem.dfltREST = { resthost: root.resthost, restapi: root.restapi, restuser: root.restuser, restpassword: root.restpassword, resttoken: root.resttoken }
-                    } )
-                } else if (id === "saveCD") {
-                    root.cdhost = bindContainer.currentItem.dfltCashDisc.cdhost
-                    root.cdprefix = bindContainer.currentItem.dfltCashDisc.cdprefix
-                    root.cdcash = bindContainer.currentItem.dfltCashDisc.cdcash
-                    root.cdtoken = bindContainer.currentItem.dfltCashDisc.cdtoken
-                } else {
-                    // bad event
-                }
-            })
-            */
         }
     }
 
@@ -989,7 +918,7 @@ ApplicationWindow {
 
         anchors{bottom: stack.bottom;
             horizontalCenter: parent.horizontalCenter;
-            bottomMargin: 65;}
+            bottomMargin: 70}
     }
     LogView{
         id: logView
@@ -1022,8 +951,8 @@ ApplicationWindow {
                         MenuItem { action: bindCheckAction; }
                         MenuItem { action: bindFactureAction; }
                         MenuItem { action: bindTaxAction; }
-                        MenuSeparator { padding: 5; }
-                        MenuItem { action: removeBindAction; }
+                        // MenuSeparator { padding: 5; }
+                        // MenuItem { action: removeBindAction; }
                         MenuSeparator { padding: 5; }
                         MenuItem { action: winDcmsAction; }
                         MenuItem { action: winBalanceAction; }
@@ -1145,10 +1074,18 @@ ApplicationWindow {
                                 contextMenu.addItem( Qt.createQmlObject('import QtQuick.Controls; MenuSeparator {}',
                                                                                               contextMenu.contentItem,
                                                                                               "dynamicSeparator") )
-                                for (i =0; i < stack.count; ++i) {
+                                /*for (i =0; i < stack.count; ++i) {
                                     contextMenu.addAction(activateBind.createObject(contextMenu,
                                                                                     { cindex: i,
                                                                                       text: String(i === stack.currentIndex ? "<b>%1. %2</b>" : "%1. %2").arg(i).arg(stack.contentChildren[i].textForMenu())
+                                                                                    }))
+
+                                } */
+                                for (i =0; i < stack.count; ++i) {
+                                    contextMenu.addItem(containerBindAction.createObject(parent,
+                                                                                    {
+                                                                                        index: i,
+                                                                                        title: stack.contentChildren[i].textForMenu()
                                                                                     }))
 
                                 }
@@ -1174,6 +1111,7 @@ ApplicationWindow {
 //        askDialog.open()
         closeChildWindow()
     }
+
     footer: Rectangle{
         width: parent.width
         height: childrenRect.height
