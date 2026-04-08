@@ -21,7 +21,7 @@ import com.singleton.dbdriver4 1.0
 ApplicationWindow {
     id: root
     visible: true
-    title: String("vkPOS5#%1").arg("2.23")
+    title: String("vkPOS5#%1").arg("2.24")
 
     // property string pathToDb: "/data/"
     property string dbname: ''
@@ -349,6 +349,8 @@ ApplicationWindow {
                                      selectPopup.jsdata = Lib.getAcntList(Db, param.cashno, param.clid, param.mode);
                                      // Lib.log("#34rs HERE")
                                      selectPopup.open()
+                                } else if (id === 'bind.clientChanged'){
+                                    setClientFromBind()
                                  } else if (id === 'printCheck'){
                                      Prn.saveCheck(param)
                                      Prn.printCheck(param)
@@ -773,7 +775,7 @@ ApplicationWindow {
                         if (selectPopup.code==="client"){                  // client
                             stack.currentItem.crntClient = Lib.getClient(Db,id);
                             stack.currentItem.crntAcnt = Lib.getAccount(Db)
-                            setClientFromBind()
+                            // setClientFromBind()
                         } else if (selectPopup.code==="database") {        // database
                             root.dbname = id
                             // openConnection(id)
@@ -931,11 +933,14 @@ ApplicationWindow {
 
     header: ToolBar {
         id: appToolBar
-        height: 32
+        // height: 32
+        height: childrenRect.height
         Rectangle{
             // border{color:"lightsteelblue"; width: 2}
             width: parent.width
-            height: childrenRect.height // 30
+            height: childrenRect.height
+            // anchors{ fill: parent}
+            // clip: true
             // color: stackBind.children[stackBind.currentIndex].state === "taxcheck" ? "khaki" : "transparent"
             RowLayout {
                 width: parent.width
@@ -985,7 +990,7 @@ ApplicationWindow {
                     horizontalAlignment: Qt.AlignHCenter
                     verticalAlignment: Qt.AlignVCenter
                     Layout.fillWidth: true
-                    font.pointSize: 20
+                    font.pointSize: 16
                     // text: stack.currentItem.title
                 }
                 Item{
@@ -1017,7 +1022,7 @@ ApplicationWindow {
     //                        icon.source:"qrc:/icon/undo.svg"
                             onClicked: {
                                 stack.currentItem.crntClient = Lib.getClient(Db);
-                                setClientFromBind()
+                                // setClientFromBind()
                             }
                         }
                         Label{
@@ -1114,15 +1119,20 @@ ApplicationWindow {
 
     footer: Rectangle{
         width: parent.width
-        height: childrenRect.height
+        height: 25  //childrenRect.height
         color: 'lightgray'
-        RowLayout{
-            width: parent.width
+        Item{
+            anchors{ fill: parent; leftMargin: 10; rightMargin: 10;}
             Label {
                 id: footerLeftLabel
+                anchors{/*centerIn: parent;*/ verticalCenter: parent.verticalCenter }
                 text: String(" %1@%2").arg(root.term).arg(root.resthost)
             }
+            // RowLayout{
+            //     width: parent.width
+            // }
         }
+
 
     }
 

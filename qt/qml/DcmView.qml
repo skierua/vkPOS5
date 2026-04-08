@@ -187,17 +187,27 @@ Window {
                     width:parent.width * 0.15 -4;
                     anchors.verticalCenter: parent.verticalCenter;
                     font.pointSize: 12;
+                    clip: true
+                    elide: Text.ElideRight
                     text: root.ListView.view.model.bindInfo(section).clchar
                 }
                 Column{
                     width:parent.width * 0.15 -2;
                     Text{
-                        anchors.right: parent.right;
+                        width: parent.width
+                        // anchors.right: parent.right;
                         // font.pointSize: 12;
+                        horizontalAlignment: Text.AlignRight
+                        clip: true
+                        elide: Text.ElideLeft
                         text: root.ListView.view.model.bindInfo(section).dtm.substring(11,16)
                     }
                     Text{
-                        anchors.right: parent.right;
+                        width: parent.width
+                        // anchors.right: parent.right;
+                        horizontalAlignment: Text.AlignRight
+                        clip: true
+                        elide: Text.ElideLeft
                         text: root.ListView.view.model.bindInfo(section).dtm.substring(0,10)
                     }
                 }

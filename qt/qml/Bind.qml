@@ -70,6 +70,7 @@ Item {
     property var crntClient: {'id':'', 'name':'', "bonusTotal": 0, "bonusAcnt":''};
     onCrntClientChanged: {
         // cmbAcnt.model = Lib.getAcntList(dbDriver, cashAcnt.acntno, crntClient.id, "")
+        vkEvent("bind.clientChanged", crntClient)
         startNewRow()
     }
 
@@ -548,9 +549,12 @@ Item {
 
                 Button{
                     id: btnDelete
+                    // Layout.preferredHeight: 32
+                    Layout.fillHeight: true
                     Layout.preferredWidth: 32
-                    Layout.preferredHeight: 32
-                    icon {source: "qrc:/icon/close.svg"}
+                    // flat: false
+                    text: "X"
+                    font.pixelSize: 16
                     onClicked: {
                         root.ListView.view.model.remove(index)
                         root.ListView.view.restart()
