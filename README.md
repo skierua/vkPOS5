@@ -26,3 +26,15 @@ For **Linux** and **Windows**, the working directory structure is:
 └── app/
     ├── data/
     └── report/
+```
+
+### Installation & Build
+**Bash:**
+   ```bash
+   git clone https://github.com/skierua/vkPOS5
+   cd SysMonitor
+   mkdir build && cd build
+   cmake ..
+   cmake --build .
+   ```
+Or use Qt Creator to build `CMakeLists.txt`
