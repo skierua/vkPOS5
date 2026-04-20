@@ -100,5 +100,5 @@ jobs:
       uses: actions/upload-artifact@v4
       if: success()
       with:
-        name: ${{ runner.os }}-vkPOS5-stable-build
+        name: vkPOS5-${{ runner.os }}-stable-build
         path: ${{ github.workspace }}/build/
