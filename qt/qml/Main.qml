@@ -21,7 +21,7 @@ import com.singleton.dbdriver4 1.0
 ApplicationWindow {
     id: root
     visible: true
-    title: String("vkPOS5#%1").arg("2.25")
+    title: String("vkPOS5#%1").arg("2.26")
 
     // property string pathToDb: "/data/"
     property string dbname: ''
@@ -170,7 +170,7 @@ ApplicationWindow {
     header: ToolBar {
         id: appToolBar
         // height: 32
-        implicitHeight: headerLayout.implicitHeight+10
+        implicitHeight: headerLayout.implicitHeight
         // height: childrenRect.height
         Rectangle{
             // border{color:"lightsteelblue"; width: 2}
@@ -182,7 +182,7 @@ ApplicationWindow {
             // color: stackBind.children[stackBind.currentIndex].state === "taxcheck" ? "khaki" : "transparent"
             RowLayout {
                 id: headerLayout
-                anchors.fill: parent
+                anchors { fill: parent; margins:5}
     //            width: parent.width
                 ToolButton {    //  ☰
                     text: "☰"
@@ -221,7 +221,6 @@ ApplicationWindow {
                         }
                     }
                 }
-
                 Label {
                     id: headerTitle
                     elide: Label.ElideRight
@@ -1103,7 +1102,7 @@ ApplicationWindow {
     //     // onCountChanged: Lib.log(String("#18g count=%1").arg(count))
     //     onCurrentIndexChanged: stack.children[stack.currentIndex].forceActiveFocus()
     // }
-        Rectangle{
+        Item{
             anchors.fill: parent
             // color: 'blue'
             SwipeView {
