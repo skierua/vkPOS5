@@ -21,7 +21,7 @@ import com.singleton.dbdriver4 1.0
 ApplicationWindow {
     id: root
     visible: true
-    title: String("vkPOS5#%1").arg("2.24")
+    title: String("vkPOS5#%1").arg("2.25")
 
     // property string pathToDb: "/data/"
     property string dbname: ''
@@ -166,6 +166,214 @@ ApplicationWindow {
         }
 
     } */
+
+    header: ToolBar {
+        id: appToolBar
+        // height: 32
+        implicitHeight: headerLayout.implicitHeight+10
+        // height: childrenRect.height
+        Rectangle{
+            // border{color:"lightsteelblue"; width: 2}
+            width: parent.width
+            height: parent.height // Rectangle тепер заповнює ToolBar
+            color: "transparent" // Або ваш колір фону
+            // anchors{ fill: parent}
+            // clip: true
+            // color: stackBind.children[stackBind.currentIndex].state === "taxcheck" ? "khaki" : "transparent"
+            RowLayout {
+                id: headerLayout
+                anchors.fill: parent
+    //            width: parent.width
+                ToolButton {    //  ☰
+                    text: "☰"
+                    onClicked: naviMenu.open()
+                    flat: true
+                    Menu{
+                        id: naviMenu
+                        y: parent.height
+                        MenuItem { action: bindCheckAction; }
+                        MenuItem { action: bindFactureAction; }
+                        MenuItem { action: bindTaxAction; }
+                        // MenuSeparator { padding: 5; }
+                        // MenuItem { action: removeBindAction; }
+                        MenuSeparator { padding: 5; }
+                        MenuItem { action: winDcmsAction; }
+                        MenuItem { action: winBalanceAction; }
+                        MenuItem { action: winClientAction; }
+                        // MenuItem { action: winStatAction; }      // TODO
+                        MenuItem { action: winRateAction; }
+                        MenuItem { action: winShiftAction; }
+                        MenuSeparator {  padding: 5; }
+                        Menu{
+                            id: serviceMenu
+                            title: "Сервіс"
+                            MenuItem { action: winCashWizardAction; }
+                            MenuSeparator {  padding: 5; }
+                            MenuItem { action: winTaxServiceAction; }
+                            MenuItem { action: changeDBAction; }
+                            MenuSeparator {  padding: 5; }
+                            MenuItem { action: actionSetting; }
+                        }
+                        MenuSeparator { padding: 5; }
+                        MenuItem {
+                            text: "Вийти"
+                            onTriggered: quitTimer.start()
+                        }
+                    }
+                }
+
+                Label {
+                    id: headerTitle
+                    elide: Label.ElideRight
+                    horizontalAlignment: Qt.AlignHCenter
+                    verticalAlignment: Qt.AlignVCenter
+                    Layout.fillWidth: true
+                    font.pointSize: 16
+                    // text: stack.currentItem.title
+                }
+                Item{
+                    id: btnClient
+                    Layout.preferredWidth: childrenRect.width
+                    Layout.preferredHeight: childrenRect.height
+                    property string clName
+                    property string clBonus
+                    Row {
+                        // visible: stack.currentItem.crntClient !== undefined
+                        ToolButton{
+                            text: btnClient.clName
+                            // text: stack.currentItem.crntClient !== undefined ? stack.currentItem.crntClient.name : ''
+                            icon.source: "qrc:/icon/account.svg"
+    //                        flat: true
+                            onClicked: {
+                                selectPopup.code = "client"
+                                selectPopup.jsdata = Lib.getClientList(Db)
+                                selectPopup.open()
+                            }
+                        }
+                        ToolButton{
+                            width: 32
+        //                    Layout.preferredHeight: 35
+                            // visible: stack.currentItem.crntClient !== undefined && stack.currentItem.crntClient.id !== ''
+                            font.pointSize: 16
+                            text:"⌫"
+    //                        flat: true
+    //                        icon.source:"qrc:/icon/undo.svg"
+                            onClicked: {
+                                stack.currentItem.crntClient = Lib.getClient(Db);
+                                // setClientFromBind()
+                            }
+                        }
+                        Label{
+                            // visible: stack.currentItem.crntClient !== undefined && Math.abs(Number(stack.currentItem.crntClient.bonusTotal)) >= 0.01
+                            Layout.preferredHeight: 35
+                            color:'slategray'
+                            text: btnClient.clBonus
+                            // text: stack.currentItem.crntClient !== undefined ? Number(stack.currentItem.crntClient.bonusTotal).toFixed(0) : ''
+                            MouseArea{
+                                anchors.fill: parent
+                                onDoubleClicked: {
+                                    stack.currentItem.newBonus()
+                                }
+
+                            }
+
+                        }
+                    }
+
+                }
+
+
+                ToolButton {    // ⋮
+                    id:contextMenu_toolbtn
+                    text: qsTr("⋮")
+
+                    onClicked:  contextMenu.popup()
+
+                    Menu{
+                        id: batchMenu
+                        title: "Додатково"
+                    }
+
+                    Menu{
+                        id: contextMenu
+                        y: parent.height
+
+                        onVisibleChanged: {
+                            // dbg("contextMenu_toolbtn vsbl="+ visible, "#72js")
+                            let i =0
+                            if (visible){
+                                if (stack.currentItem.vkContextActions !== undefined){
+                                      for (i =0; i < stack.currentItem.vkContextActions.length; ++i){
+                                          contextMenu.addAction(stack.currentItem.vkContextActions[i])
+                                      }
+                                }
+                                if (stack.currentItem.vkBatchActions !== undefined){
+                                    for (i =0; i < stack.currentItem.vkBatchActions.length; ++i){
+                                        batchMenu.addAction(stack.currentItem.vkBatchActions[i])
+                                    }
+                                    contextMenu.addMenu(batchMenu)
+                                }
+
+                                contextMenu.addItem( Qt.createQmlObject('import QtQuick.Controls; MenuSeparator {}',
+                                                                                              contextMenu.contentItem,
+                                                                                              "dynamicSeparator") )
+                                /*for (i =0; i < stack.count; ++i) {
+                                    contextMenu.addAction(activateBind.createObject(contextMenu,
+                                                                                    { cindex: i,
+                                                                                      text: String(i === stack.currentIndex ? "<b>%1. %2</b>" : "%1. %2").arg(i).arg(stack.contentChildren[i].textForMenu())
+                                                                                    }))
+
+                                } */
+                                for (i =0; i < stack.count; ++i) {
+                                    contextMenu.addItem(containerBindAction.createObject(parent,
+                                                                                    {
+                                                                                        index: i,
+                                                                                        title: stack.contentChildren[i].textForMenu()
+                                                                                    }))
+
+                                }
+                            } else {
+                                for (i =batchMenu.count -1; i >=0; --i) batchMenu.removeItem(batchMenu.itemAt(i))
+                                for (i =contextMenu.count -1; i >=0; --i) contextMenu.removeItem(contextMenu.itemAt(i))
+                            }
+
+                        }
+                    }
+
+                }
+            }
+        }
+
+    }
+
+
+    onClosing: close =>
+    {
+//        close.accepted = false
+//        askDialog.jdata = {"code":"zReport", "text":"zReport"}
+//        askDialog.open()
+        closeChildWindow()
+    }
+
+    footer: Rectangle{
+        width: parent.width
+        height: 25  //childrenRect.height
+        color: 'lightgray'
+        Item{
+            anchors{ fill: parent; leftMargin: 10; rightMargin: 10;}
+            Label {
+                id: footerLeftLabel
+                anchors{/*centerIn: parent;*/ verticalCenter: parent.verticalCenter }
+                text: String(" %1@%2").arg(root.term).arg(root.resthost)
+            }
+            // RowLayout{
+            //     width: parent.width
+            // }
+        }
+
+
+    }
+
 
     Component{
         id: containerBindAction
@@ -895,33 +1103,40 @@ ApplicationWindow {
     //     // onCountChanged: Lib.log(String("#18g count=%1").arg(count))
     //     onCurrentIndexChanged: stack.children[stack.currentIndex].forceActiveFocus()
     // }
+        Rectangle{
+            anchors.fill: parent
+            // color: 'blue'
+            SwipeView {
+                id: stack
 
-    SwipeView {
-        id: stack
+                // currentIndex: 1
+                anchors.fill: parent
 
-        // currentIndex: 1
-        anchors.fill: parent
+                onCurrentIndexChanged: {
+                    headerTitle.text = currentItem.title
+                    setClientFromBind()
 
-        onCurrentIndexChanged: {
-            headerTitle.text = currentItem.title
-            setClientFromBind()
+                    stack.currentItem.forceActiveFocus()
+                    // dbg("currentIndex=" + currentIndex
+                    //             ,"63gb")
+                }
 
-            stack.currentItem.forceActiveFocus()
-            // dbg("currentIndex=" + currentIndex
-            //             ,"63gb")
+            }
+            PageIndicator {
+                id: indicator
+                visible: stack.count > 1
+                count: stack.count
+                currentIndex: stack.currentIndex
+
+                anchors{bottom: parent.bottom;
+                    horizontalCenter: parent.horizontalCenter;
+                    bottomMargin: 70}
+            }
+
         }
-    }
 
-    PageIndicator {
-        id: indicator
 
-        count: stack.count
-        currentIndex: stack.currentIndex
 
-        anchors{bottom: stack.bottom;
-            horizontalCenter: parent.horizontalCenter;
-            bottomMargin: 70}
-    }
     LogView{
         id: logView
         width: parent.width
@@ -929,211 +1144,6 @@ ApplicationWindow {
         z: 10
         anchors.bottom: parent.bottom
         debug: true
-    }
-
-    header: ToolBar {
-        id: appToolBar
-        // height: 32
-        height: childrenRect.height
-        Rectangle{
-            // border{color:"lightsteelblue"; width: 2}
-            width: parent.width
-            height: childrenRect.height
-            // anchors{ fill: parent}
-            // clip: true
-            // color: stackBind.children[stackBind.currentIndex].state === "taxcheck" ? "khaki" : "transparent"
-            RowLayout {
-                width: parent.width
-                // anchors.fill: parent
-    //            width: parent.width
-                ToolButton {    //  ☰
-                    text: "☰"
-                    onClicked: naviMenu.open()
-                    flat: true
-                    Menu{
-                        id: naviMenu
-                        y: parent.height
-                        MenuItem { action: bindCheckAction; }
-                        MenuItem { action: bindFactureAction; }
-                        MenuItem { action: bindTaxAction; }
-                        // MenuSeparator { padding: 5; }
-                        // MenuItem { action: removeBindAction; }
-                        MenuSeparator { padding: 5; }
-                        MenuItem { action: winDcmsAction; }
-                        MenuItem { action: winBalanceAction; }
-                        MenuItem { action: winClientAction; }
-                        // MenuItem { action: winStatAction; }      // TODO
-                        MenuItem { action: winRateAction; }
-                        MenuItem { action: winShiftAction; }
-                        MenuSeparator {  padding: 5; }
-                        Menu{
-                            id: serviceMenu
-                            title: "Сервіс"
-                            MenuItem { action: winCashWizardAction; }
-                            MenuSeparator {  padding: 5; }
-                            MenuItem { action: winTaxServiceAction; }
-                            MenuItem { action: changeDBAction; }
-                            MenuSeparator {  padding: 5; }
-                            MenuItem { action: actionSetting; }
-                        }
-                        MenuSeparator { padding: 5; }
-                        MenuItem {
-                            text: "Вийти"
-                            onTriggered: quitTimer.start()
-                        }
-                    }
-                }
-
-                Label {
-                    id: headerTitle
-                    elide: Label.ElideRight
-                    horizontalAlignment: Qt.AlignHCenter
-                    verticalAlignment: Qt.AlignVCenter
-                    Layout.fillWidth: true
-                    font.pointSize: 16
-                    // text: stack.currentItem.title
-                }
-                Item{
-                    id: btnClient
-                    Layout.preferredWidth: childrenRect.width
-                    Layout.preferredHeight: childrenRect.height
-                    property string clName
-                    property string clBonus
-                    Row {
-                        // visible: stack.currentItem.crntClient !== undefined
-                        ToolButton{
-                            text: btnClient.clName
-                            // text: stack.currentItem.crntClient !== undefined ? stack.currentItem.crntClient.name : ''
-                            icon.source: "qrc:/icon/account.svg"
-    //                        flat: true
-                            onClicked: {
-                                selectPopup.code = "client"
-                                selectPopup.jsdata = Lib.getClientList(Db)
-                                selectPopup.open()
-                            }
-                        }
-                        ToolButton{
-                            width: 32
-        //                    Layout.preferredHeight: 35
-                            // visible: stack.currentItem.crntClient !== undefined && stack.currentItem.crntClient.id !== ''
-                            font.pointSize: 16
-                            text:"⌫"
-    //                        flat: true
-    //                        icon.source:"qrc:/icon/undo.svg"
-                            onClicked: {
-                                stack.currentItem.crntClient = Lib.getClient(Db);
-                                // setClientFromBind()
-                            }
-                        }
-                        Label{
-                            // visible: stack.currentItem.crntClient !== undefined && Math.abs(Number(stack.currentItem.crntClient.bonusTotal)) >= 0.01
-                            Layout.preferredHeight: 35
-                            color:'slategray'
-                            text: btnClient.clBonus
-                            // text: stack.currentItem.crntClient !== undefined ? Number(stack.currentItem.crntClient.bonusTotal).toFixed(0) : ''
-                            MouseArea{
-                                anchors.fill: parent
-                                onDoubleClicked: {
-                                    stack.currentItem.newBonus()
-                                }
-
-                            }
-
-                        }
-                    }
-
-                }
-
-
-                ToolButton {    // ⋮
-                    id:contextMenu_toolbtn
-                    text: qsTr("⋮")
-
-                    onClicked:  contextMenu.popup()
-
-                    Menu{
-                        id: batchMenu
-                        title: "Додатково"
-                    }
-
-                    Menu{
-                        id: contextMenu
-                        y: parent.height
-
-                        onVisibleChanged: {
-                            // dbg("contextMenu_toolbtn vsbl="+ visible, "#72js")
-                            let i =0
-                            if (visible){
-                                if (stack.currentItem.vkContextActions !== undefined){
-                                      for (i =0; i < stack.currentItem.vkContextActions.length; ++i){
-                                          contextMenu.addAction(stack.currentItem.vkContextActions[i])
-                                      }
-                                }
-                                if (stack.currentItem.vkBatchActions !== undefined){
-                                    for (i =0; i < stack.currentItem.vkBatchActions.length; ++i){
-                                        batchMenu.addAction(stack.currentItem.vkBatchActions[i])
-                                    }
-                                    contextMenu.addMenu(batchMenu)
-                                }
-
-                                contextMenu.addItem( Qt.createQmlObject('import QtQuick.Controls; MenuSeparator {}',
-                                                                                              contextMenu.contentItem,
-                                                                                              "dynamicSeparator") )
-                                /*for (i =0; i < stack.count; ++i) {
-                                    contextMenu.addAction(activateBind.createObject(contextMenu,
-                                                                                    { cindex: i,
-                                                                                      text: String(i === stack.currentIndex ? "<b>%1. %2</b>" : "%1. %2").arg(i).arg(stack.contentChildren[i].textForMenu())
-                                                                                    }))
-
-                                } */
-                                for (i =0; i < stack.count; ++i) {
-                                    contextMenu.addItem(containerBindAction.createObject(parent,
-                                                                                    {
-                                                                                        index: i,
-                                                                                        title: stack.contentChildren[i].textForMenu()
-                                                                                    }))
-
-                                }
-                            } else {
-                                for (i =batchMenu.count -1; i >=0; --i) batchMenu.removeItem(batchMenu.itemAt(i))
-                                for (i =contextMenu.count -1; i >=0; --i) contextMenu.removeItem(contextMenu.itemAt(i))
-                            }
-
-                        }
-                    }
-
-                }
-            }
-        }
-
-    }
-
-
-    onClosing: close =>
-    {
-//        close.accepted = false
-//        askDialog.jdata = {"code":"zReport", "text":"zReport"}
-//        askDialog.open()
-        closeChildWindow()
-    }
-
-    footer: Rectangle{
-        width: parent.width
-        height: 25  //childrenRect.height
-        color: 'lightgray'
-        Item{
-            anchors{ fill: parent; leftMargin: 10; rightMargin: 10;}
-            Label {
-                id: footerLeftLabel
-                anchors{/*centerIn: parent;*/ verticalCenter: parent.verticalCenter }
-                text: String(" %1@%2").arg(root.term).arg(root.resthost)
-            }
-            // RowLayout{
-            //     width: parent.width
-            // }
-        }
-
-
     }
 
     Component.onCompleted: {
