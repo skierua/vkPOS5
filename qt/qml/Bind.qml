@@ -61,7 +61,7 @@ Item {
     property real z0: 0.0000001
 
 
-    property string parentCode: "check"
+    // property string parentCode: "check"
     property var cashAcnt : {"acntno":"3000", "clid":"", "note":"", "mask":"7", "trade":"0", "name":"Залишок"}
     // onCashAcntChanged: dataModel.cashAcnt = cashAcnt.acntno
     property var crntAcnt: { "acntno":"", "clid":"", "clname":"", "note":"", "mask":"", "clnote":"", "trade":"", "name":"" };
@@ -83,7 +83,7 @@ Item {
             State {
                 name: "facture"
                 PropertyChanges { target: root; title: "ФАКТУРА" }
-                PropertyChanges { target: root; parentCode: "facture" }
+                // PropertyChanges { target: root; parentCode: "facture" }
                 PropertyChanges { target: dataModel; code: "facture" }
                 PropertyChanges { target: root; autoTax: false }
                 PropertyChanges { target: fldDsc; visible: true }
@@ -96,7 +96,7 @@ Item {
         State {
             name: "incas"
             PropertyChanges { target: root; title: "Інкасація" }
-            PropertyChanges { target: root; parentCode: "check" }
+            // PropertyChanges { target: root; parentCode: "check" }
             PropertyChanges { target: dataModel; code: "check" }
             PropertyChanges { target: root; autoTax: false }
             PropertyChanges { target: fldDsc; visible: false }
@@ -109,7 +109,7 @@ Item {
             State {
                 name: "taxcheck"
                 PropertyChanges { target: root; title: "ФІСКАЛЬНИЙ" }
-                PropertyChanges { target: root; parentCode: "check" }
+                // PropertyChanges { target: root; parentCode: "check" }
                 PropertyChanges { target: dataModel; code: "check" }
                 PropertyChanges { target: root; autoTax: true }
                 PropertyChanges { target: fldDsc; visible: false }
@@ -245,10 +245,23 @@ Item {
 
     }
 
-    function newDcm(atclid, acntno, amnt, price){
+    function newDcm(atclid){
+        if (atclid === undefined) atclid = "";
+        // if (acntno === undefined) acntno = root.crntAcnt.acntno;
+        // if (amnt === undefined) amnt = root.crntAmnt;
+        // const jprice = Lib.getPrice(db, datcl.id, (dcode === "trade:sell" ? -1 : 1), dacnt.acntno)
+
+        dataModel.addDcm(root.dbDriver, atclid, root.crntAcnt.acntno, root.crntAmnt)
+        bindView.currentIndex = 0
+        bindView.forceActiveFocus()
+    }
+
+    function newDcm_old1(atclid, acntno, amnt, price){
         if (atclid === undefined) atclid = "";
         if (acntno === undefined) acntno = root.crntAcnt.acntno;
         if (amnt === undefined) amnt = root.crntAmnt;
+        // const jprice = Lib.getPrice(db, datcl.id, (dcode === "trade:sell" ? -1 : 1), dacnt.acntno)
+
         dataModel.addDcm(root.dbDriver, atclid, acntno, amnt, price)
         bindView.currentIndex = 0
         bindView.forceActiveFocus()

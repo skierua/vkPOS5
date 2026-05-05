@@ -204,22 +204,22 @@ ListModel {
         if (acnt.trade === "0") {
             res = (amnt < 0 ?  "pay:out" : "pay:in")
         } else if (acnt.trade === "1"){
-            if (isTradeInner()) res = "trade:buy"
-                else res = (amnt < 0 ?  "trade:sell" : "trade:buy")
+            // if (isTradeInner()) res = "trade:buy"
+            //     else res = (amnt < 0 ?  "trade:sell" : "trade:buy")
 
-            // if (root.code == "check") {
-            //     if (atcl.mask === "4") { res = "trade:sell" }
-            //     else if (atcl.mask === "2") {
-            //         res = (amnt < 0 ?  "trade:sell" : "trade:buy")
-            //     }
-            // } else if (root.code == "facture") {
-            //     if (atcl.mask === "4") { res = "trade:buy" }
-            //     else if (atcl.mask === "2") {
-            //         res = (amnt < 0 ?  "trade:sell" : "trade:buy")
-            //     }
-            // } else if (root.code == "taxcheck") {
-            //     if (atcl.mask === "4") res = "trade:sell"
-            // }
+            if (root.code == "check") {
+                if (atcl.mask === "4") { res = "trade:sell" }
+                else if (atcl.mask === "2") {
+                    res = (amnt < 0 ?  "trade:sell" : "trade:buy")
+                }
+            } else if (root.code == "facture") {
+                if (atcl.mask === "4") { res = "trade:buy" }
+                else if (atcl.mask === "2") {
+                    res = (amnt < 0 ?  "trade:sell" : "trade:buy")
+                }
+            } else if (root.code == "taxcheck") {
+                if (atcl.mask === "4") res = "trade:sell"
+            }
         }
         return res
     }

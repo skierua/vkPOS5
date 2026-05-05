@@ -937,6 +937,7 @@ ApplicationWindow {
         height: childrenRect.height
         Rectangle{
             // border{color:"lightsteelblue"; width: 2}
+            // color: "blue"
             width: parent.width
             height: childrenRect.height
             // anchors{ fill: parent}
