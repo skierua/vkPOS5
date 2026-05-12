@@ -21,7 +21,7 @@ import com.singleton.dbdriver4 1.0
 ApplicationWindow {
     id: root
     visible: true
-    title: String("vkPOS5#%1").arg("2.26")
+    title: String("vkPOS5#%1").arg("2.27")
 
     // property string pathToDb: "/data/"
     property string dbname: ''
@@ -504,21 +504,21 @@ ApplicationWindow {
                                       dbDriver: Db,
                                       funcRESTUpload: (jbind) => {
                                           if (isOnline()) REST.uploadBindTran(root.term, root.term, jbind, Lib.uploadAcnt(Db, true).rows,
-                                                               (err) =>{ if (err !== null) logView.append("[uploadBindTran] " + err, 0); })
+                                                               (err) =>{ if (err !== null) dbg.append("[uploadBindTran] " + err, 0); })
                                        },
                                        funcFiscalizate: (bindid) =>{
                                           if (!isTaxMode()) {
-                                               logView("Fiscalization is unsupported", 1)
+                                               dbg("Fiscalization is unsupported", 1)
                                                return
                                           }
                                           let jbind = Lib.cdtaxFromBind(Db, bindid)
                                           if (!jbind) {
-                                              logView("Fiscalization local error", 0)
+                                              dbg("Fiscalization local error", 0)
                                               return
                                           }
                                           CashDesk.sale(jbind, (err, resp) =>{
                                                             if (err) {
-                                                                logView("Fiscalization server error", 0)
+                                                                dbg("Fiscalization server error", 0)
                                                                 if (taxServiceLoader.active) taxServiceLoader.item.newMessage(
                                                                     "SALE", "Fiscalization server error", "error")
                                                             } else {
@@ -529,7 +529,7 @@ ApplicationWindow {
                                                             )
                                       },
                                         acnts: root.acnts,
-                                        funcLog: (text, logid =2) => { logView.append("[Bind] " + text, logid); },
+                                        funcLog: (text, logid =2) => { dbg.append("[Bind] " + text, logid); },
                                         allowTax: isTaxMode(),
                                         printDcm: root.checkPrintDcm,
                                         autoPrint: root.checkAutoPrint,
