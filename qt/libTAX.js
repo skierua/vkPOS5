@@ -48,6 +48,7 @@ function z_report(callback) {
 }
 
 function postRequest(path, req, callback) {
+    // console.log("[libTAX] data=" + JSON.stringify(req)); return;
     let request = new XMLHttpRequest();
     let  err = null, resp = null;
     const url = gl_host + gl_prefix + path

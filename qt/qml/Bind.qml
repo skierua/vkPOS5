@@ -316,15 +316,15 @@ Item {
             funcLog( dataModel.lastError, 0)
             return
         }
-        if (root.autotax) {
+        if (root.allowTax) {
             funcFiscalizate(bid)
         }
 
         funcRESTUpload(jbind)
 
-        if (root.checkPrintDcm !== undefined && root.checkPrintDcm !== ""){
+        if (root.printDcm !== undefined && root.printDcm !== ""){
             if ((prnMode === 1) ||
-                    (prnMode === 2 && root.checkAutoPrint !== undefined && root.checkAutoPrint !== 0)) {
+                    (prnMode === 2 && root.autoPrint !== undefined && root.autoPrint !== 0)) {
                 vkEvent("printCheck", jbind)
             }
         }
