@@ -69,6 +69,13 @@ jobs:
         # Set the environment variable for subsequent steps
         # aqtversion: '3.1.2'
         
+    - name: Fix Qt AGL framework bug on macOS
+      if: runner.os == 'macOS'
+      run: |
+        # Знаходимо файл конфігурації OpenGL в інсталяції Qt та видаляємо AGL fallback
+        find . -name "FindWrapOpenGL.cmake" -exec sed -i '' 's/-framework AGL//g' {} + || true
+        find /Users/runner/work/ -name "FindWrapOpenGL.cmake" -exec sed -i '' 's/-framework AGL//g' {} + || true
+        
     # - name: Set reusable strings
     #   # Turn repeated input strings (such as the build output directory) into step outputs. These step outputs can be used throughout the workflow file.
     #   id: strings
