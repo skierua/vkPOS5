@@ -102,7 +102,6 @@ function findText(db, vtext, mask, callback) {
         let ok = true;
         if (vtext.length < 4) {
             sql = "select item.pkey as id, itemchar as name, coalesce(itemname, itemnote,'') as fullname, itemmask as mask, '' as sect from item "
-
             sql += "where folder = 0 and (itemmask=2) and substr(cast(item.pkey as string),1,"+vtext.length+")='"+vtext+"'";
             vartjs = parse(db.dbSelectRows(sql));
             ok &= ok && vartjs && vartjs.rowCount === 0;
@@ -147,13 +146,17 @@ function getSQLData(db, vsql) {
 
 function getIncas(db) {
     // console.log("#dr3 sql="+vsql+filt)
-    const vsql = String("select acnt.id tid,acnt.acntno tno, acnt.item as curid, itemchar as cur, eq.id eid, eq.acntno eno,'rslt.'||acntrade.acntno||'/'|| acntrade.article as rno, "
-                        +"bscprice, qtty as qty, price, 0-(acnt.beginamnt+acnt.turndbt-acnt.turncdt) amnt, (acnt.beginamnt+acnt.turndbt-acnt.turncdt) incas, (eq.beginamnt+eq.turndbt-eq.turncdt) as eqamnt, "
-                        +"round(0-(acnt.beginamnt+acnt.turndbt-acnt.turncdt) * bscprice - (eq.beginamnt+eq.turndbt-eq.turncdt),2) as profit "
-                        +"from  acntrade join acnt on (acntrade.pkey = acnt.id) left join price using(item) join item on (acnt.item=item.pkey) join acnt as eq "
-                        +"on (('eqvl.'||acntrade.acntno||'/'||acntrade.article) = eq.acntno) where substr(acnt.acntno,1,4)='3500' and prbidask=1"
-                        + " AND (prtype IS NULL OR prtype='') and itemmask=2 AND amnt!=0 AND eqamnt!=0 "
-                        +"order by acnt.acntno,itemnote;")
+    const vsql = String(`
+      SELECT acnt.id tid,acnt.acntno tno, acnt.item AS curid, itemchar AS cur, eq.id eid,
+          eq.acntno eno,'rslt.'||acntrade.acntno||'/'|| acntrade.article AS rno,
+          bscprice, qtty AS qty, price, 0-(acnt.beginamnt+acnt.turndbt-acnt.turncdt) amnt,
+          (acnt.beginamnt+acnt.turndbt-acnt.turncdt) incas, (eq.beginamnt+eq.turndbt-eq.turncdt) AS eqamnt,
+          round(0-(acnt.beginamnt+acnt.turndbt-acnt.turncdt) * bscprice - (eq.beginamnt+eq.turndbt-eq.turncdt),2) AS profit
+      FROM  acntrade JOIN acnt ON (acntrade.pkey = acnt.id)
+          LEFT JOIN price USING(item) JOIN item ON (acnt.item=item.pkey)
+          JOIN acnt AS eq ON (('eqvl.'||acntrade.acntno||'/'||acntrade.article) = eq.acntno)
+          WHERE substr(acnt.acntno,1,4)='3500' AND prbidask=1
+          ORDER BY acnt.acntno,itemnote;                        `)
     const jdata = parse(db.dbSelectRows(vsql));
     // console.log(("lib.js/getIncas#2w5 vsql=%1").arg(vsql))
     // console.log("#235 article="+JSON.stringify(jdata.rows))
@@ -385,7 +388,7 @@ function getDbList(db, path){
 //            console.log('main db list='+dbList)
   var vj = [];
   for (var i = 0; i < dbList.length; ++i){
-      vj[i] = {'id':pathToDb+dbList[i], 'name':dbList[i],"fullname":'', 'mask':"256", "sect":'Доступні БД'};
+      vj[i] = {'id':pathToDb+dbList[i], 'name':dbList[i],"fullname":'', 'mask':256, 'code':"database", "sect":'Доступні БД'};
 //                    databaseView.model.append({'id':pathToDb+dbList[i], 'name':dbList[i]})
   }
   return vj
@@ -810,6 +813,7 @@ function updClient(db, id, name, phone, note = ''){
 
 }
 
+// deprecated removed from ModelPrice
 function updRate(db, price, qty, id, curid, ba){
     let vsql = "";
     let res = 0;

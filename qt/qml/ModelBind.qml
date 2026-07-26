@@ -1,403 +1,368 @@
+// ModelBind.qml (Частина 1: Оптимізований фінансовий процесор транзакцій)
 import QtQuick
+
+import "js/v147/config.js" as Conf
+import "js/v147/sqlItem.js" as LibItem
+import "js/v147/sqlAcnt.js" as LibAcnt
+
 import "../lib.js" as Lib
 
 ListModel {
-    id: root
+    id: mRoot
 
-    property real pmntTotal: 0
-    property real eqTotal: 0
-    property real dscMoney: 0
-    property real bnsMoney: 0
-
-    property real crntDsc: 0
-    property real crntBns: 0
-    property real crntRate: 1
-
+    property real crntDsc: 0    //  0 <= crntDsc <= 1
+    property real crntBns: 0    //  0 <= crntBns <= 1
 
     property real rate: 1
-    onRateChanged:{
-        if (rate <=0) return
-        for (let r=0; r < count; ++r){
-            setProperty(r,'drate', rate);
-            // if (Number(bindView.model.get(r).darticle.mask) === 4) { bindView.model.setProperty(r,'drate', Number(crntRate)); }
-        }
-    }
 
-
-    // property int dfltAmnt: 1
-    property string code
-    // onCodeChanged: dbg("code =" + code, "#5ga")
-    property string cashno
-    property string client: ""      // client id
-
-    property string lastError: ""      //
+    property string lastError: ""   // Текст останньої помилки для індикації касиру
 
     signal vkEvent(string id, var param)
 
-    function dbg(str, code ="") {
-        console.log( String("%1[ModelBind] %2").arg(code).arg(str));
+    function dbg(str, code = "") {
+        console.log(`[ModelBind.qml]#${code} ${str}`);
     }
 
-    function isCorrect(atcl, acnt, code, amnt){
-        let ok = true
-        ok &= (Number(atcl.mask) & Number(acnt.mask)) !== 0
-        ok &= (acnt !== undefined && acnt.acntno !== "")
-        ok &= (code !== "")
-        ok &= (amnt !== undefined && amnt !== 0)
-        // ok &= (root.code !== "taxcheck" && (atcl.mask !== "4" || code !== ""))
-        return ok
+    function flush() {
+        clear();
+        crntDsc = 0;
+        crntBns = 0;
+        rate = 1;
+        lastError = "";
+
+        // bindCdt = "";
+        // note = "";
+
+        // recalculate();
     }
 
-    function isTaxBindCorrect(){
-        let ok = true
-        for (var r =0; r < count && ok; ++r) {
-            ok &= get(r).dcode === "trade:sell"
-            ok &= get(r).darticle.mask === "4"
-            ok &= get(r).dprice !== 0
-        }
-        return ok
+    // Сувора валідація параметрів проводки (Захист від некоректних даних)
+    function isCorrect(atcl, acnt, dtype, amnt) {
+        let errstr = null;
+        if (!atcl)
+            errstr = "Параменти. Відсутній валюта/артикул документу";
+        if (!acnt)
+            errstr = "Параменти. Відсутній рахунок документу";
+        if (!dtype)
+            errstr = "Параменти. Відсутній код типу документу";
+        if (amnt === undefined || amnt === 0)
+            errstr = "Параменти. Відсутня сума документу";
+
+        let atclMask = Number(atcl?.mask || 0);
+        let acntMask = Number(acnt?.mask || 0);
+
+        if ((atclMask & acntMask) === 0)
+            errstr = "Не сумісний артикул та рахунок документу";
+        if (acnt.acntno === "")
+            errstr = "Відсутній код рахунку документу";
+
+        if (!errstr)
+            return true;
+        mRoot.lastError = errstr;
+        return false;
     }
 
-    function isTradeInner(){
-        let ok = true
-        for (var r =0; r < count && ok; ++r) {
-            if (get(r).dacnt.trade === "1") continue
-            ok &= get(r).dacnt.acntno.substring(0,2) === "36"
-            ok &= get(r).dacnt.acntno.substring(0,4) !== "3607"
-        }
-        return !ok
-    }
 
-    function addDcm(db, atclid, acntno, amnt, price){
-        const datcl = Lib.getArticle(db, atclid)
-        const dacnt = Lib.getAccount(db, acntno)
-        const damnt = Number(amnt)
-        let dcode = resolveCode(datcl, dacnt, damnt)
-        let ddsc = 0
-        let dbns = 0
+    // DEPRECATED
+    function resolveCode(atcl, acnt, amnt) {
+        console.warn("ModelBind/resolveCode DEPRECATED !!!"); return false;
 
-        let dprice = 0
-        let dtag = ""
-        let datt = 0
-        if (dacnt.trade === "1") {      //{"pkey":"", "price":"0" , "offer":"0", "dsc":"0"}
-            datt = 1
-            if (price === undefined) {
-                const jprice = Lib.getPrice(db, datcl.id, (dcode === "trade:sell" ? -1 : 1), dacnt.acntno)
-                dprice = Number(jprice.price)
-                if (Number(datcl.mask) === 4) {
-                    datt = 7
-                    if (jprice.dsc !== "0") {
-                        ddsc = Number(jprice.dsc)
-                        datt = 0
-                        dtag = " #ЗНИЖКА!"
-                    }
-                    if (jprice.offer !== "0") {
-                        dprice = Number(jprice.offer)
-                        ddsc = 0
-                        datt = 0
-                        dtag = " #АКЦІЯ!"
-                    }
+
+        if (!acnt || !atcl)
+            return "";
+        let res = "";
+        // dbg(`acnt: ${JSON.stringify(acnt)}`, "415")
+        // dbg(`mRoot.code=${mRoot.code} maskNum=${Number(atcl.mask || 0)} trade=${String(acnt.trade)} res=${res} `, "resolveCode")
+        if (String(acnt.trade) === "0") {
+            res = (amnt < 0 ? "pay:out" : "pay:in");
+        } else if (String(acnt.trade) === "1") {
+            let maskNum = Number(atcl.mask || 0);
+
+            if (mRoot.dtype === "check") {
+                if (maskNum === 4) res = "trade:sell";
+                else if (maskNum === 2) {
+                    res = (amnt >= 0) ? "trade:buy" : "trade:sell";
                 }
-
-            } else dprice = price
-
-
-        }
-
-        if (!isCorrect(datcl, dacnt, dcode, damnt)){
-            lastError = qsTr("Unsupported document parameters")
-            return false
-        }
-
-        insert(0,
-            {
-                "dsign": damnt < 0 ? -1 : 1,
-                "dcode": dcode,
-                "darticle": datcl,
-                "dacnt": dacnt,
-                "damnt": Math.abs(Number(damnt)),  //String(crntAmnt),
-                "dsubName":"#"+datcl.id + (Number(dacnt.trade) === 0 ? (" ["+dacnt.acntno+"/"+dacnt.note+"]") : "") + dtag,
-                "dnote": datcl.name + (Number(dacnt.trade) === 0 ? (" ["+dacnt.clname+"/"+dacnt.note+"]") : "") + dtag,
-                "dprice": Number(dprice),
-                "ddsc": ddsc,
-                "dbns": dbns,
-                "dpratt": datt,
-                "drate": root.rate,
-                "retfor": ""
+            } else if (mRoot.dtype === "facture") {
+                res = "trade:buy";
+            } else if (mRoot.dtype === "folder") {
+                res = "trade:inner";
+                // if (maskNum === 4) res = "trade:inner";
+            } else if (mRoot.dtype === "taxcheck") {
+                if (maskNum === 4)
+                    res = "trade:sell";
             }
-        )
-        // dbg(JSON.stringify(get(0)), "#8qeh")
-        return true
+        }
+        // dbg(`mRoot.dtype=${mRoot.dtype} maskNum=${Number(atcl.mask || 0)} res=${res} `, "resolveCode")
+        return res;
     }
 
-    function addRefused(db, dcmid){
-        const dcms = Lib.getBindList(db, "dcmid = '" + dcmid + "'")
-        if (dcms.length < 1){
-            lastError = "Неможливо відкрити документ."
-            return false
+    function dcmsToTran(targetAcntNo) {
+        mRoot.lastError = "";
+        if (!targetAcntNo){
+            mRoot.lastError = "Відсутній рахунок пакету документів.";
+            return null;
         }
-        const datcl = Lib.getArticle(db, dcms[0].atclid)
-        const dacnt = Lib.getAccount(db, dcms[0].acntcdt)
-        const dcode = dcms[0].dcmtype
-        const damnt = 0 - Number(dcms[0].amount)
+        let ok = true;
+        let dcmList = []
+        let errstr = "";
+        for (let r = 0; ok && r < count; ++r) {
+            let row = get(r);
+            // console.log(`ModelBind#s729 ${JSON.stringify(row)}`)
+            // console.log(`ModelBind#s729 1=[${!!(row.dcode || "")}] 2=[${Number(row.amnt || 0) !== 0}]`)
+            let precision = Number(row.darticle?.prec || 2);
 
-        if (!isCorrect(datcl, dacnt, dcode, damnt)){
-            lastError = qsTr("Unsupported document parameters")
-            return false
-        }
-
-        const dtag = " #ПОВЕРНЕННЯ!"
-
-        insert(0,
-            {
-                "dsign": damnt < 0 ? -1 : 1,
-                "dcode": dcode,
-                "darticle": datcl,
-                "dacnt": dacnt,
-                "damnt": Math.abs(Number(damnt)),  //String(crntAmnt),
-                "dsubName":"#"+datcl.id + (Number(dacnt.trade) === 0 ? (" ["+dacnt.acntno+"/"+dacnt.note+"]") : "") + dtag,
-                "dnote": dcms[0].dnote + dtag,
-                "dprice": damnt !== 0 ? Math.abs(Number(dcms[0].eq) / damnt) : 0,
-                "ddsc": Number(dcms[0].eq) !== 0 ? Math.abs(Number(dcms[0].dsc)/Number(dcms[0].eq)) : 0,
-                "dbns": Number(dcms[0].eq) !== 0 ? Math.abs(Number(dcms[0].bns)/Number(dcms[0].eq)) : 0,
-                "dpratt": 0,
-                "drate": root.rate,
-                "retfor": String(dcmid)
+            ok &= (!!(row.dcode || "") && (Number(row.damnt || 0) !== 0));
+            if (Number(row.dacnt?.trade || 0) !== 0) {
+                ok &= Number(row.moneyEq || 0) !== 0
             }
-        )
-        return true
-    }
 
-    // dcm stru {"dcm":"memo","dbt":acnts.cash,"cdt":jsrow.rows[r].acntno,"crn":"","amnt":Number(jsrow.rows[r].amnt).toFixed(2),"eq":"0","dsc":"0","bns":"0","note":"","retfor":""}
-    function addMemo(db, dcm){
-        const datcl = Lib.getArticle(db, dcm.crn)
-        const dacnt = Lib.getAccount(db, dcm.cdt)
-        const damnt = Number(dcm.amnt)
-        const dtag = ""
-        if (!isCorrect(datcl, dacnt, dcm.dcm, damnt)){
-            lastError = String("Unsupported document parameters.\n%1").arg(JSON.stringify(dcm))
-            return false
-        }
-
-        insert(0,
-            {
-                "dsign": damnt < 0 ? -1 : 1,
-                "dcode": dcm.dcm,
-                "darticle": datcl,
-                "dacnt": dacnt,
-                "damnt": Math.abs(Number(damnt)),
-                "dsubName":"#"+datcl.id + (Number(dacnt.trade) === 0 ? (" ["+dacnt.acntno+"/"+dacnt.note+"]") : "") + dtag,
-                "dnote": dcm.note + dtag,
-                "dprice": 0,
-                "ddsc": 0,
-                "dbns": 0,
-                "dpratt": 0,
-                "drate": root.rate,
-                "retfor": ""
-            }
-        )
-        return true
-    }
-
-    function resolveCode(atcl, acnt, amnt){
-        let res = ""
-        if (acnt.trade === "0") {
-            res = (amnt < 0 ?  "pay:out" : "pay:in")
-        } else if (acnt.trade === "1"){
-            if (isTradeInner()) res = "trade:buy"
-                else res = (amnt < 0 ?  "trade:sell" : "trade:buy")
-
-            // if (root.code == "check") {
-            //     if (atcl.mask === "4") { res = "trade:sell" }
-            //     else if (atcl.mask === "2") {
-            //         res = (amnt < 0 ?  "trade:sell" : "trade:buy")
-            //     }
-            // } else if (root.code == "facture") {
-            //     if (atcl.mask === "4") { res = "trade:buy" }
-            //     else if (atcl.mask === "2") {
-            //         res = (amnt < 0 ?  "trade:sell" : "trade:buy")
-            //     }
-            // } else if (root.code == "taxcheck") {
-            //     if (atcl.mask === "4") res = "trade:sell"
+            // if ((row.dacnt?.trade || 0) !== 0) {
+            //     ok &= (row.moneyEq !== 0)
             // }
+            errstr += (row.err || "");
+            dcmList.push({
+                "dcm": row.dcode,
+                "dbt": targetAcntNo,
+                "cdt": row.dacnt?.acntno || "",
+                "crn": row.darticle?.id || "",
+                "amnt": (row.dsign * Number(row.damnt || 0)).toFixed(precision),
+                "eq": (row.moneyEq || 0).toFixed(2),
+                "dsc": (row.moneyDsc || 0).toFixed(2),
+                "bns": (row.moneyBns || 0).toFixed(2),
+                "note": row.dnote || "",
+                "retfor": row.retfor || ""
+            });
         }
-        return res
+
+        if ( ok ) return dcmList;
+        mRoot.lastError = "Serialization error";
+        return null;
     }
 
-    function curBalanceList(){
-        let res = []
-        let f =0;
-        for (let i =0; i < count; ++i){
-            if ((Number(get(i).darticle.mask) & 2) !== 2) continue;
-            f =0;
-            for ( ; f < res.length && res[f].atcl.id !== get(i).darticle.id; ++f){}
-            if (f === res.length) res[f] = {"atcl": get(i).darticle, "amnt": get(i).dsign * get(i).damnt}
-            else res[f].amnt += get(i).dsign * get(i).damnt
+    // ДОДАВАННЯ ОДНОГО ДОКУМЕНТА (ПРОВОДКИ) В ЧЕК
+    function addDcm(atcl, acnt, type, amnt, price, note) {
+        // console.log(`II: 62g#ModelBind/addDcm
+        //             atclid=${atcl.id}
+        //             acntno=${acnt.acntno}
+        //             amnt=${amnt}
+        //             type=${type}
+        //             price=${JSON.stringify(price)}`)
+        if (!atcl || !acnt || !type) {
+            mRoot.lastError = "Document parameter missing";
+            return false;
         }
-        if (res.length > 1) res.sort( (a,b) => {return  Number(a.atcl.note) < Number(b.atcl.note) ? -1 : 1;} )
-        // dbg(JSON.stringify(res), "#73h")
-        return res
-    }
 
-    function uahToAcnt(db, acnt){
-        addDcm(db, "", acnt, -1 * root.pmntTotal)
-        recalculate()
-    }
+        let atclMask = Number(atcl?.mask || 0);
+        let acntMask = Number(acnt?.mask || 0);
 
-    function curToAcnt(db, acnt){
-        const tarr = curBalanceList()
-        // dbg(JSON.stringify(tarr), "#7h2")
-        for (let i =0; i < tarr.length; ++i)
-            addDcm(db, tarr[i].atcl.id, acnt, -1 * tarr[i].amnt)
-        recalculate()
-    }
+        if ((atclMask & acntMask) === 0){
+            mRoot.lastError = "Не сумісний артикул та рахунок документу";
+            return false;
+        }
 
-    function bindToJSON(client ="", dbt ="", cdt =""){
-        // let ok = true
-        if (client === "" && isTradeInner()) {
-            for (let i =0; i < count; ++i){
-                if (get(i).dacnt.trade === "1") setProperty(i,"dcode", "trade:inner")
+        const isTrade = Number(acnt?.trade ?? 0) === 1;
+        // const dtag = (price?.offer) ? "#АКЦІЯ!" : (price?.dsc ? "#ЗНИЖКА!" : "")
+        // const dnote = `${String(atcl.itemchar || "")}${Number(acnt.trade || 0) !== 0
+        //             ? "" : ` [${acnt.clname || ""}/${acnt.note || ""}]`} ${dtag}`;
+        const idx = 0;
+        let dcm = {
+            "dsign": Number(amnt || 0) < 0 ? -1 : 1,
+            "dcode": type,
+            "darticle": atcl,
+            "dacnt": acnt,
+            "damnt": Math.abs(Number(amnt || 0)),
+            "dnote": note,
+            "retfor": ""
+        };
+        if (isTrade){
+            if (!price) {
+                mRoot.lastError = "Document rate's missing";
+                return false;
             }
+            dcm.jprice = price;
         }
 
-        var vj = {
-            "id": "dcmbind",
-            "dcm": code,
-            "dbt": dbt,
-            "cdt": cdt,
-            "amnt": root.pmntTotal.toFixed(2),
-            "eq": root.eqTotal.toFixed(2),
-            "dsc": root.dscMoney.toFixed(2),
-            "bns": root.bnsMoney.toFixed(2),
-            "note": "",
-            "clnt": client,
-            "tm": Qt.formatDateTime(new Date(), "yyyy-MM-dd hh:mm:ss"),
-            "cshr": "",
-            "dcms": []
-        }
-        for (var r =0; r < count; ++r) {
-            vj.dcms[r] = {
-                "dcm": get(r).dcode,
-                "dbt": root.cashno,
-                "cdt": get(r).dacnt.acntno,
-                "crn": get(r).darticle.id,
-                "amnt": (get(r).dsign * get(r).damnt).toFixed(get(r).darticle.prec),
-                "eq": (get(r).dsign * get(r).damnt * get(r).dprice).toFixed(2),
-                "dsc": (-1 * get(r).dsign * get(r).damnt * get(r).dprice * get(r).ddsc).toFixed(2),
-                "bns": (-1 * get(r).dsign * get(r).damnt * get(r).dprice * get(r).dbns).toFixed(2),
-                "note": get(r).dnote,
-                "retfor": get(r).retfor
-            }
-        }
-        // dbg(JSON.stringify(vj), "#-0149h")
-        return vj
+        insert(idx, dcm);
+        setDcmTradeData(idx);
+        // for (let r =0; r < count; ++r) console.log(`iw3w#ModelBind ${JSON.stringify(get(r))}`)
+        // recalculate();
+
+        return true;
     }
 
-    function tran(db, jbind){
-        if (jbind === undefined) jbind = bindToJSON()
-        // dbg(JSON.stringify(jbind), "#49h");
-        // return 0;
-        const bid = Lib.tranBind(db, jbind)
-        if (!bid) {
-            root.lastError = "Помилка. Дукумент не проведено."
+    function addRefused(dcm, datcl, dacnt) {
+        if (!dcm) return false;
+        console.log(`ModelBind/addRefused 111`)
+
+        const dtype = String(dcm.dcmtype || "");
+        const damnt = 0 - Number(dcm.amount || 0);
+        if (!isCorrect(datcl, dacnt, dtype, damnt)) {
+            mRoot.lastError = `Непідтримувані параметри документу.\nДані: ${JSON.stringify(dcm)}`;
+            return false;
         }
-        return bid
+        let refused = {
+            "dsign": damnt < 0 ? -1 : 1,
+            "dcode": dtype,
+            "darticle": datcl,
+            "dacnt": dacnt,
+            "damnt": Math.abs(damnt),
+            "dnote": `${String(dcm?.dcmnote || "")} #ПОВЕРНЕННЯ!`,
+            "retfor": String(dcm.dcmid || "")
+        };
+        const idx = 0;
+        if (dcm.isTrade || false){
+            let jprice = {
+                "id": "",
+                "item": dcm.itemid,
+                "qty": 1,
+                "price": Number(dcm.amount || 0) === 0 ? 0
+                                                      : Math.abs(Number(dcm.eqamount || 0) / Number(dcm.amount || 1)) / mRoot.rate,
+                "offer": 0.0,
+                "dsc": Number(dcm.eqamount || 0) === 0 ? 0
+                                                     : Math.abs(Number(dcm.discount || 0) / Number(dcm.eqamount || 1)),
+                "bsc": 0.0, // basic price for accounting
+            };
+            refused.jprice = jprice;
+            refused.moneyEq = 0 - Number(dcm?.eqamount || 0);
+            refused.moneyDsc = 0 - Number(dcm?.discount || 0);
+            refused.moneyBns = 0 - Number(dcm?.bonus || 0);
+            refused.clid = String(dcm?.clid || "");
+            refused.bns = Math.abs(Number(dcm.eqamount || 0) !== 0 ? dcm.bonus / dcm.eqamount : 0);
+
+        }
+        insert(idx, refused);
+        setDcmTradeData(idx);
+        return true;
     }
 
-    function recalculate(){
+
+    // СТВОРЕННЯ СЛУЖБОВИХ КАСОВИХ МЕМОРАНДУМІВ (MEMO) ДЛЯ ЗАКРИТТЯ ЗМІНИ
+    function addMemo(db, dcm) {
+        // console.log(`287#addMemo Дані: ${JSON.stringify(dcm)}`)
+        if (!db || !dcm)
+            return false;
+
+        const datcl = LibItem.getItemById(db, dcm.crn ?? "");
+        const dacnt = LibAcnt.acntbal(db, dcm.cdt);
+        const damnt = Number(dcm.amnt || 0);
+        const dtag = "";
+
+        if (!isCorrect(datcl, dacnt, dcm.dcm, damnt)) {
+            mRoot.lastError = `Непідтримувані параметри документу.\nДані: ${JSON.stringify(dcm)}`;
+            return false;
+        }
+
+        insert(0, {
+            "dsign": damnt < 0 ? -1 : 1,
+            "dcode": dcm.dcm,
+            "darticle": datcl,
+            "dacnt": dacnt,
+            "damnt": Math.abs(damnt),
+            "dnote": String(dcm.note || "") + dtag,
+            "retfor": ""
+        });
+        // recalculate();
+        return true;
+    }
+
+    function total() {
         let v_pmnt = 0;
         let v_eq = 0;
         let v_dsc = 0;
         let v_bns = 0;
-        let i = 0;
-        let vtmp = '';
-
-        for (let r =0; r < count; ++r) {
-            if ( get(r).darticle.id === ''
-                     || get(r).darticle.id === '980') {
-                v_pmnt += get(r).damnt * get(r).dsign
+        for (let r = 0; r < count; ++r) {
+            let row = get(r);
+            const itemId = String(get(r).darticle?.id || "");
+            if (itemId === "" || itemId === Conf.glDomesticCrn) {
+                v_pmnt += Number(row.damnt || 0) * Number(row.dsign || 0);
             }
-            vtmp = (get(r).dsign * get(r).damnt * get(r).dprice).toFixed(2)
-            v_eq += Number(vtmp)
-            v_dsc -= Number((Number(vtmp) * get(r).ddsc).toFixed(2))
-            v_bns -= Number((Number(vtmp) * get(r).dbns).toFixed(2))
+            v_eq += (row.moneyEq || 0);
+            v_dsc += (row.moneyDsc || 0);
+            v_bns += (row.moneyBns || 0);
         }
-//                console.log('total v_pmnt=['+v_pmnt+'] v_eq='+v_eq+' v_dsc='+v_dsc)
-        root.pmntTotal = v_pmnt - (v_eq + v_dsc)
-        root.eqTotal = v_eq
-        root.dscMoney = v_dsc
-        root.bnsMoney = v_bns
 
+        const res = {
+            "pmnt":v_pmnt - (v_eq + v_dsc),
+            "eq":v_eq,
+            "dsc":v_dsc,
+            "bns":v_bns};
+        return res;
+    }
+// deprecated
+    function isTrade(idx){
+        console.warn("ModelBind/isTrade DEPRECATED !!!"); return false;
+        if (idx < 0 || idx >= count) return false;
+        return ((get(idx).dacnt?.trade || 0) === 1);
     }
 
-    function getPriceStr(row){
-        const pr = (get(row).dprice * Number(get(row).darticle.qty)/get(row).drate).toFixed((Number(get(row).darticle.mask)&2)==2 ? 3 : 2)
-                                              + (Number(get(row).darticle.qty)===1?'':('/'+get(row).darticle.qty))
-         return pr
-    }
-
-    function setRate(vv){
-        vv = Number(vv)
-        if (vv <=0) return
-        root.crntRate = vv
-        for (let r=0; r < count; ++r){
-            setProperty(r,'drate', vv);
+    function setRate(vv) {
+        const val = Number(vv || 0);
+        if (val <= 0) return;
+        mRoot.rate = val;
+        for (let r = 0; r < count; ++r) {
+            setDcmTradeData(r)
         }
-        recalculate()
+        // recalculate();
     }
 
-    function setDsc(vv){
-        vv = Number(vv) / 100
-        root.crntDsc = vv
-        for (let r=0; r < count; ++r){
-            if ((get(r).dpratt & 2) != 2) continue;
-            setProperty(r,'ddsc', vv);
+    function setBindDsc(vv) {
+        // console.log(`yw7#ModelBind setBindDsc STARTED`)
+        const val = Number(vv || 0);
+        if (val < 0 || val > 1) return; // 0 < vv < 1
+        mRoot.crntDsc = val;
+        for (let i =0; i < count; ++i) setDcmTradeData(i);
+        // for (let r =0; r < count; ++r) console.log(`s5t3#ModelBind ${JSON.stringify(get(r))}`)
+    }
+
+    function setBindBns(vv) {
+        // console.log(`yw7#ModelBind setBindBns STARTED`)
+        const val = Number(vv || 0);
+        if (val < 0 || val > 1) return; // 0 < vv < 1
+        mRoot.crntBns = val;
+        console.log(`ow8#ModelBind crntBns=${mRoot.crntBns}`)
+        for (let i =0; i < count; ++i) setDcmTradeData(i);
+        // for (let r =0; r < count; ++r) console.log(`s5t3#ModelBind ${JSON.stringify(get(r))}`)
+    }
+
+    function setDcmTradeData(idx) {
+        if (idx < 0 || idx >= count) return;
+        const l_effPrice = (idx) => {
+            const dcm = get(idx);
+            const offer = (dcm.jprice?.offer || 0) / (dcm.jprice?.qty || 1)
+            const price = (dcm.jprice?.price || 0) / (dcm.jprice?.qty || 1)
+            // console.log(`hs7#ModelBind idx=${idx} offer=${offer} price=${price}`)
+            return (offer || price || dcm.jprice?.bsc || 0) * (mRoot.rate || 1);
+        };
+
+        const l_isArticle = (idx) => {  // not for currencies
+            if (idx < 0 || idx >= count) return false;
+    // console.warn("ModelBind#8su UNBLOCK !!!")
+    //         return true;
+            return ((get(idx).darticle.mask || 0) === 4);
+        };
+
+        const dcm = get(idx);
+        const isTrade = (dcm.dacnt?.trade || 0) === 1;
+
+        if (isTrade && ((dcm.retfor || "") === "")){
+            const sign = dcm.dsign || 0;
+            const amnt = dcm.damnt || 0;
+            const dscVal = dcm.jprice?.dsc || mRoot.crntDsc || 0;
+            const bnsVal = dcm?.bns || mRoot.crntBns || 0;
+            setProperty(idx, 'err', "");
+            // const effectivePrice = (dcm.dprice || 0) * (mRoot.rate || 1);
+            const eq = Math.round(100 * (sign * amnt * l_effPrice(idx))) / 100;
+            // console.log(`3he7#ModelBind idx=${idx} eq=${eq} pr=${l_effPrice(idx)}`)
+            setProperty(idx, 'moneyEq', eq);
+            if (eq === 0) setProperty(idx, 'err', "Missing document price");
+            if (l_isArticle(idx) && !dcm.jprice?.offer && !dcm.jprice?.dsc){
+                setProperty(idx, 'moneyDsc', Math.round(100 * (-1 * eq * dscVal)) / 100);
+                setProperty(idx, 'moneyBns', Math.round(100 * (-1 * eq * bnsVal)) / 100);
+            }
+            // if (recalc) recalculate();
         }
-        recalculate()
+        // console.log(`a93#ModelBind ${JSON.stringify(get(idx))}`)
     }
-
-    function setBns(vv){
-        vv = Number(vv) / 100
-        root.crntBns = vv
-        for (let r=0; r < count; ++r){
-            if ((get(r).dpratt & 4) != 4) continue;
-            setProperty(r,'dbns', vv);
-        }
-        recalculate()
-    }
-
 }
 
-/* structures
-  create(vdcm, vrow) IN vdcm
-  {
-    "price":41.63,
-    "dsc":0,
-    "bns":0,
-    "tag":"",
-    "retfor":"",
-    "atcl":{"id":"840","name":"USD","fullname":"долар США","mask":"2","qty":"1","scan":"","uktzed":"","taxchar":"","taxprc":"","unitid":"","prec":"2","unitchar":"","unitname":"","unitcode":"","term":"0"},
-    "acnt":{"acntno":"3500","clid":"","clname":"","note":"Торгівля","mask":"14","clnote":"","trade":"1","name":"Торгівля"},
-    "amnt":"-1",
-    "code":"trade:sell",
-    "pratt":7
-  }
-
-  create(vdcm, vrow) OUT vdcm at vrow
-  {
-    "dsign":-1,
-    "dcode":"trade:sell",
-    "darticle":{"fullname":"долар США","id":"840","mask":"2","name":"USD","prec":"2","qty":"1","scan":"","taxchar":"","taxprc":"","term":"0","uktzed":"","unitchar":"","unitcode":"","unitid":"","unitname":""},
-    "dacnt":{"acntno":"3500","clid":"","clname":"","clnote":"","mask":"14","name":"Торгівля","note":"Торгівля","trade":"1"},
-    "damnt":"1",
-    "dsubName":"#840",
-    "dnote":"USD",
-    "dprice":41.63,
-    "ddsc":0,
-    "dbns":0,
-    "dpratt":1,
-    "drate":"1",
-    "retfor":""
-  }
-
-*/

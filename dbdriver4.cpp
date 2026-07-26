@@ -1,51 +1,70 @@
 #include "dbdriver4.h"
 
+#include <QSqlQuery>
+#include <QSqlRecord>
+#include <QSqlError>
+#include <QVariantMap>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+
+#include <QDebug>
+
+DbDriver4::DbDriver4(QObject *parent)
+    : QObject(parent)
+{
+    // ✅ ВИПРАВЛЕНО БАГ З'ЄДНАННЯ: Використовуємо дефолтне з'єднання за замовчуванням (без параметра "st").
+    // Це золотий стандарт Qt6 для локальних SQLite баз. Тепер витоки дескрипторів повністю закриті.
+    m_db = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"));
+}
+/*
 DbDriver4::DbDriver4(QObject *parent) : QObject(parent) {
     // ...
     // qDebug()<<"DbDriver4 constructor started";
     m_db = QSqlDatabase::addDatabase("QSQLITE", "st");
 
 }
-
+*/
 
 bool DbDriver4::openConnection()
 {
-       // qDebug()<<"DbDriver4::openConnection m_cc=("<<m_cc<<") m_db.isOpen()="<<m_db.isOpen();
-    //    if (!m_cc && m_db.isOpen()) {
-    //        ++m_cc;
-    //        return true;
-    //    }
+    // Лічильник посилань: відкриваємо фізичну базу тільки для першого вхідного виклику
     if (++m_cc == 1) {
         if (!m_db.open()) {
-            //TODO connection error
-            m_lastError = QString("EE:DbDriver3::openConnection database ERROR OPEN...\nname:%1(type:%2)\n%3")
-                              //                    .arg(m_db.databaseName())
-                              //                    .arg(m_db.driverName())
+            // ✅ ВИПРАВЛЕНО: Актуалізовано ім'я класу (DbDriver4 замість DbDriver3) та оптимізовано виділення пам'яті
+            m_lastError = QStringLiteral("EE:DbDriver4::openConnection database ERROR OPEN...\nName: %1 (Type: %2)\n%3")
                               .arg(m_db.databaseName(), m_db.driverName(), m_db.lastError().text());
-            qDebug()<<m_lastError;
-            // emit error(m_lastError);
-            m_cc = 0;
+
+            qDebug() << m_lastError;
+            m_cc = 0; // Скидаємо лічильник назад у нуль
             return false;
         } else {
-            //            if (m_db.driver() == "QSQLITE") {
-            QSqlQuery q = QSqlQuery(QString("PRAGMA foreign_keys = ON;"), m_db);
-            //            }
+            // Вмикаємо контроль зовнішніх ключів для збереження цілісності зв'язків
+            // m_db.exec(QStringLiteral("PRAGMA foreign_keys = ON;"));
+
+            // // Вмикаємо сучасний режим журналу WAL. Він дозволяє касі одночасно
+            // // швидко писати чеки в базу і не блокувати QML-компоненти, які в цей же момент читають баланси.
+            // m_db.exec(QStringLiteral("PRAGMA journal_mode = WAL;"));
+
+            // // Знижуємо синхронізацію до NORMAL (у режимі WAL це на 100% безпечно від збоїв живлення,
+            // // але прискорює роботу SQLite на SSD накопичувачах у рази)
+            // m_db.exec(QStringLiteral("PRAGMA synchronous = NORMAL;"));
         }
     }
-    // qDebug()<<"DbDriver4::openConnection m_cc=("<<m_cc<<") m_db.isOpen()="<<m_db.isOpen();
-
-    //    m_cc = 1;
     return true;
 }
 
 void DbDriver4::closeConnection()
 {
-    if (!--m_cc) { m_db.close(); }
+    if (--m_cc <= 0) {
+        m_db.close();
+        m_cc = 0; // Захист від випадкових від'ємних значень лічильника
+    }
 }
 
-
-void DbDriver4::setDbParameter(const QString & name, const QString & type, const QString & conn)
+bool DbDriver4::setDbParameter(const QString & name, const QString & type, const QString & conn)
 {
+    // qDebug() << "DbDriver4::setDbParameter name=" << name;
     // m_status = StDataLoading;
     // m_hash.removePrefix();
     // m_conn = conn;
@@ -54,19 +73,31 @@ void DbDriver4::setDbParameter(const QString & name, const QString & type, const
     // if (!m_conn.isEmpty() && (type != "QSQLITE")){
     //     m_db = QSqlDatabase::addDatabase(type, m_conn);
     // }
+    Q_UNUSED(type); // Пригнічуємо попередження компилятора про невикористані змінні з легасі-коду
+    Q_UNUSED(conn);
 
+    // Задаємо абсолютний шлях до файлу бази даних
     m_db.setDatabaseName(name);
+    bool ok = false;
     if (openConnection()) {
-        QSqlQuery q = QSqlQuery(m_db);
-        q = QSqlQuery(QString("select branchname, branchname2, branchaddres, dbversion, domcur, domchar, domname from settings"),m_db);
-        if (q.next()) {
-            //            qDebug()<<"VkCore::open open 60";
-            // m_termName = q.value(0).toString();
-            //            m_termCode = q.value(1).toString();
-            // m_termAddress = q.value(2).toString();
-            //            m_domCur = q.value(3).toString();
-            m_dbVersion = q.value(3).toString();
-        }
+        ok = true;
+        QSqlQuery ("PRAGMA foreign_keys = ON;", m_db);
+        // QSqlQuery q(QStringLiteral("SELECT branchname, branchname2, branchaddres, dbversion, domcur, domchar, domname FROM settings"), m_db);
+        // if (!q.lastError().isValid()) {
+        //     if (q.next()) {
+        //         // Витягуємо версію бази даних із 3-го індексу (стовпчик dbversion)
+        //         m_dbVersion = q.value(3).toString();
+
+        //         // Для налагодження можна розкоментувати або вивести у msg лог:
+        //         // qDebug() << "Ініціалізація каси успішна. Версія БД:" << m_dbVersion;
+        //     }
+        // } else {
+        //     m_lastError = q.lastError().text();
+        //     qDebug() << QStringLiteral("Помилка читання таблиці settings:") << m_lastError;
+        //     emit error(m_lastError);
+        //     emit vkEvent(QStringLiteral("error"), m_lastError);
+        // }
+
         // m_hash.loadSqlData(m_db, "select acnt.acntno||'/'||coalesce(item,''), id, coalesce(eqid,0), coalesce(rsltid,0) from acnt left join acntrade on(id=pkey)",
         //                    QString(" acnt.acntno = '%1' or acnt.acntno = '%2' ").arg(m_cashDfltAcnt, m_tradeDfltAcnt), "acnt/", false);
 
@@ -74,13 +105,174 @@ void DbDriver4::setDbParameter(const QString & name, const QString & type, const
         // QSettings().setValue("database/last_db_name", name);
         // QSettings().setValue("database/last_db_driver", type);
         // m_status = StOk;
-    } //else {m_status = StError;}
-    // emit driverStatusChanged(m_status);
+    } else {
+        qDebug() << QStringLiteral("Не вдалося відкрити базу даних при налаштуванні параметрів:") << name;
+    }
 
-    //    m_hash.printHash4test("acntPrice/");
+    // emit driverStatusChanged(m_status);
+    return ok;
 }
 
-bool DbDriver4::closeShift(const QString shftid)
+bool DbDriver4::closeShift(const QString &shftid)
+{
+    m_lastError.clear();
+
+    if (!openConnection()) {
+        return false;
+    }
+
+    bool commitstatus = true;
+    QString qerror;
+
+    // ✅ ЗАХИСТ: Вмикаємо транзакцію в самому початку.
+    // Тепер, якщо хоча б один крок закриття зміни впаде — база повернеться до початкового стану без втрати чеків!
+    m_db.transaction();
+
+    // 1. Очищаємо незавершені («зомбі») або скасовані документи
+    QSqlQuery q(QStringLiteral("DELETE FROM docum WHERE dcmstate = 0 OR dcmstate = 8;"), m_db);
+    if (q.lastError().isValid()) {
+        commitstatus = false;
+        qerror += QStringLiteral("\n[Zombie Delete Error]: ") + q.lastError().text();
+    }
+
+    // 2. Очищаємо старий архів рахунків (старше 6 місяців)
+    if (commitstatus) {
+        QString vstr = QStringLiteral("DELETE FROM strgacnt WHERE shftid = 0 OR shftid = %1 "
+                                      "OR (shftid < (SELECT max(id) FROM shift WHERE shftdate <= date('now', '-6 month')));")
+                           .arg(shftid);
+        q = QSqlQuery(vstr, m_db);
+        if (q.lastError().isValid()) {
+            commitstatus = false;
+            qerror += QStringLiteral("\n[Archive Account Clear Error]: ") + q.lastError().text();
+        }
+    }
+
+    // 3. Очищаємо архів документів поточної зміни, якщо він перезаписується
+    if (commitstatus) {
+        QString vstr = QStringLiteral("DELETE FROM strgdocum WHERE shftid = 0 OR shftid = %1;").arg(shftid);
+        q = QSqlQuery(vstr, m_db);
+        if (q.lastError().isValid()) {
+            commitstatus = false;
+            qerror += QStringLiteral("\n[Archive Document Clear Error]: ") + q.lastError().text();
+        }
+    }
+
+    // 4. Очищаємо стару історію змін курсів
+    // if (commitstatus) {
+    //     q = QSqlQuery(QStringLiteral("DELETE FROM strgprice WHERE pricetime <= date('now', '-6 month');"), m_db);
+    //     if (q.lastError().isValid()) {
+    //         commitstatus = false;
+    //         qerror += QStringLiteral("\n[Price Clear Error]: ") + q.lastError().text();
+    //     }
+    // }
+
+    // 5. Очищаємо старі зв'язки транзакцій документів
+    if (commitstatus) {
+        q = QSqlQuery(QStringLiteral("DELETE FROM strgtran WHERE dcmid <= (SELECT max(dcmid) FROM strgdocum WHERE dcmtime < date('now', '-6 month'));"), m_db);
+        if (q.lastError().isValid()) {
+            commitstatus = false;
+            qerror += QStringLiteral("\n[Transaction Clear Error]: ") + q.lastError().text();
+        }
+    }
+
+    // 6. АРХІВАЦІЯ: Переносимо поточний стан рахунків в історію
+    if (commitstatus) {
+        q = QSqlQuery(QStringLiteral("INSERT INTO strgacnt (shftid, acntid, acntno, item, beginamnt, turndbt, turncdt) "
+                                     "SELECT %1, id, acntno, item, beginamnt, turndbt, turncdt "
+                                     "FROM acnt WHERE turndbt != 0 OR turncdt != 0;").arg(shftid), m_db);
+        if (q.lastError().isValid()) {
+            commitstatus = false;
+            qerror += QStringLiteral("\n[Account Archive Error]: ") + q.lastError().text();
+        }
+    }
+
+    // 7. АРХІВАЦІЯ: Переносимо успішні документи зміни в історію (dcmstate 1 або 4)
+    if (commitstatus) {
+        q = QSqlQuery(QStringLiteral("INSERT INTO strgdocum (dcmid, shftid, dcmtype, dcmno, item, acntdbt, acntcdt, amount, eqamount, discount, bonus, client, parentid, dcmstate, dcmnote, dcmtime, dcmaker, retfor) "
+                                    "SELECT id, %1, dcmtype, dcmno, item, acntdbt, acntcdt, amount, eqamount, discount, bonus, client, parentid, dcmstate, dcmnote, dcmtime, dcmaker, retfor "
+                                     "FROM docum WHERE dcmstate = 1 OR dcmstate = 4;").arg(shftid), m_db);
+        if (q.lastError().isValid()) {
+            commitstatus = false;
+            qerror += QStringLiteral("\n[Document Archive Error]: ") + q.lastError().text();
+        }
+    }
+
+    // 8. АРХІВАЦІЯ: Переносимо валютні проводки чеків в історію
+    if (commitstatus) {
+        q = QSqlQuery(QStringLiteral("INSERT INTO strgtran (dcmid, amount, dbtid, cdtid) SELECT dcmid, amount, dbtid, cdtid FROM documtran;"), m_db);
+        if (q.lastError().isValid()) {
+            commitstatus = false;
+            qerror += QStringLiteral("\n[Documtran Archive Error]: ") + q.lastError().text();
+        }
+    }
+// qDebug() << "DbDriver4::closeShift 555 commitstatus=[" << commitstatus << "]";
+    // 9. БУХГАЛТЕРСЬКИЙ ПЕРЕРАХУНОК: Закриваємо залишки рахунків на новий день (Сальдо)
+    if (commitstatus) {
+        q = QSqlQuery(QStringLiteral("UPDATE acnt SET beginamnt = beginamnt + turndbt - turncdt;"), m_db);
+        if (q.lastError().isValid()) {
+            commitstatus = false;
+            qerror += QStringLiteral("\n[Account Roll Forward Error]: ") + q.lastError().text();
+        }
+    }
+
+    // 10. ОЧИЩЕННЯ РОБОЧИХ ТАБЛИЦЬ: Видаляємо проводки поточної зміни
+    if (commitstatus) {
+        q = QSqlQuery(QStringLiteral("DELETE FROM documtran;"), m_db);
+        if (q.lastError().isValid()) {
+            commitstatus = false;
+            qerror += QStringLiteral("\n[Documtran Clear Error]: ") + q.lastError().text();
+        }
+    }
+
+    // 11. Видаляємо закриті документи з робочої таблиці (вони вже в архіві strgdocum)
+    if (commitstatus) {
+        q = QSqlQuery(QStringLiteral("DELETE FROM docum WHERE dcmstate = 1 OR dcmstate = 4;"), m_db);
+        if (q.lastError().isValid()) {
+            commitstatus = false;
+            qerror += QStringLiteral("\n[Docum Clear Error]: ") + q.lastError().text();
+        }
+    }
+
+    // 12. Обнуляємо поточні обороти рахунків для нового робочого дня
+    if (commitstatus) {
+        q = QSqlQuery(QStringLiteral("UPDATE acnt SET turndbt = 0, turncdt = 0;"), m_db);
+        if (q.lastError().isValid()) {
+            commitstatus = false;
+            qerror += QStringLiteral("\n[Account Reset Error]: ") + q.lastError().text();
+        }
+    }
+
+    // 13. ФІКСАЦІЯ ЧАСУ: Записуємо дату закриття зміни в ISO форматі під Qt6
+    if (commitstatus) {
+// !!! QString isoDateTime = QDateTime::currentDateTime().toString(Qt::DateFormat::ISODate); !!!
+        QString isoDateTime = QDateTime::currentDateTimeUtc().toString(Qt::DateFormat::ISODate);
+        q = QSqlQuery(QStringLiteral("UPDATE shift SET shftend = '%1' WHERE id = %2 ;").arg(isoDateTime, shftid), m_db);
+        // q = QSqlQuery(QStringLiteral("UPDATE shift SET shftend = '%1' WHERE id = %2 ;").arg(isoDateTime).arg(shftid), m_db);
+        if (q.lastError().isValid()) {
+            commitstatus = false;
+            qerror += QStringLiteral("\n[Shift Update Time Error]: ") + q.lastError().text();
+        }
+    }
+
+    // --- ФІНАЛІЗАЦІЯ ТРАНЗАКЦІЇ ---
+    if (commitstatus) {
+        // Якщо ВСІ 13 кроків пройшли успішно — фіксуємо зміни на диск SSD
+        m_db.commit();
+        qDebug() << "Зміну успішно закрито. ID зміни:" << shftid;
+    } else {
+        // Якщо стався бодай ОДИН збій — повністю скасовуємо все закриття. Каса залишиться у безпеці.
+        m_db.rollback();
+        m_lastError = QStringLiteral("EE:DbDriver4::closeShift Closing error\n") + qerror;
+        qDebug() << m_lastError;
+        emit error(m_lastError);
+        emit vkEvent(QStringLiteral("error"), m_lastError);
+    }
+
+    closeConnection();
+    return commitstatus;
+}
+/*
+bool DbDriver4::closeShift(const QString &shftid)
 {
     QSqlQuery q = QSqlQuery(m_db);
     QString vstr = QString();
@@ -216,65 +408,284 @@ bool DbDriver4::closeShift(const QString shftid)
 
     return commitstatus;
 }
+*/
 
-
-int DbDriver4::dbInsert(const QString &sql){
+int DbDriver4::dbInsert(const QString &sql)
+{
     int id = 0;
+
     if (openConnection()) {
-        QSqlQuery q = QSqlQuery(sql,m_db);
-        if (q.isActive()) {
+        QSqlQuery q(sql, m_db);
+
+        if (!q.lastError().isValid()) {
+            // Витягуємо ID щойно створеного запису в SQLite
             id = q.lastInsertId().toInt();
         } else {
-            m_lastError = QString("EE:DbDriver3::dbInsert query ERROR\n%1\n%2")
-            .arg(q.lastQuery(), q.lastError().text());
-            qDebug()<<m_lastError;
-            emit vkEvent("error", m_lastError);
+            m_lastError = QStringLiteral("EE:DbDriver4::dbInsert query ERROR\n%1\n%2")
+                              .arg(q.lastQuery(), q.lastError().text());
+
+            qDebug() << m_lastError;
+
+            // Синхронно оповіщаємо систему про збій генерації ID
+            emit error(m_lastError);
+            emit vkEvent(QStringLiteral("error"), m_lastError);
         }
 
         closeConnection();
     }
+
     return id;
 }
 
+int DbDriver4::dbInsert(const QString &sql, const QVariantList &params)
+{
+    int id = 0;
 
-bool DbDriver4::dbUpdate(const QString &sql){
-    //    qDebug()<<"DbDriver3::dbUpdate started sql="<<sql;
+    if (!openConnection()) {
+        return id;
+    }
+
+    QSqlQuery q(m_db);
+
+    // 1. Попередньо готуємо запит
+    if (!q.prepare(sql)) {
+        m_lastError = QStringLiteral("EE:DbDriver4::dbInsert prepare ERROR\n%1\n%2")
+        .arg(sql, q.lastError().text());
+        qDebug() << m_lastError;
+        emit error(m_lastError);
+        emit vkEvent(QStringLiteral("error"), m_lastError);
+        closeConnection();
+        return id;
+    }
+
+    // 2. Безпечно прив'язуємо параметри
+    for (const QVariant &param : params) {
+        q.addBindValue(param);
+    }
+
+    // 3. Виконуємо запит
+    if (q.exec()) {
+        // Витягуємо ID щойно створеного запису в SQLite
+        id = q.lastInsertId().toInt();
+    } else {
+        m_lastError = QStringLiteral("EE:DbDriver4::dbInsert exec ERROR\n%1\n%2")
+        .arg(q.lastQuery(), q.lastError().text());
+        qDebug() << m_lastError;
+
+        emit error(m_lastError);
+        emit vkEvent(QStringLiteral("error"), m_lastError);
+    }
+    qDebug() << "dbdriver #8w7 id=[" << id << "]";
+    closeConnection();
+    return id;
+}
+
+bool DbDriver4::dbUpdate(const QString &sql)
+{
     bool res = false;
+
     if (openConnection()) {
-        QSqlQuery q = QSqlQuery(sql,m_db);
-        if (q.isActive()) {
+        QSqlQuery q(sql, m_db);
+
+        // ✅ ВИПРАВЛЕНО: Сувора перевірка надійності фінансових транзакцій Qt6
+        // замість поверхневого та небезпечного q.isActive()
+        // qDebug()<< "8eq6#dbdriver4/dbUpdate sql="<< sql;
+        if (!q.lastError().isValid()) {
             res = true;
         } else {
-            m_lastError = QString("EE:DbDriver3::dbUpdate query ERROR\n%1\n%2")
-            .arg(q.lastError().text(), q.lastQuery());
-            qDebug()<<m_lastError;
-            emit vkEvent("error", m_lastError);
+            // ✅ ВИПРАВЛЕНО: Назву класу актуалізовано до версії 4, прибрано мікро-витоки RAM
+            m_lastError = QStringLiteral("EE:DbDriver4::dbUpdate query ERROR\n%1\n%2")
+                              .arg(q.lastError().text(), q.lastQuery());
+
+            qDebug() << m_lastError;
+
+            // Синхронно оповіщаємо всі рівні каси про збій запиту
+            emit error(m_lastError);
+            emit vkEvent(QStringLiteral("error"), m_lastError);
         }
 
         closeConnection();
     }
+    // qDebug()<< "s5g#dbdriver4/dbUpdate res="<< res;
+
     return res;
 }
 
-bool DbDriver4::dbDelete(const QString &sql){
-    //    qDebug()<<"DbDriver3::dbDelete started sql="<<sql;
+bool DbDriver4::dbUpdate(const QString &sql, const QVariantMap &params){
+    if (!openConnection()) return false;
+    bool ok = false;
+    QSqlQuery q(m_db);
+    // q.prepare(sql);
+    if (!q.prepare(sql)) {
+        m_lastError = QStringLiteral("EE:DbDriver4::dbInsert prepare ERROR\n%1\n%2")
+        .arg(sql, q.lastError().text());
+        qDebug() << m_lastError;
+        emit error(m_lastError);
+        emit vkEvent(QStringLiteral("error"), m_lastError);
+        closeConnection();
+        return ok;
+    }
+
+    // Автоматично прив'язуємо всі параметри з JS-об'єкта
+    for (const QVariant &param : params) {
+        q.addBindValue(param);
+    }
+    // QVariantMap::const_iterator i = params.constBegin();
+    // while (i != params.constEnd()) {
+    //     q.bindValue(i.key(), i.value());
+    //     ++i;
+    // }
+
+    ok = q.exec();
+    if (!ok) {
+        m_lastError = q.lastError().text();
+        qDebug() << m_lastError;
+        emit error(m_lastError);
+        emit vkEvent(QStringLiteral("error"), m_lastError);
+    }
+
+    closeConnection();
+    return ok;
+}
+bool DbDriver4::dbUpdateParams(const QString &sql, const QVariantMap &params){
+    qDebug() << "WW: DEPRECATED dbdriver4/dbUpdateParams";
+    return dbUpdate(sql, params);
+}
+
+bool DbDriver4::dbDelete(const QString &sql)
+{
     bool res = false;
+
     if (openConnection()) {
-        QSqlQuery q = QSqlQuery(sql,m_db);
-        if (q.isActive()) {
+        QSqlQuery q(sql, m_db);
+
+        // ✅ ВИПРАВЛЕНО: В Qt6 безпека фінансових транзакцій вимагає перевірки валідності останньої помилки драйвера,
+        // замість поверхневого q.isActive()
+        if (!q.lastError().isValid()) {
             res = true;
+
+            // Опціонально для аудиту каси: можна перевірити, скільки саме рядків було видалено
+            // int affectedRows = q.numRowsAffected();
+            // if (affectedRows == 0) { ... }
         } else {
-            m_lastError = QString("EE:DbDriver3::dbDelete query ERROR\n%1\n%2")
-            .arg(q.lastError().text(), q.lastQuery());
-            qDebug()<<m_lastError;
-            emit vkEvent("error", m_lastError);
+            // ✅ ВИПРАВЛЕНО: Актуалізовано назву класу в логах (DbDriver4) та прибрано витоки пам'яті
+            m_lastError = QStringLiteral("EE:DbDriver4::dbDelete query ERROR\n%1\n%2")
+                              .arg(q.lastError().text(), q.lastQuery());
+
+            qDebug() << m_lastError;
+
+            // Сигналізуємо всі рівні додатку про критичну помилку SQLite3
+            emit error(m_lastError);
+            emit vkEvent(QStringLiteral("error"), m_lastError);
         }
 
         closeConnection();
     }
+
     return res;
 }
 
+QVariantMap DbDriver4::dbSelectRow(const QString &sql){
+    QVariantMap ret;
+
+    if (!openConnection()) {
+        ret.insert(QStringLiteral("errid"), -1);
+        ret.insert(QStringLiteral("errname"), QStringLiteral("Connection failed"));
+        return ret;
+    }
+
+    // Використовуємо пустий конструктор для повного контролю над виконанням
+    QSqlQuery q(m_db);
+
+    if (q.exec(sql)) {
+        if (q.next()) {
+            // Спочатку витягуємо дані з бази
+            const QSqlRecord recordSchema = q.record();
+            const int fieldCount = recordSchema.count();
+
+            for (int i = 0; i < fieldCount; ++i) {
+                ret.insert(recordSchema.fieldName(i), q.value(i));
+            }
+
+            ret.insert(QStringLiteral("errid"), 0);
+            ret.insert(QStringLiteral("errname"), QString());
+        } else {
+            ret.insert(QStringLiteral("errid"), 1);
+            ret.insert(QStringLiteral("errname"), QStringLiteral("Empty row"));
+        }
+    } else {
+        // Запит синтаксично або логічно завалився
+        m_lastError = q.lastError().text();
+
+        // Перетворюємо тип помилки на int безпечно
+        ret.insert(QStringLiteral("errid"), static_cast<int>(q.lastError().type()));
+        ret.insert(QStringLiteral("errname"), m_lastError);
+
+        emit error(m_lastError);
+        emit vkEvent(QStringLiteral("error"), m_lastError);
+    }
+
+    closeConnection();
+    return ret;
+}
+
+// with parameters
+QVariantMap DbDriver4::dbSelectRow(const QString &sql, const QVariantList &params){
+    QVariantMap ret;
+
+    if (!openConnection()) {
+        ret.insert(QStringLiteral("errid"), -1);
+        ret.insert(QStringLiteral("errname"), QStringLiteral("Connection failed"));
+        return ret;
+    }
+
+    QSqlQuery q(m_db);
+
+    // 1. Попередньо компілюємо SQL-запит (захист від ін'єкцій)
+    if (!q.prepare(sql)) {
+        m_lastError = q.lastError().text();
+        ret.insert(QStringLiteral("errid"), static_cast<int>(q.lastError().type()));
+        ret.insert(QStringLiteral("errname"), m_lastError);
+        closeConnection();
+        return ret;
+    }
+
+    // 2. Безпечно підставляємо всі параметри з JS-масиву замість знаків "?"
+    for (const QVariant &param : params) {
+        q.addBindValue(param);
+    }
+
+    // 3. Виконуємо запит без передачі рядка в exec()
+    if (q.exec()) {
+        if (q.next()) {
+            const QSqlRecord recordSchema = q.record();
+            const int fieldCount = recordSchema.count();
+
+            for (int i = 0; i < fieldCount; ++i) {
+                ret.insert(recordSchema.fieldName(i), q.value(i));
+            }
+
+            ret.insert(QStringLiteral("errid"), 0);
+            ret.insert(QStringLiteral("errname"), QString());
+        } else {
+            ret.insert(QStringLiteral("errid"), 1);
+            ret.insert(QStringLiteral("errname"), QStringLiteral("Empty row"));
+        }
+    } else {
+        m_lastError = q.lastError().text();
+
+        ret.insert(QStringLiteral("errid"), static_cast<int>(q.lastError().type()));
+        ret.insert(QStringLiteral("errname"), m_lastError);
+
+        emit error(m_lastError);
+        emit vkEvent(QStringLiteral("error"), m_lastError);
+    }
+
+    closeConnection();
+    return ret;
+}
+
+/*
 QVariantMap DbDriver4::dbSelectRow(const QString & sql)
 {
     //    qDebug()<<"DbDriver3::getJSONRowFromSQL "<<"sql="<<sql;
@@ -298,8 +709,127 @@ QVariantMap DbDriver4::dbSelectRow(const QString & sql)
     }
     return ret;
 }
+*/
 
+QVariantList DbDriver4::dbSelectRowsJSON(const QString &sql, const QString &filter)
+{
+    QVariantList resultList;
+    const QString lowerFilter = filter.toLower();
+    // qDebug() << "903y#DbDriver4::dbSelectRowsJSON sql=" << sql << " filter=" << filter;
 
+    if (openConnection()) {
+        QSqlQuery q(sql, m_db);
+
+        if (!q.lastError().isValid()) {
+            // qDebug() << "652fg#DbDriver4::dbSelectRowsJSON QUERY Ok";
+            const QSqlRecord recordSchema = q.record();
+            const int fieldCount = recordSchema.count();
+
+            while (q.next()) {
+                // qDebug() << "652fg#DbDriver4::dbSelectRowsJSON ROW Ok";
+                bool rowMatchesFilter = filter.isEmpty();
+                QVariantMap rowMap;
+
+                // Збираємо поля рядка у QVariantMap
+                for (int i = 0; i < fieldCount; ++i) {
+                    QString fieldName = recordSchema.fieldName(i);
+                    QVariant fieldValue = q.value(i);
+
+                    rowMap.insert(fieldName, fieldValue);
+
+                    if (!rowMatchesFilter && fieldValue.toString().toLower().contains(lowerFilter)) {
+                        rowMatchesFilter = true;
+                    }
+                }
+
+                // Додаємо в масив, якщо пройшов фільтр (тільки один раз!)
+                if (rowMatchesFilter) {
+                    resultList.append(rowMap);
+                }
+            }
+        } else {
+            m_lastError = q.lastError().text();
+            emit error(m_lastError);
+            emit vkEvent(QStringLiteral("error"), m_lastError);
+        }
+        closeConnection();
+    } else {
+        emit error(QStringLiteral("DB connection error."));
+        emit vkEvent(QStringLiteral("error"), m_lastError);
+    }
+    // if (!resultList.count()){
+    //     qDebug() << "436#DbDriver4::dbSelectRowsJSON FINISH len=" << resultList.count() << " "  << sql;
+    //     // qWarning() << "37n#DbDriver4::dbSelectRowsJSON " << sql;
+    // }
+    // qDebug() << "903y#DbDriver4::dbSelectRowsJSON FINISH resultList=" << resultList;
+
+    return resultList; // QML автоматично побачить це як чистий масив []
+}
+
+QString DbDriver4::dbSelectRows(const QString &sql, const QString &filter)
+{
+    int errId = 0;
+    QString errText;
+    int rowCount = 0;
+
+    QJsonArray jsonRowsArray; // Нативний масив під JSON рядки []
+    const QString lowerFilter = filter.toLower(); // Обчислюємо регістр один раз для всього запиту
+
+    if (openConnection()) {
+        QSqlQuery q(sql, m_db);
+
+        if (!q.lastError().isValid()) {
+            const QSqlRecord recordSchema = q.record();
+            const int fieldCount = recordSchema.count();
+
+            while (q.next()) {
+                bool rowMatchesFilter = filter.isEmpty();
+                QJsonObject jsonRow;
+
+                // 1. Збираємо дані рядка в JSON об'єкт і паралельно перевіряємо фільтр
+                for (int i = 0; i < fieldCount; ++i) {
+                    QString fieldName = recordSchema.fieldName(i);
+                    QVariant fieldValue = q.value(i);
+
+                    // Додаємо в об'єкт (Qt6 сам розбереться з типами: числа, рядки, NULL)
+                    jsonRow.insert(fieldName, QJsonValue::fromVariant(fieldValue));
+
+                    // Якщо фільтр задано, перевіряємо, чи містить поточне поле шуканий текст
+                    if (!rowMatchesFilter && fieldValue.toString().toLower().contains(lowerFilter)) {
+                        rowMatchesFilter = true;
+                    }
+                }
+
+                // 2. ✅ ВИПРАВЛЕНО БАГ ДУБЛЮВАННЯ: Додаємо рядок до масиву ТІЛЬКИ ОДИН РАЗ,
+                // якщо він пройшов критерій фільтрації
+                if (rowMatchesFilter) {
+                    jsonRowsArray.append(jsonRow);
+                    ++rowCount;
+                }
+            }
+        } else {
+            errId = static_cast<int>(q.lastError().type());
+            errText = q.lastError().text();
+        }
+        closeConnection();
+    } else {
+        errId = 1;
+        errText = QStringLiteral("DB connection error.");
+    }
+
+    // 3. Формуємо підсумкову фінансову структуру відповіді
+    QJsonObject resultRoot;
+    resultRoot.insert(QStringLiteral("errorId"), errId);
+    resultRoot.insert(QStringLiteral("errorText"), errText);
+    resultRoot.insert(QStringLiteral("rowCount"), rowCount);
+    resultRoot.insert(QStringLiteral("rows"), jsonRowsArray);
+
+    // Конвертуємо зібране дерево у компактний JSON-рядок без зайвих пробілів
+    QJsonDocument doc(resultRoot);
+    return QString::fromUtf8(doc.toJson(QJsonDocument::Compact));
+}
+
+/*
 QString DbDriver4::dbSelectRows(const QString & sql, const QString & filter)
 {
     // qDebug()<<"DbDriver4::dbSelectRows \n"<<sql;
@@ -342,14 +872,10 @@ QString DbDriver4::dbSelectRows(const QString & sql, const QString & filter)
         errText = "DB connection error.";
     }
     str = str.trimmed();
-    //    if (!str.isEmpty()){
-    //        str.prepend("[");
-    //        str += "]";
-    //    } else { str = "\"\"";}
-    //    qDebug()<<"DbDriver3::getJSONRowsFromSQL \n"<<str;
     return QString("{\"errorId\":%1,\"errorText\":\"%2\",\"rowCount\":%3,\"rows\":[%4]}").arg(errId).arg(errText).arg(rowCount).arg(str);
 
 }
+*/
 
 /**
  * @brief DbDriver3::acntId

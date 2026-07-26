@@ -79,73 +79,60 @@ function postRequest(path, req, callback) {
     // request.send("data=" + JSON.stringify(req));
 }
 
+/**
+  CashDesk
+  */
+function bindFromId(db, bindid) {
+    let jbind = bindFromDb(db, bindid)
+    if (!jbind || jbind.dcmno !== "") return false;
+
+  let ok = true;
+  const rows = jbind.dcms
+  let cdatcl = [];    // cashDesc articles
+  for (let r =0; r < rows.length && ok; ++r){
+    ok &= (rows[r].dcmtype === "trade:sell" && Number(rows[r].mask) === 4 && Number(rows[r].amount) < 0)
+    cdatcl.push( {"unit_code": rows[r].ucode, "unit_name": rows[r].uchar, "name": rows[r].ichar,
+                "amount": Math.abs(rows[r].amount).toFixed(rows[r].prec),
+                "price": Math.abs(Number(rows[r].eq)/Number(rows[r].amount)).toFixed(3),
+                "cost": Math.abs(rows[r].eq).toFixed(2),
+                "sum_discount":(0-Number(rows[r].dsc).toFixed(2))} )
+  }
+  if (!ok) {
+      // cb("Чек не підлягає фіскалізації");
+      return false; }
+
+  let lnmb = 0;
+  lnmb = db.dbInsert("insert into taxdcm (dcmid) values ('"+jbind.id+"')");
+  if (lnmb == 0) {
+      // cb("Не отримано локальний номер фіскалізації");
+      return false; }
+
+  let tsum = Math.round(10*Math.abs(jbind.amount))/10;
+  let rsum = tsum - Math.abs(jbind.amount)
+  if (tsum == 0) {
+      // cb("Помидка фіскалізації. Сума чеку 0");
+      return false; }
+
+  // cashDesc bind
+  let taxbind = {
+    // "api_token": token,
+    // "num_fiscal": cash,
+    "action_type": "Z_SALE",
+    "local_number": lnmb,
+    "total_sum": tsum.toFixed(2),
+    "round_sum":rsum.toFixed(2),
+    "products": cdatcl,
+    "payments": [{"code": 0,"name": "ГОТIВКА", "sum": tsum.toFixed(2),"sum_provided": tsum.toFixed(2),"sum_remains": 0}],
+    "no_text_print":true,"no_pdf":true,"no_qr":true,"open_shift":true,"print_width": 32,"pdf_width": 48
+  }
+
+  // cb(null, taxbind)
+  return taxbind
+}
+
 /*
   /check/sale
   /shift/ping
   /shift/xReport
   /shift        // Z_REPORT
   */
-
-/*
-function taxUploadBind(bindid){
-        if (isTaxMode()) {
-
-
-
-            Lib.log("#94hn TAX MODE IS BLOCKED !!! \n main.taxUploadBind id=" + bindid); return;
-
-
-
-            Lib.bindFromDb(Db, bindid,
-               (err,bind) => {
-                    if (err){
-                        Lib.log(err, "Main>bindFromDb", "EE")
-                    } else {
-                       Lib.cdtaxFromBind(Db, bind,
-                        (err, taxbind)=>{
-                            if (err){
-                                Lib.log(err, "Main>cdtaxFromBind", "EE")
-                            } else {
-                                taxbind.api_token = cdtoken
-                                taxbind.num_fiscal = cdcash
-                                CashDesk.postRequest(cdhost + cdprefix + String("/check/sale?api_token=%1").arg(cdtoken), taxbind,
-                                                    (taxerr, taxresp) =>
-                                                     {
-                                                         if (err){
-                                                        // TODO
-                                                         } else {
-                                                             taxServiceLoader.item.showResp({"code":"info", "sender":"XReport",
-                                                                 // "resp": "XReport OK #" +jsresp.user_signature.user_id + " "+jsresp.user_signature.full_name,
-                                                                 "resp": "XReport OK #" + taxresp,
-                                                                 "tm":new Date()});
-                                                         }
-                                                     } )
-                                taxRequest(String("/check/sale?api_token=%1").arg(cdtoken), taxbind, (response) => {
-                                // Lib.log(response.status);
-                                // Lib.log(response.headers);
-                                // Lib.log( response.content);
-                                let jsresp = JSON.parse(response.content)
-                                while (~response.content.indexOf(',"')){ response.content = response.content.replace(',"',',\n"'); }
-                                if (response.status === 200) {
-                                 let isPlainText = response.contentType.length === 0
-                                 if (isPlainText && taxServiceLoader.active) {
-                                     taxServiceLoader.item.showResp({"code":"info", "sender":"XReport",
-                                         // "resp": "XReport OK #" +jsresp.user_signature.user_id + " "+jsresp.user_signature.full_name,
-                                         "resp": "XReport OK #" +response.content,
-                                         "tm":new Date()});
-                                 }
-                                } else if (response.status === 0){
-                                 taxServiceLoader.active = true
-                                 taxServiceLoader.item.showResp({"code":"error", "sender":"ping", "resp":'Site connection error', "tm":new Date()});
-                                } else {
-                                 taxServiceLoader.active = true
-                                 taxServiceLoader.item.showResp({"code":"error", "sender":"ping", "resp":"Status="+response.status+": "+response.content, "tm":new Date()});
-                                }
-                                });
-                            }
-                        })
-                    }
-                })
-        }
-    }
-*/

@@ -1,63 +1,127 @@
 import QtQuick
-import "../lib.js" as Lib
+import "js/v147/config.js" as Conf
+import "js/v147/sqlAcnt.js" as LibAcnt
+import "js/v147/sqlClient.js" as LibClient
+import "js/v147/sqlItem.js" as LibItem
 
 ListModel {
-    id: root
+    id: mRoot
     property var data
+    property var rawCachedData: []
 
-    function dbg(str, code ="") {
-        console.log( String("%1[ModelDrawer] %2").arg(code).arg(str));
-    }
+    function load(db, balList, mask =0, reverse =false) {
+        if (!balList || balList.length < 1) return;
+        const res = [];
+        const condition = Number(mask < 4) ? `(item IS NULL OR length(item) < 4)` : ""
+        for (let bal of balList){
+            const source = LibAcnt.balBalance2(db, bal, condition) || [];
+            // console.log(`ModelDrawer/load source=${JSON.stringify(source)}`)
+            if (!source || source.length < 1) continue;
+            for (let acnt of source){
+                const item = LibItem.getItemById(db, acnt.itemid);
+                // console.log(`ModelDrawer/load item=${JSON.stringify(item)}`)
+                if (!(mask & (item?.mask || 0))) continue;
+                const client = LibClient.client(db, acnt.clid);
+                const total = reverse ? 0 - Number(acnt?.total || 0.0) : Number(acnt?.total || 0.0);
+                const income = reverse ? 0 - Number(acnt?.income || 0.0) : Number(acnt?.income || 0.0);
+                const outcome = reverse ? 0 - Number(acnt?.outcome || 0.0) : Number(acnt?.outcome || 0.0);
+                const clnt = !!(acnt?.clid || "")? `${client?.name}[${acnt.clid}]` : "";
+                const nameVal = (item?.itemchar || "???")
+                            + ((bal.startsWith(String(Conf.glDepoPrefix || "")) || bal.startsWith(String(Conf.glInitPrefix || ""))) ? ` ${(acnt?.note || "")}` : "")
+                            + (!!(acnt?.clid || "")? `${client?.name}[${acnt.clid}]` : "");
+                const rowData = {
+                    "bind": acnt?.note || "",
+                    "name": nameVal,
+                    "subname":`[${ item?.id || ""}] ${ item?.itemname || ""}`,
+                    "total": total,
+                    "income": income,
+                    "outcome": outcome,
+                    "key": item?.id || "",
+                    "prec": item?.unitprec ?? 2,
+                    "scan": item?.scancode || "",
+                    "totaleq": 0,
+                    "clid": acnt?.clid || "",
+                    "clchar": client?.name || "",
+                    "acntno": acnt?.acntno || "",
+                    "mask": item?.mask || 0,
+                    "so": item?.itemnote || "",
+                };
+                res.push(rowData);
+                // console.log(`ModelDrawer/load source=${JSON.stringify(rowData)}`)
+            }
+        }
+        // console.log(`ModelDrawer/load res=${JSON.stringify(res)}`)
+        res.sort((a,b) => {
+                     const compBind = (a.bind || "").localeCompare(b.bind || "");
+                     if (compBind !== 0) return compBind;
 
-    function load(db, bal, mask =0, reverse =false) {
-        // dbg("loaded bal="+bal+" cur="+mask, "#sh48")
-        let jdata = Lib.getBalance(db, bal, mask, reverse)
-/*        jdata.sort((a,b) => {
-                       if (a.mask < b.mask) return -1;
-                       else if (a.mask > b.mask) return 1;
-                       else if (a.itemnote < b.itemnote) return -1
-                       else if (a.itemnote > b.itemnote) return 1
-                       return 1
-                   }
-                       ) */
-        // dbg("")
-        // for (let i=0; i < root.data.length && i < 10; ++i){
-        //     console.log(JSON.stringify(root.data[i]))
-        // }
-        root.data = jdata
+                     const maskA = Number(a.mask);
+                     const maskB = Number(b.mask);
+                     if (!isNaN(maskA) && !isNaN(maskB) && maskA !== maskB) {
+                         return maskA - maskB;
+                     }
+
+                     const numA = Number(a.so);
+                     const numB = Number(b.so);
+                     if (!isNaN(numA) && !isNaN(numB) && numA !== numB) {
+                         return numA - numB;
+                     }
+                     const compSo = (a.so || "").localeCompare(b.so || "");
+                     if (compSo !== 0) return compSo;
+
+                     return (a.acntno || "").localeCompare(b.acntno || "");
+                 })
+        mRoot.rawCachedData = res;
         filterData()
     }
 
-    function isAllowed(row, flt){
-        return (root.data[row].key === flt || root.data[row].clid === flt
-                || ~(root.data[row].name.toLowerCase()).indexOf(flt.toLowerCase())
-                || ~(root.data[row].subname.toLowerCase()).indexOf(flt.toLowerCase())
-                || ~(root.data[row].clchar.toLowerCase()).indexOf(flt.toLowerCase())
-                || ~(root.data[row].acntno.toLowerCase()).indexOf(flt.toLowerCase())
-                || ~(root.data[row].aname.toLowerCase()).indexOf(flt.toLowerCase())
-                || ~(root.data[row].scan).indexOf(flt));
+    function isAllowed(row, flt) {
+        if (!row) return false;
+        if (!flt || flt === "") return true;
+
+        const filterLower = flt.trim().toLowerCase();
+        const scancodeStr = String(row.scan || "").toLowerCase();
+        const charStr = String(row.name || "").toLowerCase();
+        const nameStr = String(row.subname || "").toLowerCase();
+        const clStr = String(row.clchar || "").toLowerCase();
+
+        // console.log(`ModelDrawer/isAllowed flt=${filterLower} name=${charStr}`)
+        return (row.acntno === flt
+                || row.clid === flt
+                || scancodeStr.includes(filterLower)
+                || charStr.includes(filterLower)
+                || nameStr.includes(filterLower)
+                || clStr.includes(filterLower));
     }
 
     function filterData(flt =""){
 
-        for ( let r =0; r < data.length; ++r){
-            if (flt === undefined || flt === "" || isAllowed(r, flt) ){
-                data[r].flt = true;
-            } else  { data[r].flt = false; }
+        for ( let r =0; r < rawCachedData.length; ++r){
+            if (flt === undefined || flt === "" || isAllowed(mRoot.rawCachedData[r], flt) ){
+                rawCachedData[r].flt = true;
+            } else  { rawCachedData[r].flt = false; }
         }
 
         populate()
     }
 
     function populate(){
-        root.clear();
+        mRoot.clear();
+            const cachedArr = mRoot.rawCachedData;
+            if (!Array.isArray(cachedArr)) return;
 
-        for ( let ofs =0; ofs < data.length; ++ofs){
+            for (let ofs = 0; ofs < cachedArr.length; ++ofs) {
+                if (!cachedArr[ofs].flt) continue;
+                mRoot.append(cachedArr[ofs]);
+            }
+        // mRoot.clear();
 
-            if (!data[ofs].flt) continue;
+        // for ( let ofs =0; ofs < rawCachedData.length; ++ofs){
 
-            root.append(data[ofs])
-        }
+        //     if (!rawCachedData[ofs].flt) continue;
+
+        //     mRoot.append(rawCachedData[ofs])
+        // }
     }
 
 }

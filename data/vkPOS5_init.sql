@@ -7,18 +7,26 @@ PRAGMA foreign_keys=OFF;
 BEGIN TRANSACTION;
 
 
-INSERT INTO "settings" ("domcur","domchar","domname","dbversion","branchname","branchname2","branchaddres","acnts") VALUES 
-( '980', 'UAH', 'українська гривня', '14.7', '', '', '', '{ "cash":"3000", "incas":"3003", "trade":"3500", "bulk":"3501",  "profit":"3607-55" }' );
+INSERT INTO "conf" ("key", "val")
+  VALUES
+    ('dbversion', '14.7'),
+    ('term', '{"id": "TEST", "name": "test terminal", "amnt_sign": "-1", "pos_printer": "", "auto_print": "", "print_dcm": ""}'),
+    ('domestic', '{"id": "980", "chid": "UAH", "name": "українська гривня"}'),
+    ('acntlist', '{ "cash":"3000", "incas":"3003", "trade":"3500", "bulk":"3501", "profit":"3607-55" }'),
+    ('rest', '{"host": "http://test.kantorfk.com", "api": "/api/v5", "login": "", "psw": ""}'),
+    ('tax', '{"host": "*https://test.cashdesk.com.ua", "api": "/api/v2", "cash":"4000593658", "token":"e625d1c0-ebdc-4302-97e4-08f7d4c7a0ea"}')
+    ;
 
-INSERT INTO "shift" ("id","shftdate","shftbegin","shftend","cshr") VALUES ( 1, '2024-12-04', '2024-12-04', '', '' );
+INSERT INTO "shift" ("id","shftdate","shftbegin","shftend","cshr") VALUES ( 1, (strftime('%Y-%m-%d', 'now')), (strftime('%Y-%m-%dT%H:%M:%S', 'now')), '', '' );
 
-INSERT INTO "client" ("pkey","clchar","phone","clnote","inptime") VALUES ( '1000', 'Фіз.особа', NULL, NULL, '' );
+INSERT INTO "client" ("pkey","clchar","phone","clnote","inptime") VALUES ( '1000', 'Фіз.особа', NULL, NULL, '2014-10-29T20:41:29' );
 
 INSERT INTO "dcmtype" ("pkey","dctpchar","dctpname","tranable") VALUES ( 'folder', 'ПАПКА', NULL, 0 );
 INSERT INTO "dcmtype" ("pkey","dctpchar","dctpname","tranable") VALUES ( 'memo', 'MEMO', NULL, 1 );
 INSERT INTO "dcmtype" ("pkey","dctpchar","dctpname","tranable") VALUES ( 'invoice', 'ТОРГ:Рахунок', NULL, 1 );
 INSERT INTO "dcmtype" ("pkey","dctpchar","dctpname","tranable") VALUES ( 'facture', 'ТОРГ:Накладна', NULL, 0 );
 INSERT INTO "dcmtype" ("pkey","dctpchar","dctpname","tranable") VALUES ( 'check', 'ТОРГ:ЧЕК', NULL, 0 );
+INSERT INTO "dcmtype" ("pkey","dctpchar","dctpname","tranable") VALUES ( 'taxcheck', 'TAX:ЧЕК', NULL, 0 );
 INSERT INTO "dcmtype" ("pkey","dctpchar","dctpname","tranable") VALUES ( 'trade:buy', 'ТОРГ:КУП', NULL, 7 );
 INSERT INTO "dcmtype" ("pkey","dctpchar","dctpname","tranable") VALUES ( 'trade:sell', 'ТОРГ:ПРОД', NULL, 7 );
 INSERT INTO "dcmtype" ("pkey","dctpchar","dctpname","tranable") VALUES ( 'pay:in', 'ПЛАТІЖ:ПРИХ', NULL, 1 );
