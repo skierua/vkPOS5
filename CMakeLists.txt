@@ -73,11 +73,9 @@ qt_add_executable(appvkPOS5
     main.cpp
 )
 
-# ✅ СУЧАСНИЙ QML МОДУЛЬ (Qt 6.8+): Реєструє файли інтерфейсу
 qt_add_qml_module(appvkPOS5
     URI vkPOS5
     VERSION ${PROJECT_VERSION}
-    # MAIN_FILE qt/qml/Main.qml # 🚀 ✅ ДОДАЙТЕ ЦЕЙ РЯДОК
     RESOURCE_PREFIX "/qt/qml" # Явно вказуємо стандартний префікс Qt6
        QML_FILES
         qt/qml/Main.qml
@@ -101,47 +99,7 @@ qt_add_qml_module(appvkPOS5
         ${JS_FILES}
     SOURCES
         ${CPP_FILES}
-        # QML_FILES qt/qml/js/v147/sqlClient.js
-        # QML_FILES qt/qml/js/shift.js
-        # QML_FILES qt/qml/js/v147/sqlShift.js
-        # QML_FILES qt/qml/js/bind.js
-        # QML_FILES qt/qml/js/v147/dbMigration.js
 )
-
-# qt_add_qml_module(appvkPOS5
-#     URI vkPOS5
-#     # VERSION 2.20
-#     QML_FILES
-#         qt/qml/Main.qml
-#         # qt/qml/MainKant.qml
-#         # qt/qml/MainShop.qml
-#         qt/qml/Bind.qml
-#         qt/qml/Balance.qml
-#         qt/qml/Client.qml
-#         qt/qml/DcmView.qml
-#         qt/qml/DrawerItem.qml
-#         qt/qml/LogView.qml
-#         qt/qml/ModelBind.qml
-#         qt/qml/ModelDbDcms.qml
-#         qt/qml/ModelDrawer.qml
-#         qt/qml/ModelRates.qml
-#         qt/qml/Rate.qml
-#         qt/qml/Shift.qml
-#         qt/qml/Settings.qml
-#         qt/qml/Stat.qml
-#         qt/qml/WizardCash.qml
-#         qt/qml/TaxService.qml
-#         qt/qml/ModelBalance.qml
-#         ${JS_FILES}
-#     SOURCES
-#         ${CPP_FILES}
-#     RESOURCES
-#         # ${DB_FILES}
-#         # data/vkPOS5-init.sql
-#         # data/vkPOS5.sql
-#         # README.md
-#         # TODO.txt
-# )
 
 qt_add_resources(appvkPOS5 "app_res"
     PREFIX "/"
