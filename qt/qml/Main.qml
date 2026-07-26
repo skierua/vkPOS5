@@ -532,10 +532,12 @@ ApplicationWindow {
                 state: "",
             }
             const comp = Qt.createComponent("Bind.qml");
+            console.info(`Main.qml/bindCheckAction status=${comp.status}`)
             if (comp.status === Component.Ready) {
                 JS.handleAddBindTab(Db, Prn, comp, logView, compContainer, uiBridge);
                 compContainer.currentItem.startBindAction.trigger();
             }
+                else console.error(`Main.qml/bindCheckAction status=${comp.errorString()}`)
         }
     }
 

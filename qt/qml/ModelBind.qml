@@ -5,8 +5,6 @@ import "js/v147/config.js" as Conf
 import "js/v147/sqlItem.js" as LibItem
 import "js/v147/sqlAcnt.js" as LibAcnt
 
-import "../lib.js" as Lib
-
 ListModel {
     id: mRoot
 
