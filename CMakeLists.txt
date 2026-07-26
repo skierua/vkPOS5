@@ -8,6 +8,12 @@ set(CMAKE_CXX_STANDARD 17) # Суворий стандарт C++ для Qt6
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
+if(APPLE)
+    # Змушуємо лінкер ігнорувати застарілі фреймворки, які Qt намагається підтягнути
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-undefined,dynamic_lookup")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-undefined,dynamic_lookup")
+endif()
+
 find_package(Qt6 REQUIRED COMPONENTS Core)
 find_package(Qt6 REQUIRED COMPONENTS QuickControls2)
 find_package(Qt6 REQUIRED COMPONENTS Quick)
@@ -20,15 +26,17 @@ find_package(Qt6 REQUIRED COMPONENTS PrintSupport)
 # find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS PrintSupport)
 
 # Виправляємо баг Qt з відсутнім AGL на нових macOS
-if(APPLE)
-    if(TARGET Qt6::Gui)
-        get_target_property(GUI_LINKS Qt6::Gui INTERFACE_LINK_LIBRARIES)
-        if(GUI_LINKS)
-            string(REPLACE "-framework AGL" "" GUI_LINKS "${GUI_LINKS}")
-            set_target_properties(Qt6::Gui PROPERTIES INTERFACE_LINK_LIBRARIES "${GUI_LINKS}")
-        endif()
-    endif()
-endif()
+# if(APPLE)
+#     message(STATUS "macOS-specific QML and sources. Remove framework AGL TARGET=${TARGET}")
+#     if(TARGET Qt6::Gui)
+#         get_target_property(GUI_LINKS Qt6::Gui INTERFACE_LINK_LIBRARIES)
+#         message(STATUS "macOS-specific QML and sources. GUI_LINKS=${GUI_LINKS}")
+#         if(GUI_LINKS)
+#             string(REPLACE "-framework AGL" "" GUI_LINKS "${GUI_LINKS}")
+#             set_target_properties(Qt6::Gui PROPERTIES INTERFACE_LINK_LIBRARIES "${GUI_LINKS}")
+#         endif()
+#     endif()
+# endif()
 
 qt_standard_project_setup()
 
