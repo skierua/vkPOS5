@@ -4,7 +4,7 @@ import QtQuick.Layouts
 import QtQuick.Controls
 //import com.vkeeper.sqlmodel 1.0
 
-import "../lib.js" as Lib
+import "js/v147/sqlAcnt.js" as LibAcnt
 
 Window {
     id: root
@@ -111,6 +111,7 @@ Window {
             total = 0
             subTotal = 0
             if (cur === '') {
+                append({'name':'2000 грн.','qty':0,'coef':2000, 'sect': 'sub'})
                 append({'name':'1000 грн.','qty':0,'coef':1000, 'sect': 'sub'})
                 append({'name':'500 грн.','qty':0,'coef':500,'sect': 'sub'})
                 append({'name':'200 грн.','qty':0,'coef':200, 'sect': 'sub'})
@@ -152,9 +153,12 @@ Window {
         }
 
         function getCash(){
-            cash = Number(Lib.getSQLData(db,
-                                         String("select item, beginamnt+turndbt-turncdt as total from acnt where item %1")
-                                                .arg(cur === '' ? 'is null' : String("= '%1'").arg(cur)))[0].total)
+            // console.log(`WizardCash.qml/getCash cur=${cur}`)
+            const jcash = LibAcnt.acntItemBalance(db, LibAcnt.DfltAcnt.cashAcntNo(), cur);
+            cash = jcash?.total || 0.0;
+            // cash = Number(Lib.getSQLData(db,
+            //                              String("select item, beginamnt+turndbt-turncdt as total from acnt where item %1")
+            //                                     .arg(cur === '' ? 'is null' : String("= '%1'").arg(cur)))[0].total)
         }
 
         function result(){

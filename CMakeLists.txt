@@ -1,20 +1,18 @@
 cmake_minimum_required(VERSION 3.24)
 
 project(vkPOS5
-    VERSION 2.24
+    VERSION 3.0
     LANGUAGES CXX)
 
+set(CMAKE_CXX_STANDARD 17) # Суворий стандарт C++ для Qt6
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-# find_package(Qt6 6.9 REQUIRED COMPONENTS QuickControls2)
-# find_package(Qt6 6.9 REQUIRED COMPONENTS Quick)
-# find_package(Qt6 6.9 REQUIRED COMPONENTS Sql)
-# find_package(Qt6 6.9 REQUIRED COMPONENTS PrintSupport)
 find_package(Qt6 REQUIRED COMPONENTS Core)
 find_package(Qt6 REQUIRED COMPONENTS QuickControls2)
 find_package(Qt6 REQUIRED COMPONENTS Quick)
 find_package(Qt6 REQUIRED COMPONENTS Sql)
+find_package(Qt6 REQUIRED COMPONENTS Widgets) # Потрібен для стабільного функціонування PrintSupport
 find_package(Qt6 REQUIRED COMPONENTS PrintSupport)
 # find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS QuickControls2)
 # find_package(Qt${QT_VERSION_MAJOR} EQUIRED COMPONENTS Quick)
@@ -29,17 +27,29 @@ set(CPP_FILES
 )
 
 set(JS_FILES
+    qt/qml/js/v147/config.js
     qt/lib.js
-    qt/libREST.js
-    qt/libTAX.js
-    qt/qml/js/v146/sqlAcnt.js
-    qt/qml/js/v146/sqlItem.js
-    qt/qml/js/v146/sqlPrice.js
+    # qt/libTAX.js
+    qt/qml/js/libREST.js
+    qt/qml/js/main.js
+    qt/qml/js/CashDesk.js
+    qt/qml/js/v147/sqlAcnt.js
+    qt/qml/js/v147/sqlBind.js
+    qt/qml/js/v147/sqlClient.js
+    qt/qml/js/v147/sqlItem.js
+    qt/qml/js/v147/dbMigration.js
+    qt/qml/js/v147/sqlPrice.js
+    qt/qml/js/v147/sqlShift.js
+    qt/qml/js/v147/sqlTran.js
+    qt/qml/js/bind.js
+    qt/qml/js/shift.js
 
 )
 
 set(DB_FILES
     data/db.sqlite
+    data/vkPOS5_init.sql
+    data/vkPOS5.sql
 )
 
 set(REPORT_FILES
@@ -63,14 +73,15 @@ qt_add_executable(appvkPOS5
     main.cpp
 )
 
-
+# ✅ СУЧАСНИЙ QML МОДУЛЬ (Qt 6.8+): Реєструє файли інтерфейсу
 qt_add_qml_module(appvkPOS5
     URI vkPOS5
-    # VERSION 2.20
-    QML_FILES
+    VERSION ${PROJECT_VERSION}
+    # MAIN_FILE qt/qml/Main.qml # 🚀 ✅ ДОДАЙТЕ ЦЕЙ РЯДОК
+    RESOURCE_PREFIX "/qt/qml" # Явно вказуємо стандартний префікс Qt6
+       QML_FILES
         qt/qml/Main.qml
-        # qt/qml/MainKant.qml
-        # qt/qml/MainShop.qml
+        qt/qml/AppSettings.qml
         qt/qml/Bind.qml
         qt/qml/Balance.qml
         qt/qml/Client.qml
@@ -83,7 +94,6 @@ qt_add_qml_module(appvkPOS5
         qt/qml/ModelRates.qml
         qt/qml/Rate.qml
         qt/qml/Shift.qml
-        qt/qml/Settings.qml
         qt/qml/Stat.qml
         qt/qml/WizardCash.qml
         qt/qml/TaxService.qml
@@ -91,30 +101,53 @@ qt_add_qml_module(appvkPOS5
         ${JS_FILES}
     SOURCES
         ${CPP_FILES}
-    RESOURCES
-        # ${DB_FILES}
-        # data/vkPOS5-init.sql
-        # data/vkPOS5.sql
-        # README.md
-        # TODO.txt
+        # QML_FILES qt/qml/js/v147/sqlClient.js
+        # QML_FILES qt/qml/js/shift.js
+        # QML_FILES qt/qml/js/v147/sqlShift.js
+        # QML_FILES qt/qml/js/bind.js
+        # QML_FILES qt/qml/js/v147/dbMigration.js
 )
 
-
-#  !!! added by me
-#set(CMAKE_AUTORCC ON)
-#qt_add_resources(appvkPOS5 "app_data"
-#    PREFIX "/"
-#    FILES
-#        data/vk_me.sqlite
-#    )
+# qt_add_qml_module(appvkPOS5
+#     URI vkPOS5
+#     # VERSION 2.20
+#     QML_FILES
+#         qt/qml/Main.qml
+#         # qt/qml/MainKant.qml
+#         # qt/qml/MainShop.qml
+#         qt/qml/Bind.qml
+#         qt/qml/Balance.qml
+#         qt/qml/Client.qml
+#         qt/qml/DcmView.qml
+#         qt/qml/DrawerItem.qml
+#         qt/qml/LogView.qml
+#         qt/qml/ModelBind.qml
+#         qt/qml/ModelDbDcms.qml
+#         qt/qml/ModelDrawer.qml
+#         qt/qml/ModelRates.qml
+#         qt/qml/Rate.qml
+#         qt/qml/Shift.qml
+#         qt/qml/Settings.qml
+#         qt/qml/Stat.qml
+#         qt/qml/WizardCash.qml
+#         qt/qml/TaxService.qml
+#         qt/qml/ModelBalance.qml
+#         ${JS_FILES}
+#     SOURCES
+#         ${CPP_FILES}
+#     RESOURCES
+#         # ${DB_FILES}
+#         # data/vkPOS5-init.sql
+#         # data/vkPOS5.sql
+#         # README.md
+#         # TODO.txt
+# )
 
 qt_add_resources(appvkPOS5 "app_res"
     PREFIX "/"
     FILES
         ${ICON_FILES}
         ${DB_FILES}
-        data/vkPOS5-init.sql
-        data/vkPOS5.sql
         README.md
         .gitignore
         TODO.txt
@@ -125,8 +158,11 @@ qt_add_resources(appvkPOS5 "app_res"
 #     data/db.sqlite
 # )
 
-# set_directory_properties(PROPERTIES FOLDER "")
+target_compile_definitions(appvkPOS5 PRIVATE
+    APP_VERSION="${PROJECT_VERSION}"
+)
 
+# set_directory_properties(PROPERTIES FOLDER "")
 set_target_properties(appvkPOS5 PROPERTIES
     MACOSX_BUNDLE_GUI_IDENTIFIER vkcheck3.vksoft.com
     MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
@@ -141,6 +177,7 @@ target_link_libraries(appvkPOS5
     PRIVATE Qt${QT_VERSION_MAJOR}::QuickControls2
     PRIVATE Qt${QT_VERSION_MAJOR}::Quick
     PRIVATE Qt${QT_VERSION_MAJOR}::Sql
+    PRIVATE Qt6::Widgets
     PRIVATE Qt${QT_VERSION_MAJOR}::PrintSupport)
 
 install(TARGETS appvkPOS5

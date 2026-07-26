@@ -1,50 +1,70 @@
 import QtQuick
-import "../lib.js" as Lib
+import "js/v147/sqlBind.js" as LibBind
+import "js/v147/sqlItem.js" as LibItem
 
 ListModel {
-    id: root
+    id: mRoot
     property var bind
     property var data
     property int pageCapacity: 10
     property list<int> pager: []
     property int bindCount: 0   // filtered bind count
-    property bool acntOnly: false
+    // property bool acntOnly: false
     // onAcntOnlyChanged: filterData()
-
-    // signal vkEvent(string id, var param)
 
     function dbg(str, code ="") {
         console.log( String("%1[ModelDbDcms] %2").arg(code).arg(str));
     }
 
-    function load(db, from ="") {
-        // vkEvent("log","load() " + JSON.stringify(root.queryData.req));
-        const vflt = String("parentid != '' %1").arg(from !== "" ? (" AND " + from): "")
-        root.bind = Lib.getBindList(db, String("dcmid in (SELECT DISTINCT parentid FROM documall WHERE %1)").arg(vflt))
-        root.data = Lib.getDcmList(db, vflt)
-        // console.log("[ModelDbDcms]:")
-        // for (let i=0; i < 10; ++i){
-        //     console.log(JSON.stringify(root.bind[i]))
-        // }
-        // for (let k = root.bind.length - 1, m=0; k >=0 && m < 20; --k, ++m){
-        //     console.log(JSON.stringify(root.bind[k]))
-        // }
+    function load(db, from = "") {
+        const source1 = LibBind.dbDocum(db, from, false);
+        const source2 = LibBind.dbDocum(db, from, true);
+        // console.log(`ModelDbDcms source1 ${JSON.stringify(source1)}`);
+        const joinSource = source1.concat(source2);
+        const bindMap = new Map(
+            joinSource.filter(v => v.pid === "")
+                .sort((a,b) => b.pid - a.pid
+                      || b.dcmid - a.dcmid )
+                .map(v => [v.dcmid, v])
+        );
+        // console.log(`ModelDbDcms#d7yh ${JSON.stringify([...bindMap.entries()])}`)
+        const dcmList = joinSource
+        .filter(v => v.pid !== "")
+        .sort((a,b) => b.dcmid - a.dcmid )
+        .map(function(v) {
+                // Створюємо копію об'єкта v та додаємо jarticle
+                return Object.assign({}, v, {
+                    jarticle: LibItem.getItemById(db, v.itemid)
+                });
+            });
+        // console.log(`ModelDbDcms source1 ${JSON.stringify(dcmList)}`);
+
+        mRoot.bind = bindMap;
+        mRoot.data = dcmList
         filterData()
     }
 
     function isAllowed(row, flt){
-        return ( ~((root.data[row].dnote).toLowerCase()).indexOf(String(flt).toLowerCase())
-        || ~((root.data[row].iname).toLowerCase()).indexOf(String(flt).toLowerCase())
-        || ~((root.data[row].ifname).toLowerCase()).indexOf(String(flt).toLowerCase())
-        || ~((root.data[row].scan).toLowerCase()).indexOf(String(flt).toLowerCase())
-        || (root.data[row].acntcdt === flt))
+        const dcm = mRoot.data[row];
+        const filterLower = flt.toLowerCase();
+        const noteStr = String(dcm.dcmnote || "").toLowerCase();
+        const atclStr = String(dcm.jarticle?.itemchar || "").toLowerCase();
+        const atclFStr = String(dcm.jarticle?.itemname || "").toLowerCase();
+
+        return (dcm.dcmid === flt
+                || noteStr.includes(filterLower)
+                || (dcm.jarticle?.scancode || "").includes(filterLower)
+                || (dcm.acntcdt || "") === filterLower
+                || atclStr.includes(filterLower)
+                || atclFStr.includes(filterLower)
+                );
     }
 
-    function filterData(flt =""){
+    function filterData(flt = ""){
         let tmpa = []
-        // root.offset = 0
+        // mRoot.offset = 0
         let count =0, fcount =0
-        let pid = "", fpid = ""
+        let pid = 0, fpid = 0
         for ( let r =0; r < data.length; ++r){
             if (flt === undefined || flt === "" || isAllowed(r, flt) ){
                 if (fpid !== data[r].pid) {
@@ -57,130 +77,195 @@ ListModel {
         }
 
         // dbg("pager=" + JSON.stringify(tmpa), "#84u");
-        root.pager = tmpa
+        mRoot.pager = tmpa
         bindCount = fcount;
         populate()
     }
 
     function populate(page =1){
-        root.clear();
+        mRoot.clear();
         let pid = ""
-        let ofs = root.pager[page-1]
-        let lim = (page >= root.pager.length ? data.length : root.pager[page])
+        let ofs = mRoot.pager[page-1]
+        let lim = (page >= mRoot.pager.length ? data.length : mRoot.pager[page])
         // dbg("page="+page+" ofs="+ofs+" lim="+lim, "#sh48")
         for (; ofs < lim; ++ofs){
 
             if (!data[ofs].flt) continue;
-
-            root.append(data[ofs])
+            addNew(data[ofs]);
+            // mRoot.append(data[ofs])
         }
-        // dbg("count="+ root.count, "#74y")
+        // dbg("count="+ mRoot.count, "#74y")
     }
 
-    function price(row) {
-        if (row < 0) return ""
-        // dbg("price(row)="+ row, "#5qgf")
-        const coef = Number(data[row].qty)
-        const res = coef * (Number(data[row].eq) + Number(data[row].dsc))/Number(data[row].amount)
-        return res.toFixed(4) + (coef !== 1 ? ("/" + String(coef)) : "")
+    function addNew(row, idx = count){
+        if (!row) return;
+        const isTrade = row.eqamount !== 0 || row.dcmtype.startsWith("trade:");
+        mRoot.insert(idx, {
+                         // "dataRowId": dataId,
+                         "dcmid": row.dcmid
+                         , "pid": row.pid
+                         ,"dcmtype": row.dcmtype || ""
+                         , "acntdbt": row.acntdbt
+                         , "acntcdt": row.acntcdt
+                         , "amount": row.amount
+                         , "eqamount": row.eqamount
+                         , "discount": row.discount
+                         , "bonus": row.bonus
+                         , "dcmnote": row.dcmnote
+                         , "itemid": row.itemid
+                         , "itemchar": row.jarticle.itemchar
+                         , "unitprec": row.jarticle.unitprec
+                         , "isTrade": isTrade
+                         , "flt": row.flt
+                         ,
+                     });
+
     }
 
-    function bindInfo(vid){
-        // vkEvent("log", "bindInfo vid="+vid)
-        // let i = 0
-        // for (i = 0; (i < data.length && data[i].pid !== vid); ++i) {}
-        // binary search
-        let lf =0, rt = root.bind.length -1, md =0;
-        while (lf < rt) {
-            // dbg("bindInfo vid="+vid + " lf="+ lf + "/" + root.bind[lf].dcmid + " rt="+rt + "/" + root.bind[rt].dcmid+ " md="+md)
-            md = lf + Math.floor((rt - lf)/2)
-            if (root.bind[md].dcmid < vid) lf = md + 1
-            else rt = md
+    function bindInfo(pid){
+        return mRoot.bind.get(Number(pid));
+
+
+        // let lf =0, rt = mRoot.bind.length -1, md =0;
+        // while (lf < rt) {
+        //     // dbg("bindInfo vid="+vid + " lf="+ lf + "/" + mRoot.bind[lf].dcmid + " rt="+rt + "/" + mRoot.bind[rt].dcmid+ " md="+md)
+        //     md = lf + Math.floor((rt - lf)/2)
+        //     if (mRoot.bind[md].dcmid < vid) lf = md + 1
+        //     else rt = md
+        // }
+        // // dbg("bindInfo vid="+vid + " finded="+ mRoot.bind[lf].dcmid)
+
+        // return mRoot.bind[lf];
+    }
+
+    function showFullBind(idx){
+        if (idx < 0 || idx >= count) return null;
+        const pid = get(idx).pid
+        let modelCounter = idx;
+        for( ; modelCounter < count && get(modelCounter).pid === pid; ++modelCounter){ }
+        let bindCounter = 0;
+        for( --modelCounter; modelCounter >= 0 && get(modelCounter).pid === pid; --modelCounter, ++bindCounter){ }
+        // if (get(modelCounter).pid !== pid)
+            ++modelCounter;
+        // console.log(`ModelDbDcm#wy7 count=${count} modelCounter=${modelCounter} bidCounter=${bindCounter}`)
+        remove(modelCounter, bindCounter);
+        const bind = mRoot.data.filter(v => v.pid === pid);
+        for (const dcm of bind)
+            addNew(dcm, modelCounter);
+    }
+
+    function bindForPrint(idx){
+        if (idx < 0 || idx >= count) return null;
+        const pid = get(idx).pid
+        const bindDcms = mRoot.data
+        .filter(v => v.pid === pid)
+        .map((v) => { return {
+                 "dcm": v.dcmtype || "",
+                 "dbt": v.acntdbt || "",
+                 "cdt": v.acntcdt || "",
+                 "crn": v.itemid || "",
+                 "amnt": (v.amount || 0).toFixed(v.jarticle?.unitprec || 2),
+                 "eq": (v.eqamount || 0).toFixed(2),
+                 "dsc": (v.discount || 0).toFixed(2),
+                 "bns": (v.bonus || 0).toFixed(2),
+                 "note": v.dcmnote || "",
+                 "retfor": v.retfor || ""
+             }; });
+        const parent = bindInfo(Number(pid));
+        const res = {
+            "id": "dcmbind",
+            "dcm": parent?.dcmtype || "",
+            "dbt": parent?.acntdbt || "",
+            "cdt": parent?.acntcdt || "",
+            "amnt": (parent?.amount || 0).toFixed(2),
+            "eq": (parent?.eqamount || 0).toFixed(2),
+            "dsc": (parent?.discount || 0).toFixed(2),
+            "bns": (parent?.bonus || 0).toFixed(2),
+            "note": parent?.dcmnote || "",
+            "clnt": parent?.clid || "",
+            "tm": parent?.dcmtime || "",
+            "dcms":bindDcms
         }
-        // dbg("bindInfo vid="+vid + " finded="+ root.bind[lf].dcmid)
-
-        return root.bind[lf];
+        return res;
     }
 
-    function showFullBind(row){
+    function dcmForRefuse(idx){
+        if (idx < 0 || idx >= count) return null;
+        const v = get(idx);
+        const clidVar = Number(v.bonus || 0) === 0 ? "" : (bindInfo(Number(v.pid))?.clnt || "");
+
+        const res =
+            {
+             "dcmid": v.dcmid
+             , "pid": v.pid
+            ,"dcmtype": v.dcmtype || ""
+             , "acntdbt": v.acntdbt
+             , "acntcdt": v.acntcdt
+             , "amount": v.amount
+             , "eqamount": v.eqamount
+             , "discount": v.discount
+             , "bonus": v.bonus
+             , "dcmnote": v.dcmnote
+             , "itemid": v.itemid
+             // , "itemchar": row.jarticle.itemchar
+             // , "unitprec": row.jarticle.unitprec
+             , "isTrade": v.isTrade
+            , "clid": clidVar
+             // , "flt": row.flt
+            };
+        return res;
+    }
+
+    function old_showFullBind(row){
         const pid = get(row).pid
         ++row
         for( ; row < count && pid === get(row).pid; ++row){ }
-        let lf =0, rt = root.data.length -1, md =0;
-        while (lf < rt /*&& pid !== root.data[lf].pid*/) {
-            // dbg("showFullBind pid="+ pid + " lf="+ lf + "/" + root.data[lf].pid + " rt="+rt + "/" + root.data[rt].pid+ " md="+md)
+        let lf =0, rt = mRoot.data.length -1, md =0;
+        while (lf < rt /*&& pid !== mRoot.data[lf].pid*/) {
+            // dbg("showFullBind pid="+ pid + " lf="+ lf + "/" + mRoot.data[lf].pid + " rt="+rt + "/" + mRoot.data[rt].pid+ " md="+md)
             md = lf + Math.floor((rt - lf)/2)
-            if (root.data[md].pid > pid) lf = md + 1
+            if (mRoot.data[md].pid > pid) lf = md + 1
             else rt = md
         }
-        // dbg("showFullBind pid="+pid + " lf=" + lf + " finded="+ root.data[lf].pid)
-        for( ; lf > 0 && pid === root.data[lf-1].pid; --lf){}
-        // dbg("showFullBind AFTER pid="+pid + " lf=" + lf + " finded="+ root.data[lf].pid)
-        for( ; lf < data.length && pid === root.data[lf].pid; ++lf) {
+        // dbg("showFullBind pid="+pid + " lf=" + lf + " finded="+ mRoot.data[lf].pid)
+        for( ; lf > 0 && pid === mRoot.data[lf-1].pid; --lf){}
+        // dbg("showFullBind AFTER pid="+pid + " lf=" + lf + " finded="+ mRoot.data[lf].pid)
+        for( ; lf < data.length && pid === mRoot.data[lf].pid; ++lf) {
             if (data[lf].flt) continue;
-            insert(row, data[lf])
+            addNew(data[lf], row)
+            // insert(row, data[lf])
         }
     }
 
-//     function humanDate(vdate) {
-//         var vtmp = Date()
-//         var vdiff = Math.floor(((new Date().getTime())-(new Date(String(vdate).substring(0,10)).getTime()))/(1000*60*60*24))
-//         if (vdiff == 0) { return vdate.substring(11,16) // Qt.formatDate(new Date(vdate), 'hh:mm')
-//         } else if (vdiff == 1) { return 'вч '+vdate.substring(11,16)  //Qt.formatDate(new Date(vdate), 'вч hh:mm')
-// //        } else if (vdiff < 8) { return Math.floor(((new Date().getTime())-(new Date(String(vdate).substring(0,10)).getTime()))/(1000*60*60*24))+' дн.'
-//         } else if (vdiff < 360) { return Qt.formatDate(new Date(vdate), 'dd MMM')
-//         } else { return Qt.formatDate(new Date(vdate), 'MMM yy'); /*String(vdate).substring(0,10);*/ }
-
-//     }
-
 }
-
 /*
-  db Bind structure
-  [{
-    "shftid":"1433",
-    "dcmid":"556252",
-    "dcmno":"",
-    "dcmtype":"check",
-    "atclid":"",
-    "acntdbt":"3000",
-    "acntcdt":"",
-    "amount":"-11390",
-    "eq":"11390",
-    "dsc":"0",
-    "bns":"0","clid":"",
-    "pid":"",
-    "dnote":"",
-    "dtm":"2025-10-03T12:22:28",
-    "clchar":""
-  }]
+{
+    "id": "dcmbind",
+    "dcm": model.code,
+    "dbt": cashAcntNo,
+    "cdt": "",
+    "amnt": (total?.pmnt || 0).toFixed(2),
+    "eq": (total?.eq || 0).toFixed(2),
+    "dsc": (total?.dsc || 0).toFixed(2),
+    "bns": (total?.bns || 0).toFixed(2),
+    "note": "",
+    "clnt": ui.clid || "",
+    "tm": utcTimeStamp,
+    "dcms":
+        [
+            {
+                "dcm": row.dcode,
+                "dbt": targetAcntNo,
+                "cdt": row.dacnt?.acntno || "",
+                "crn": row.darticle?.id || "",
+                "amnt": (row.dsign * Number(row.damnt || 0)).toFixed(precision),
+                "eq": (row.moneyEq || 0).toFixed(2),
+                "dsc": (row.moneyDsc || 0).toFixed(2),
+                "bns": (row.moneyBns || 0).toFixed(2),
+                "note": row.dnote || "",
+                "retfor": row.retfor || ""
+            },
+        ]
+}
 */
 
-/*
-  db docum structure
-  [{
-    "shftid":"1433",
-    "dcmid":"556267",
-    "dcmno":"",
-    "dcmtype":"trade:sell",
-    "atclid":"978",
-    "acntdbt":"3000",
-    "trade":"1",
-    "acntcdt":"3500",
-    "amount":"-1000",
-    "eq":"-48800",
-    "dsc":"0",
-    "bns":"0",
-    "clid":"",
-    "pid":"556266",
-    "dnote":"EUR",
-    "dtm":"2025-10-03T13:16:07",
-    "clchar":"",
-    "iname":"EUR",
-    "ifname":"ЄВРО",
-    "scan":"",
-    "imask":"2",
-    "qty":"1",
-    "prec":"2"
-}]
-  */

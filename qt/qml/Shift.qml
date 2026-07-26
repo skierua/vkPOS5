@@ -1,408 +1,533 @@
+// Shift.qml — ПОВНА СУЧАСНА ВЕРСІЯ (UI/UX Модернізація 2026)
 import QtQuick
 import QtQuick.Window
 import QtQuick.Controls
-// import QtQuick.Controls.Fusion
+// import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
-import "../lib.js" as Lib
+import "js/shift.js" as JS
+import "js/v147/sqlAcnt.js" as LibAcnt
 
 Window {
     id: root
-    width: 640  //parent.width *0.5
-    height: 250 //parent.height *0.3
-    // width: 0
-    // height: 0
-    modality : Qt.WindowModal
-    property string title: "Зміна"
+    width: 720  // Трохи збільшимо ширину для ідеального простору Dashboard
+    height: 480
+    minimumWidth: 680
+    minimumHeight: 420
+    modality: Qt.WindowModal
+    color: "#F9FAFB" // Світлий пастельний фон усього вікна (Tailwind Gray 50)
+
+    property string title: "Управління зміною"
     property string codeid: "shift"
-    property var dbDriver                 // DataBase driver
+    property var dbDriver: null
     onDbDriverChanged: {
-        // vshift = Lib.crntShift(dbDriver)
-        // dbg(JSON.stringify(vshift, "#25fj"))
-        vcashiers = Lib.getSQLData(dbDriver,"select '' code, ' без касира' note, '' psw union select code, note, psw from cashier order by note;")
-        populateIncas()
-
-    }
-    property var funcUploadBind     // (jbind)
-    property var funcUploadBalace   // ()
-    property var funcShiftClose     // ()
-    property var funcOnShiftChanged // (newShift)
-    // property Menu vkContentMenu: Menu{
-    // }
-    property var acnts
-    onAcntsChanged: root.toBulk = (acnts.bulk !== undefined && acnts.bulk !== "")
-    property var vshift //: { "id":0,"cshr":"","cshrname":"","errid":1,"errname":"","shftbegin":"","shftdate":"","shftend":""}
-        onVshiftChanged: {
-            if (vshift.shftend === ""){
-                // openGroup.visible = false
-                // closeGroup.visible = true
-            } else {
-                // openGroup.visible = true
-                // closeGroup.visible = false
-                // root.width = 640
-                // root.height = 280
-            }
-            shftStack.currentIndex = (vshift.shftend === "" ? 1 : 0)
-
-            shid.text = vshift.id
-            shcshr.text = vshift.cshrname
-            shdate.text = vshift.shftdate
-            shopen.text = vshift.shftbegin
-            shclose.text = vshift.shftend
-
+        const uiBridge = {
+            setShiftData: (v) => { root.crntShiftData = v; },
+            setStackIndex: (v) => {shftStack.currentIndex = (v ? 1 : 0);},
+        };
+        JS.handleDriverChanged(dbDriver, cmb.model, uiBridge);
+        cmb.currentIndex = 0;
+        if (shftStack.currentIndex === 1){
+            populateIncasAction.trigger();
         }
-    property bool toBulk: false
-
-    property var vcashiers: []
+    }
+    property var crntShiftData: null
+    property bool isProcessing: false
 
     signal vkEvent(string id, var param)
 
-    function dbg(str, code ="") {
-        console.log( String("%1[Shift] %2").arg(code).arg(str));
+    function dbg(str, code = "") {
+        console.log(`[Shift.qml]#${code} ${str}`);
     }
 
-    function populateIncas() {
-        vw.model.clear()
-        // console.log(String("Shift/vpopulate#q7y %1").arg(JSON.stringify(vtrades)))
-        if (!root.toBulk) return
-
-        const vtrades = Lib.getIncas(dbDriver)
-        let vam = 0
-        for (let r =0; vtrades !=='' && r < vtrades.length; ++r){
-            vw.model.append(vtrades[r])
-            vam += Math.abs(Number(vtrades[r].amnt))
-        }
-        vw.amntTotal = vam;
+    ModelBind{
+        id: bindModel
+        // code: "folder"
     }
 
-    function shOpen() {
-        const isNewMonth = (root.vshift.shftdate.substring(0,7) !== Qt.formatDateTime(new Date(), "yyyy-MM") )
-
-        if( Lib.newShift(dbDriver, root.acnts, {"id":cmb.currentValue, "name":cmb.currentText}) ) {
-            root.vshift = Lib.crntShift(dbDriver)
-            funcOnShiftChanged(root.vshift)
-            if (isNewMonth && root.acnts.profit !== undefined &&  root.acnts.profit !== ""){
-                const jbind = Lib.makeBind_balancingTrade(dbDriver, root.acnts);
-                if (jbind.dcms.length > 0) {
-                    const bindId = Lib.tranBind(dbDriver, jbind);
-                    if (bindId !== 0 ){
-                        root.funcUploadBind(jbind)
-                    } else {
-                        // TODO error
-                        Lib.log(String("Transaction error. Bind:\n%1").arg(JSON.stringify(jbind)), "Shift.qml", "EE")
-                    }
-
-                }
-            }
-            funcUploadBalace()
-        }
-        root.close();
-    }
-
-    function shIncas() {
-        let jbind = {"id":"dcmbind","dcm":"check","dbt":"","cdt":"","amnt":"0","eq":"0","dsc":"0","bns":"0","note":"incas", "clnt":"","cshr":vshift.cshr, "dcms":[]}
-        let eq = 0, total = 0;
-        for (var r =0; r < vw.model.count; ++r) {
-            if (Math.abs(Number(vw.model.get(r).incas)) > 0.0000001) {
-                eq = Number(vw.model.get(r).incas)*Number(vw.model.get(r).price)/Number(vw.model.get(r).qty);
-                total += eq
-                jbind.dcms.push({"dcm":"trade:inner","dbt":acnts.cash,"cdt":acnts.trade,"crn":vw.model.get(r).curid,
-                    "amnt":String(Number(vw.model.get(r).incas)),"eq":eq.toFixed(2),"dsc":"0","bns":"0",
-                    "note":vw.model.get(r).cur,"retfor":""})
-                jbind.dcms.push({"dcm":"trade:inner","dbt":acnts.cash,"cdt":acnts.bulk,"crn":vw.model.get(r).curid,
-                    "amnt":(String(-1*Number(vw.model.get(r).incas))),"eq":(-1*eq).toFixed(2),"dsc":"0","bns":"0",
-                    "note":vw.model.get(r).cur,"retfor":""})
-            }
-
-        }
-        jbind.eq = total.toFixed(2)
-        // dbg(JSON.stringify(jbind), "#ew5"); return
-        // vkEvent('shift.incas', jbind);
-        const bindId = Lib.tranBind(dbDriver, jbind);
-        if (bindId !== 0 ){
-            root.funcUploadBind(jbind)
-        } else {
-            // TODO error
-        }
-        populateIncas()
-    }
-
-    Action{
+    // --- ACTIONS BLOCK ---
+    Action {
         id: startAction
-        enabled: false  // (cmb.currentIndex === 0 || psw.text === Qt.atob(cmb.model.get(cmb.currentIndex).psw) )
-        text: qsTr("Нова зміна")
-        onTriggered: { shOpen(); }
-        // onTriggered: {vkEvent('shift.open', {"id":cmb.currentValue, "name":cmb.currentText});}
+        // enabled: cmb.currentIndex === 0 //&& (psw.text !== "" && cmb.model && psw.text === atob(cmb.model[cmb.currentIndex].psw || ""))
+        enabled: !root.isProcessing
+                 && typeof cmb !== "undefined"
+                 && cmb.currentIndex > 0
+                 && typeof psw !== "undefined"
+                 && psw.text !== ""
+        text: qsTr("Відкрити зміну")
+        onTriggered: {
+            if (typeof JS.startShift === "function") {
+                root.isProcessing = true;
+                const uiBridge = {
+                    setShiftData: (v) => { root.crntShiftData = v; },
+                    cmb: cmb,
+                };
+                const res = JS.startShift(root.dbDriver, bindModel, uiBridge);
+                root.isProcessing = false;
+                // console.log(`237#Shift.qml status=${(res?.status ?? -1)}`)
+                if((res?.status ?? -1) > 0) {
+                    if (!!res.bind) vkEvent("bindTransacted", (res.bind || null));
+                    vkEvent("info", "Зміну успішно ВІДКРИТО");
+                    root.close();
+                } else if((res?.status ?? -1) < 0){
+                    vkEvent("error", `Не вдалося відкрити зміну: ${bindModel.lastError || "???"}`);
+                } else {
+                    vkEvent("warning", res?.errstr || bindModel.lastError || "Unknown status returned");
+                    root.close();
+                }
+            } else { vkEvent("error", "Системна помилка: Відсутня функція відкриття зміни"); }
 
+        }
+    }
+    Action { id: cancelAction; text: qsTr("Скасувати"); onTriggered: root.close() }
+    Action {
+        id: incasAction;
+        text: qsTr("Зарахувати на ГУРТ 📥");
+        enabled: !root.isProcessing
+                 && typeof vw !== "undefined"
+                 && vw.hasIncas
+                 && JS.isIncas(dbDriver)
+        onTriggered: {
+            if (typeof JS.handleIncasAction === "function") {
+                root.isProcessing = true;
+                const res = JS.handleIncasAction(dbDriver, vw.model, bindModel);
+                root.isProcessing = false;
+                if((res?.status ?? -1) > 0) {
+                    vkEvent("bindTransacted", res.bind);
+                    vkEvent("balanceChanged", null);
+                    populateIncasAction.trigger();
+                } else if((res?.status ?? -1) < 0){
+                    vkEvent("error", `Помилка інкасації: ${res?.errstr || bindModel.lastError || "???"}`);
+                } else vkEvent("warning", res?.errstr || bindModel.lastError || "???");
+            } else {
+                vkEvent("error", "Системна помилка: Відсутня функція інкасації");
+            }
+        }
     }
 
-    Action{
-        id: cancelAction
-        // enabled: vshift.shftend === ""
-        text: qsTr("Cancel")
-        onTriggered: { root.close(); }
-    }
-
-    Action{
-        id: incasAction
-        text: "Зарахувати на ГУРТ"
-        enabled: vw.amntTotal > 0.5 && root.toBulk
-        onTriggered: { shIncas(); }
-    }
-
-    Action{
+    Action {
         id: closeAction
-        text: "Закрити зміну"
-        enabled: vw.amntTotal < 1 || !root.toBulk
-        // onTriggered: { funcShiftClose({"shid":shid.text,"shdate":shdate.text, "cshr":cmb.currentValue}); }
-        onTriggered: { funcShiftClose({"shid": root.vshift.id,"shdate": root.vshift.shftdate, "cshr":cmb.currentValue}); }
+        text: qsTr("Завершити зміну 🔒")
+        enabled: !root.isProcessing
+                 && typeof vw !== "undefined"
+                 && (!vw.hasIncas || !JS.isIncas(dbDriver))
+        onTriggered: {
+            if (typeof JS.finishShift === "function") {
+                root.isProcessing = true;
+                const res = JS.finishShift(dbDriver, bindModel);
+                root.isProcessing = false;
+                if((res?.status ?? -1) > 0) {
+                    for (let bind of res.bindList){
+                        vkEvent("bindTransacted", bind);
+                    }
+                    vkEvent("balanceChanged", null);
+                    vkEvent("shiftClosed", null);
+                    root.close();
+                } else if((res?.status ?? -1) < 0){
+                    vkEvent("error", `Не вдалося закрити зміну: ${res?.errstr || bindModel.lastError || "???"}`);
+                } else vkEvent("warning", res?.errstr || bindModel.lastError || "???");
+            } else {
+                vkEvent("error", "Системна помилка: Відсутня функція закриття зміни");
+            }
+        }
+    }
+    Action {
+        id: populateIncasAction
+        text: "Populate incas"
+        onTriggered: {
+            const uiBridge = {
+                setHasIncas: (v) => { vw.hasIncas = v; },
+            }
+            JS.populateIncas(dbDriver, vw.model, uiBridge)
+       }
     }
 
+    // =============================================================================
+    // ГОЛОВНИЙ СТЕК ШАРІВ ІНТЕРФЕЙСУ (Декларативний менеджер станів зміни)
+    // =============================================================================
     StackLayout {
         id: shftStack
-        anchors.centerIn: parent
-        // spacing: 10
-    // RowLayout{
-    //     anchors.centerIn: parent
-        GroupBox{
+        anchors.fill: parent
+        onCurrentIndexChanged: populateIncasAction.trigger();
+
+        // ---------------------------------------------------------------------
+        // СЛАТ 0: МОДУЛЬ АВТОРИЗАЦІЇ ТА ВХОДУ (ПЕРЕД ПОЧАТКОМ РОБОТИ)
+        // ---------------------------------------------------------------------
+        Pane {
             id: openGroup
-            // width: 360
-            // height: 360
-            title: "Нова зміна"
-            ColumnLayout {
-                RowLayout {
-                    spacing: 10
+            padding: 24
 
+            ColumnLayout {
+                anchors.centerIn: parent
+                width: 340
+                spacing: 16
+
+                // Красивий заголовок вітання касира
+                ColumnLayout {
+                    Layout.alignment: Qt.AlignHCenter
+                    spacing: 4
                     Label {
-                        text: qsTr("Login:")
+                        text: qsTr("vkPOS Terminal");
+                        font { pixelSize: 22; bold: true }
+                        color: "#1E429F";
+                        Layout.alignment: Qt.AlignHCenter
                     }
-
-                    ComboBox {
-                        id: cmb
-                        textRole: "note"
-                        valueRole: "code"
-                        model: root.vcashiers   // ListModel{}
-                        Layout.fillWidth: true
-                        onCurrentIndexChanged: {
-                            psw.text = ""
-                            startAction.enabled = (cmb.currentIndex === 0)
-                        }
-                    }
+                    Label { text: qsTr("Будь ласка, авторизуйтесь для старту дня"); font.pixelSize: 12; color: "#6B7280"; Layout.alignment: Qt.AlignHCenter }
                 }
-                RowLayout {
-                    spacing: 10
 
-                    Label { text: qsTr("Password:") }
-                    TextField{
-                        id: psw
-                        echoMode: TextInput.Password      // PasswordEchoOnEdit
-                        // onTextChanged: startAction.enabled = (text === Qt.atob(cmb.model.get(cmb.currentIndex).psw) )
-                        onAccepted: {
-                            startAction.enabled = (cmb.model.get(cmb.currentIndex).psw === "" || text === Qt.atob(cmb.model.get(cmb.currentIndex).psw) )
-                            if (startAction.enabled) {startAction.trigger(); }
-                        }
-                    }
-                }
-                Label{
-                    Layout.preferredHeight: 30
+                // Картка форми введення
+                Rectangle {
                     Layout.fillWidth: true
-                    text: "Попередню зміну закрито"
-                }
-                RowLayout {
-                    Layout.alignment: Qt.AlignHCenter
-                    // anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: 10
-                    Button{
-                        action: cancelAction
-                    }
-                    Button{
-                        id: openBtn
-                        action: startAction
-                    }
-                }
+                    implicitHeight: formLayout.implicitHeight + 24
+                    radius: 10
+                    color: "#FFFFFF"
+                    border { width: 1; color: "#E5E7EB" }
 
-            }
-        }
-
-        GroupBox{
-            id: closeGroup
-            // width: 640
-            // height: 280
-            padding: 10
-            // visible: false
-            title: "Поточна зміна"
-            ColumnLayout {
-
-                RowLayout{
-                    spacing: 5
                     ColumnLayout {
-                        Layout.rightMargin: 10
-                        RowLayout{
-                            Label {text: "Id: " }
-                            Text {id:shid;/* text:root.vshift.id*/ }
+                        id: formLayout
+                        anchors.fill: parent
+                        anchors.margins: 14
+                        spacing: 12
+
+                        ColumnLayout {
+                            spacing: 4
+                            Label { text: qsTr("Логін:"); font { pixelSize: 11; bold: true } color: "#4B5563" }
+                            ComboBox {
+                                id: cmb
+                                textRole: "note"
+                                valueRole: "code"
+                                model:ListModel{}
+                                Layout.fillWidth: true
+                                onCurrentIndexChanged: { psw.text = "";
+                                    if (currentIndex > 0) {
+                                        startAction.enabled = false
+                                        psw.forceActiveFocus();
+                                    } else startAction.enabled = true
+                                }
+                            }
                         }
-                        RowLayout{
-                            Label {text: "Касир: " }
-                            Text { id:shcshr; /*text:root.vshift.cshrname*/ }
+
+                        ColumnLayout {
+                            spacing: 4
+                            Label { text: qsTr("Пароль:"); font { pixelSize: 11; bold: true } color: "#4B5563" }
+                            TextField {
+                                id: psw
+                                Layout.fillWidth: true
+                                echoMode: TextInput.Password
+                                selectByMouse: true
+                                font.pixelSize: 13
+                                placeholderText: cmb.currentIndex === 0 ? qsTr("Оберіть користувача...") : qsTr("Введіть ключ доступу")
+                                enabled: cmb.currentIndex > 0
+
+                                background: Rectangle {
+                                    radius: 6
+                                    color: parent.activeFocus ? "#FFFFFF" : "#F9FAFB"
+                                    border { width: 1; color: parent.activeFocus ? "#3B82F6" : "#D1D5DB" }
+                                }
+                                onActiveFocusChanged: if (activeFocus) selectAll()
+                                onAccepted: {
+                                    if (cmb.model && cmb.currentIndex >= 0) {
+                                        let cshr = cmb.model[cmb.currentIndex];
+                                        if (cshr && (cshr.psw === "" || text === atob(cshr.psw)))
+                                            startAction.trigger();
+                                    }
+                                }
+                            }
                         }
-                        RowLayout{
-                            Label {text: "Дата: " }
-                            Text {id:shdate;/* text: root.vshift.shftdate;*/}
-                        }
-                        RowLayout{
-                            Label {text: "Відкрито: " }
-                            Text {id:shopen;/* text:root.vshift.shftbegin*/}
-                        }
-                        RowLayout{
-                            Label {text: "Закрито: " }
-                            Text {id:shclose;/* text:root.vshift.shftend*/}
-                        }
-                        Label{
-                            id: redyToCloseAlert
-                            visible: ( root.toBulk && vw.amntTotal > 0.5)
-                            text: "\n  Не проведено інкасацію !!!  \n"
-                            background:  Rectangle{
-                                radius: 3
-                                color: "pink"
+                        // Кнопки дій відкриття дня
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 12
+                            Button {
+                            action: cancelAction
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 36
+                            }
+                            Button {
+                                action: startAction
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 36
+                                highlighted: true
+                                background: Rectangle {
+                                    radius: 6
+                                    color: parent.enabled ? (parent.down ? "#1D4ED8" : "#3B82F6") : "#E5E7EB"
+                                }
+                                contentItem: Text { text: parent.text; font.bold: true; color: parent.enabled ? "#FFFFFF" : "#9CA3AF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                             }
                         }
                     }
-                    Rectangle{
-                        // visible: vw.count
-                        Layout.fillHeight: true
-                        // Layout.fillWidth: true
-                        // Layout.preferredHeight: 100
-                        Layout.preferredWidth: 400
-                        clip: true
-                        ListView{
-                            id: vw
-                            anchors{fill: parent; margins:5;}
-                            property real amntTotal
-                            property real curw: 0.15*width-5
-                            property real amnw: 0.15*width-5
-                            property real incw: 0.15*width-5
-                            property real resw: 0.15*width-5
-                            property real priw: 0.25*width-5
-                            property real prow: 0.15*width
-                            header:Row{
-                                width:vw.width
-                                spacing: 5
-                                Label{ width:vw.curw; text:"вал"; }
-                                Label{ width:vw.amnw; text:"знач"; horizontalAlignment: Qt.AlignHCenter; }
-                                Label{ width:vw.incw; text:"інкас"; horizontalAlignment: Qt.AlignHCenter; }
-                                Label{ width:vw.resw; text:"залиш"; horizontalAlignment: Qt.AlignHCenter; }
-                                Label{ width:vw.priw; text:"курс"; horizontalAlignment: Qt.AlignHCenter; }
-                                Label{ width:vw.prow; text:"дохід"; horizontalAlignment: Qt.AlignHCenter; }
-                            }
-                            model: ListModel{}
-                            delegate:
-                                FocusScope{
-                                    property string test: 'for testing'
-                                    width: childrenRect.width;
-                        //            width: root.ListView.view.width;
-                                    height: 20  //childrenRect.height;
-                                Row{
-                                    width:vw.width
-                                    spacing: 5
-                                    Text{ width:vw.curw; text:(qty==="1"?"":(qty)) + cur; }
-                                    Text{ width:vw.amnw; text:Math.abs(amnt); horizontalAlignment: Qt.AlignRight; color:Number(amnt)<0?"red":"black";}
-                                    Text{ width:vw.incw; text:Math.abs(incas); horizontalAlignment: Qt.AlignRight; color:Number(incas)<0?"red":"black";}
-                                    Text{ width:vw.resw; text:Number(amnt)+Number(incas); horizontalAlignment: Qt.AlignRight; color:Number(Number(amnt)+Number(incas))<0?"red":"black";}
-                                    Text{ width:vw.priw; text:Number(price).toFixed(2); horizontalAlignment: Qt.AlignRight;}
-                                    Text{
-                                        width:vw.prow;
-                                        color:(Number(price)*Number(amnt)/Number(qty)-Number(eqamnt))<0?"red":"black";
-                                        text:Math.abs(Number(price)*Number(amnt)/Number(qty)-Number(eqamnt)).toFixed(0);
-                                        horizontalAlignment: Qt.AlignRight;
-                                    }
-                                }
-                                MouseArea{
-                                    anchors.fill: parent
-                                    onDoubleClicked: {
-                                        // console.log("#94yb index="+index)
-                                        incasRateEdit.incasid = index
-                                        incasRateEdit.visible = true
-                                    }
-                                }
-                            }
+                }
+            }
+        }
+        // ---------------------------------------------------------------------
+        // СЛАТ 1: ПАНЕЛЬ ДЕННОГО МОНІТОРИНГУ ТА ЗАКРИТТЯ ЗМІНИ (DASHBOARD)
+        // ---------------------------------------------------------------------
+        Pane {
+            id: closeGroup
+            padding: 14
+            RowLayout {
+                anchors.fill: parent
+                spacing: 16
+                // ЛІВА ПАНЕЛЬ: Картка метаданих та сервісних сповіщень
+                ColumnLayout {
+                    Layout.alignment: Qt.AlignTop
+                    Layout.preferredWidth: 220
+                    spacing: 10
+                    Label { text: qsTr("МОНІТОР СТАТУСУ ЗМІНИ"); font { pixelSize: 11; bold: true } color: "#4B5563" }
+                    Rectangle { Layout.fillWidth: true; height: 1; color: "#E5E7EB" }
+                    // Інформаційний блок-віджет
+                    Rectangle {
+                        Layout.fillWidth: true
+                        implicitHeight: infoLayout.implicitHeight + 16
+                        radius: 8
+                        color: "#FFFFFF"
+                        border { width: 1; color: "#E5E7EB" }
+                        ColumnLayout {
+                            id: infoLayout
+                            anchors.fill: parent
+                            anchors.margins: 10
+                            spacing: 6
+                            RowLayout { Label { text: qsTr("ID:"); color: "#6B7280"; Layout.preferredWidth: 65 } Label { id: shid; font.bold: true; text: String(crntShiftData.id || "0") } }
+                            RowLayout { Label { text: qsTr("Касир:"); color: "#6B7280"; Layout.preferredWidth: 65 } Label { id: shcshr; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true; text: String(crntShiftData.cshrname || "—") } }
+                            RowLayout { Label { text: qsTr("Дата:"); color: "#6B7280"; Layout.preferredWidth: 65 } Label { id: shdate; text: String(crntShiftData.shftdate || "—") } }
+                            RowLayout { Label { text: qsTr("Старт:"); color: "#6B7280"; Layout.preferredWidth: 65 } Label { id: shopen; text: String(crntShiftData.shftbegin || "—") } }
+                            RowLayout { Label { text: qsTr("Кінець:"); color: "#6B7280"; Layout.preferredWidth: 65 } Label { id: shclose; color: "#6B7280"; text: String(crntShiftData.shftend || "—") } }
                         }
-                        Rectangle{
-                            id: incasRateEdit
-                            property int incasid
-                            width: parent.width
-                            height: parent.height*0.7
+                    }
+                    Rectangle {
+                        id: redyToCloseAlert
+                        Layout.fillWidth: true
+                        visible: JS.isIncas(dbDriver) && vw && vw.hasIncas
+                        implicitHeight: alertTxt.implicitHeight + 20
+                        radius: 8
+                        color: "#FEF2F2"
+                        border { width: 1; color: "#FCA5A5" }
+                        ColumnLayout {
                             anchors.centerIn: parent
-                            radius: 5
-                            visible: false
-                            color: "lightgrey"
-                            RowLayout{
-                                spacing: 10
-                                ColumnLayout{
-                                    // anchors.centerIn: parent
-                                    // Label { text: "Змінити курс" }
-                                    Label { text: "Сума:" }
-                                    TextField{
-                                        focus: true
-                                        selectByMouse: true
-                                        validator: DoubleValidator {
-                                            /*decimals: 2; */notation: "StandardNotation"; locale: "en_US" }
-                                        onActiveFocusChanged: if (activeFocus) {selectAll()}
-                                        horizontalAlignment: Text.AlignHCenter
-                                        font.pixelSize: 18
-                                        text: visible ? Number(vw.model.get(incasRateEdit.incasid).incas) : ""
-                                        onEditingFinished: { vw.model.setProperty(incasRateEdit.incasid,"incas",text); }
-                                        onAccepted: { incasRateEdit.visible = false; }
+                            width: parent.width - 16
+                            spacing: 2
+                            Label { text: "⚠ " + qsTr("УВАГА КАСИРА!"); font { pixelSize: 11; bold: true } color: "#9B1C1C"; Layout.alignment: Qt.AlignHCenter }
+                            Label { id: alertTxt; text: qsTr("Виявлено неінкасовану валюту.\nЗакриття касового дня заблоковано!"); font.pixelSize: 10; color: "#9B1C1C"; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
+                        }
+                    }
+                    Item { Layout.fillHeight: true } // Розпірка
+                    // Нижній блок кнопок лівої панелі
+                    Button { action: cancelAction; Layout.fillWidth: true; Layout.preferredHeight: 32 }
+                }
+                // ПРАВА ПАНЕЛЬ: Велика картка таблиці інкасацій валют
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    spacing: 8
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        radius: 8
+                        color: "#FFFFFF"
+                        border { width: 1; color: "#E5E7EB" }
+                        clip: true
+                        ListView {
+                            id: vw
+                            anchors.fill: parent
+                            anchors.margins: 4
+                            clip: true
+                            spacing: 4
+                            property bool hasIncas: false
+                            readonly property real colW1: (width - 16) * 0.22 - spacing
+                            readonly property real colW2: (width - 16) * 0.24 - spacing
+                            // readonly property real colW3: (width - 16) * 0.16 - spacing
+                            // readonly property real colW4: (width - 16) * 0.16 - spacing
+                            readonly property real colW5: (width - 16) * 0.30 - spacing
+                            readonly property real colW6: (width - 16) * 0.24 - spacing
+                            header: Rectangle {
+                                width: vw.width; height: 26; color: "#F3F4F6"; radius: 4
+                                RowLayout {
+                                    anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 8
+                                    Label {
+                                        Layout.preferredWidth: vw.colW1;  horizontalAlignment: Text.AlignHCenter;
+                                        text: qsTr("ВАЛ");
+                                        font { pixelSize: 10; bold: true }
+                                        color: "#4B5563"
                                     }
-                                }
-                                ColumnLayout{
-                                    // anchors.centerIn: parent
-                                    // Label { text: "Змінити курс" }
-                                    RowLayout{
-                                        spacing: 10
-                                        Label { text: "Курс:" }
-                                        Label { text: visible ? vw.model.get(incasRateEdit.incasid).cur : "" }
+                                    Label {
+                                        Layout.preferredWidth: vw.colW2;  horizontalAlignment: Text.AlignHCenter
+                                        text: qsTr("СУМА");
+                                        font { pixelSize: 10; bold: true }
+                                        color: "#4B5563";
                                     }
-                                    TextField{
-                                        focus: true
-                                        selectByMouse: true
-                                        validator: DoubleValidator {
-                                            bottom: incasRateEdit.visible ? Number(vw.model.get(incasRateEdit.incasid).price) * 0.98 : 0;
-                                            top: incasRateEdit.visible ? Number(vw.model.get(incasRateEdit.incasid).price) * 1.02 : 0;
-                                            decimals: 4; notation: "StandardNotation"; locale: "en_US" }
-                                        onActiveFocusChanged: if (activeFocus) {selectAll()}
-                                        horizontalAlignment: Text.AlignHCenter
-                                        font.pixelSize: 18
-                                        text: visible ? Math.abs(Number(vw.model.get(incasRateEdit.incasid).price)) : ""
-                                        onEditingFinished: { vw.model.setProperty(incasRateEdit.incasid,"price",text); }
-                                        onAccepted: { incasRateEdit.visible = false; }
+                                    // Label { Layout.preferredWidth: vw.colW3; text: qsTr("ІНКАС"); font { pixelSize: 10; bold: true } color: "#4B5563"; horizontalAlignment: Text.AlignRight }
+                                    // Label { Layout.preferredWidth: vw.colW4; text: qsTr("ЗАЛИШ"); font { pixelSize: 10; bold: true } color: "#4B5563"; horizontalAlignment: Text.AlignRight }
+                                    Label {
+                                        Layout.preferredWidth: vw.colW5; horizontalAlignment: Text.AlignHCenter;
+                                        text: qsTr("КУРС");
+                                        font { pixelSize: 10; bold: true }
+                                        color: "#4B5563";
+                                    }
+                                    Label {
+                                        Layout.preferredWidth: vw.colW6; horizontalAlignment: Text.AlignHCenter
+                                        text: qsTr("ДОХІД");
+                                        font { pixelSize: 10; bold: true }
+                                        color: "#4B5563";
                                     }
                                 }
                             }
+                            model: ListModel {}
+                            delegate: FocusScope {
+                                id: delegateRoot
+                                width: vw.width; height: 32
+                                Rectangle {
+                                    anchors { fill: parent; /*leftMargin: 2; rightMargin: 2*/ } radius: 6
+                                    color: vw.currentIndex === index ? "#EFF6FF" : ((index % 2 === 0) ? "#FFFFFF" : "#F9FAFB")
+                                    border { width: 1; color: vw.currentIndex === index ? "#BFDBFE" : "#F3F4F6" }
+                                    RowLayout {
+                                        anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 8
+                                        Rectangle {
+                                            Layout.preferredWidth: vw.colW1 - 6; Layout.preferredHeight: 18; radius: 4
+                                            color: Number(amnt || 0) > 0 ? "#FDE8E8" : "#d7f5d7"
+                                            // color: Number(amnt || 0) > 0 ? "#FDE8E8" : "#F3F4F6"
+                                            Text { anchors.centerIn: parent;
+                                                text: (Number(priceQty || 1) === 1 ? "" : (priceQty || 1) + " ") + (item?.itemchar || "—");
+                                                // text: (item.qty === "1" || item.qty === 1 || !item.qty ? "" : item.qty + " ") + (item?.itemchar || "—");
+                                                font { pixelSize: 10; bold: true }
+                                                color: Number(amnt || 0) > 0 ? "#DC2626" : "#16A34A";
+                                                // color: Number(amnt || 0) > 0 ? "#9B1C1C" : "#374151";
+                                            }
+                                        }
+                                        Text {
+                                            Layout.preferredWidth: vw.colW2; horizontalAlignment: Text.AlignRight;
+                                            text: Math.abs(Number(amnt || 0)).toLocaleString(Qt.locale(), 'f', 2);
+                                            color: Number(amnt || 0) > 0 ? "#DC2626" : "#16A34A";
+                                            // color: Number(amnt || 0) > 0 ? "#DC2626" : "#1F2937";
+                                            font { pixelSize: 12; family: "Courier New, Consolas, Monospace" }
+                                        }
+                                        /*Text {
+                                            Layout.preferredWidth: vw.colW3; horizontalAlignment: Text.AlignRight;
+                                            text: Math.abs(Number(incas || 0)).toLocaleString(Qt.locale(), 'f', 2);
+                                            // color: Number(incas || 0) < 0 ? "#16A34A" : "#6B7280";
+                                            font { pixelSize: 12; bold: true; family: "Courier New, Consolas, Monospace" }
+                                        }*/
+                                        /*Text {
+                                            Layout.preferredWidth: vw.colW4; horizontalAlignment: Text.AlignRight;
+                                            readonly property real resVal: Number(amnt || 0) + Number(incas || 0);
+                                            text: Math.abs(resVal).toLocaleString(Qt.locale(), 'f', 2);
+                                            // color: resVal < 0 ? "#DC2626" : "#111827";
+                                            font { pixelSize: 12; bold: resVal !== Number(amnt || 0); family: "Courier New, Consolas, Monospace" }
+                                        } */
+                                        Text {
+                                            // readonly property real priceVal: Number(price || 0) * Number(item?.qty || 1)
+                                            Layout.preferredWidth: vw.colW5; horizontalAlignment: Text.AlignRight;
+                                            text: (Number(priceVal || 0)).toFixed(4);
+                                            font { pixelSize: 12; family: "Courier New, Consolas, Monospace" }
+                                            // color: "#4B5563"
+                                        }
+                                        Text {
+                                            Layout.preferredWidth: vw.colW6; horizontalAlignment: Text.AlignRight;
+                                            property real profitVal: 0 - Number(eqamount || 0) - Number(amnt || 0) * Number(priceVal || 0) /  Number(priceQty || 1) ;
+                                            text: Math.abs(profitVal).toFixed(0);
+                                            color: profitVal < 0 ? "#DC2626" : "#16A34A";
+                                            // color: profitVal < 0 ? "#DC2626" : "#111827";
+                                            font { pixelSize: 12; bold: true; family: "Courier New, Consolas, Monospace" }
+                                        }
+                                    }
+                                    MouseArea { anchors.fill: parent; onClicked: vw.currentIndex = index; onDoubleClicked: { incasRateEdit.incasid = index; incasRateEdit.open(); } }
+                                }
+                            }
                         }
+                    }
+                    // Акцентні нижні кнопки управління днем
+                    RowLayout {
+                        Layout.fillWidth: true; spacing: 12
+                        Button {
+                        action: incasAction; Layout.fillWidth: true; Layout.preferredHeight: 36; visible: JS.isIncas(dbDriver); highlighted: enabled
+                        background: Rectangle { radius: 6; color: parent.enabled ? (parent.down ? "#047857" : "#10B981") : "#E5E7EB" }
+                        contentItem: Text { text: parent.text; font.bold: true; color: parent.enabled ? "#FFFFFF" : "#9CA3AF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                        }
+                        Button {
+                            action: closeAction; Layout.fillWidth: true; Layout.preferredHeight: 36; highlighted: enabled
+                            background: Rectangle { radius: 6; color: parent.enabled ? (parent.down ? "#B91C1C" : "#EF4444") : "#E5E7EB" }
+                            contentItem: Text { text: parent.text; font.bold: true; color: parent.enabled ? "#FFFFFF" : "#9CA3AF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                        }
+                    }
+                }
+            }
+        }
+        // --- МОДАЛЬНИЙ ПОПУП РЕДАГУВАННЯ СУМИ ТА КУРСУ ІНКАСАЦІЇ ---
+        Popup {
+            id: incasRateEdit
+            property int incasid: 0
+            width: 320; height: 160; anchors.centerIn: parent; modal: true; focus: true
+            closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+            z: 9999
+            background: Rectangle { radius: 12; color: "#FFFFFF"; border { width: 1; color: "#E5E7EB" } }
+            readonly property var currentModelItem: (vw.model && incasid >= 0 && incasid < vw.model.count) ? vw.model.get(incasid) : null
+            ColumnLayout {
+                anchors.fill: parent; anchors.margins: 16; spacing: 12
+                RowLayout {
+                    Layout.fillWidth: true
+                    Label { text: qsTr("Корегування інкасації"); font { pixelSize: 14; bold: true } color: "#111827" }
+                    Item { Layout.fillWidth: true }
+                    Rectangle { width: 50; height: 18; radius: 4; color: "#EBF5FF";
+                        Label { anchors.centerIn: parent; text: incasRateEdit.currentModelItem
+                                                                ? `${incasRateEdit.currentModelItem.item.itemchar || "???"}[${incasRateEdit.currentModelItem.item.id || ""}]`
+                                                                : "";
+                            font { pixelSize: 10; bold: true }
+                            color: "#1E429F" }
                     }
                 }
                 RowLayout {
-                    Layout.alignment: Qt.AlignHCenter
-                    // anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: 10
-                    Button{
-                        action: cancelAction
+                    Layout.fillWidth: true; spacing: 12
+                    ColumnLayout {
+                        Layout.fillWidth: true; spacing: 4
+                        Label { text: qsTr("Сума інкасації"); font.pixelSize: 10; color: "#6B7280" }
+                        TextField { id: edtIncasAmount;
+                            enabled: false;
+                            Layout.fillWidth: true;
+                            Layout.preferredHeight: 34;
+                            selectByMouse: true;
+                            horizontalAlignment: Text.AlignHCenter;
+                            font { pixelSize: 13; bold: true }
+                            background: Rectangle { radius: 6; color: parent.activeFocus ? "#FFFFFF" : "#F9FAFB"; border { width: 1; color: parent.activeFocus ? "#3B82F6" : "#D1D5DB" } }
+                            validator: DoubleValidator {notation: "StandardNotation"; locale: "en_US" }
+                            onActiveFocusChanged: if (activeFocus) selectAll();
+                            text: incasRateEdit.currentModelItem ? String(incasRateEdit.currentModelItem.incas || "0") : "0";
+                            onEditingFinished: { if (incasRateEdit.currentModelItem) vw.model.setProperty(incasRateEdit.incasid, "incas", Number(text)); }
+                            onAccepted: incasRateEdit.close() }
                     }
-                    Button{
-                        action: closeAction
-                    }
-                    Button{
-                        visible: root.toBulk
-                        action: incasAction
+                    ColumnLayout {
+                        Layout.fillWidth: true; spacing: 4
+                        Label { text: `Курс${(incasRateEdit.currentModelItem?.item.qty || 1) === 1 ? "": ` /${incasRateEdit.currentModelItem.item.qty}`}`; font.pixelSize: 10; color: "#6B7280" }
+                        TextField { id: edtIncasPrice;
+                            // readonly property real priceVal: Math.abs(Number(incasRateEdit.currentModelItem?.price || 0) * Number(incasRateEdit.currentModelItem?.item.qty || 1))
+                            Layout.fillWidth: true;
+                            Layout.preferredHeight: 34;
+                            focus: true; selectByMouse: true;
+                            horizontalAlignment: Text.AlignHCenter;
+                            font { pixelSize: 13; bold: true }
+                            background: Rectangle { radius: 6; color: parent.activeFocus ? "#FFFFFF" : "#F9FAFB"; border { width: 1; color: parent.activeFocus ? "#3B82F6" : "#D1D5DB" } }
+                            validator: DoubleValidator {
+                                bottom: (incasRateEdit.currentModelItem && !!incasRateEdit.currentModelItem.priceVal) ? incasRateEdit.currentModelItem.priceVal * 0.98 : 0.0;
+                                top: (incasRateEdit.currentModelItem && !!incasRateEdit.currentModelItem.priceVal) ? incasRateEdit.currentModelItem.priceVal * 1.02 : 999999.0;
+                                decimals: 4;
+                                notation: "StandardNotation"; locale: "en_US" }
+                            onActiveFocusChanged: if (activeFocus) selectAll();
+                            text: incasRateEdit.currentModelItem ? String(incasRateEdit.currentModelItem.priceVal || 0) : "0";
+                            onEditingFinished: { if (incasRateEdit.currentModelItem) {
+                                    // console.log(`BE ue3#Shift.qml idx=${incasRateEdit.incasid} text=${text} priceVal=${incasRateEdit.currentModelItem.priceVal}`);
+                                    incasRateEdit.currentModelItem.priceVal = Number(text);
+                                    // vw.model.setProperty(incasRateEdit.incasid, "priceVal", Number(text));
+                                    // console.log(`AF ue3#Shift.qml idx=${incasRateEdit.incasid} text=${text} priceVal=${incasRateEdit.currentModelItem.priceVal}`);
+                                }
+                            }
+                            onAccepted: incasRateEdit.close()
+                        }
                     }
                 }
-
-
+                Button { Layout.fillWidth: true; Layout.preferredHeight: 32; text: qsTr("Зберегти зміни");
+                    contentItem: Text { text: parent.text; font { pixelSize: 12; bold: true } color: "#FFFFFF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                    background: Rectangle { radius: 6; color: parent.down ? "#1D4ED8" : (parent.hovered ? "#2563EB" : "#3B82F6") }
+                    onClicked: incasRateEdit.close() }
             }
-
+            // onClosed: { if (typeof populateIncasAction !== "undefined") populateIncasAction.trigger(); }
         }
-    // }
-
     }
-
 }

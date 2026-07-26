@@ -47,177 +47,6 @@ Window {
         pageCapacity: 25
     }
 
-    Component {
-        id: dlg
-        FocusScope{
-            id: root
-            width: root.ListView.view.width;
-            height: childrenRect.height;
-            MouseArea{
-                anchors.fill: parent;
-                onClicked: {vw.currentIndex = index;}
-                // onDoubleClicked: {vw.currentIndex = index; viewFullBindAction.trigger(); }
-            }
-            Item {
-//             width: root.ListView.view.width //childrenRect.width;
-                width:parent.width;
-                height: 32;
-                clip: true
-                // color: (index === vw.currentIndex) ?  'lightsteelblue' : (match ? 'honeydew' : 'white')
-                //                                         // (index%2 == 0 ?  Qt.darker('white',1.01) : 'white')
-                Row{
-                    anchors{fill: parent; margins: 1}
-                    spacing: 2
-                    Text{ width: 0.05*parent.width;
-                        anchors.verticalCenter: parent.verticalCenter;
-                        horizontalAlignment: Text.AlignHCenter;
-                        text: Number(amount) > 0 ? "+" : "-" }
-
-                    Column{     // name
-                        width: (trade === '0' ? 0.7 * parent.width - 4 : 0.4 * parent.width - 2);
-                        spacing: 2
-                        clip:true
-                        Text {
-                            clip: true
-                            font.italic: !flt
-                            text: trade === '0'? (dnote.indexOf("#") === -1
-                                    ? '['+ iname + '] '+ dnote
-                                    : dnote.substring(0,dnote.indexOf("#")))
-                                : dnote
-                        }
-                        Row{
-                            spacing: 2
-                            Text {
-                                clip: true
-                                text: dcmid
-                                font{pointSize: 10; italic: !flt}
-                                color: 'gray'
-                            }
-                            Text{
-                                text: '['+ acntcdt + ']'
-                                font{pointSize: 10; italic: !flt}
-                                color: 'gray'
-                            }
-                        }
-                    }
-
-                    Column{     // price, eq,...
-                        visible: Number(trade) !== 0
-                        width: visible ? 0.3 * parent.width - 2 : 0;
-                        spacing: 2
-                        clip: true
-                        Text {
-                            font.italic: !flt
-                            text: root.ListView.view.model.price(index)
-                        }
-                        Row{
-                            Text {
-                                font{pointSize: 10; italic: !flt}
-                                color: 'dimgray'
-                                text: Math.abs(Number(eq)).toLocaleString(Qt.locale(),'f',2)
-                            }
-                            Text {
-                                text:Number(dsc)===0?'':('D:'+Math.abs(Number(dsc)).toLocaleString(Qt.locale(),'f',2))
-                                font{pointSize: 10; italic: !flt}
-                                color: 'dimgray'
-                            }
-                            Text {
-                                text:Number(bns)===0?'':('B:'+Math.abs(Number(bns)).toLocaleString(Qt.locale(),'f',2))
-                                font{pointSize: 10; italic: !flt}
-                                color: 'dimgray'
-                            }
-                        }
-                    }
-
-                    Text {
-                        width: 0.25*parent.width-4;
-                        anchors.verticalCenter: parent.verticalCenter;
-                        horizontalAlignment: Text.AlignRight
-                        font{pointSize: 14; italic: !flt}
-                        text:Math.abs(Number(amount)).toLocaleString(Qt.locale(),'f',Number(prec))
-                    }
-                }
-            }
-        }
-    }
-
-    Component {
-        id: highlight
-        Rectangle {
-            width: vw.width; height: 32
-            color: "lightsteelblue"; radius: 5
-            y: vw.currentItem === null ? null : vw.currentItem.y
-            Behavior on y {
-                SpringAnimation {
-                    spring: 3
-                    damping: 0.2
-                }
-            }
-        }
-    }
-
-    Component {
-        id: secDlg
-        Rectangle{
-            id: root
-            width: root.ListView.view.width
-            height: 34  //childrenRect.height //*1.2
-            color: "whitesmoke"
-            Row{
-                anchors{fill: parent; margins:1}
-                spacing: 2
-                Text{
-                    width:parent.width * 0.4;
-                    anchors.verticalCenter: parent.verticalCenter;
-                    font.pointSize: 15;
-                    text: root.ListView.view.model.bindInfo(section).dcmtype}
-                Column{
-                    width:parent.width * 0.3 -2;
-                    Text{ text: Number(root.ListView.view.model.bindInfo(section).amount).toLocaleString(Qt.locale(),'f',2)}
-                    Row{
-                        spacing: 2
-                        Text{ font.pointSize: 10; color: 'gray'; text: root.ListView.view.model.bindInfo(section).eq}
-                        Text{ font.pointSize: 10; color: 'gray'; text: root.ListView.view.model.bindInfo(section).dsc}
-                        Text{ font.pointSize: 10; color: 'gray'; text: root.ListView.view.model.bindInfo(section).bns}
-                    }
-
-                }
-                // Item{  }
-                Text{
-                    width:parent.width * 0.15 -4;
-                    anchors.verticalCenter: parent.verticalCenter;
-                    font.pointSize: 12;
-                    clip: true
-                    elide: Text.ElideRight
-                    text: root.ListView.view.model.bindInfo(section).clchar
-                }
-                Column{
-                    width:parent.width * 0.15 -2;
-                    Text{
-                        width: parent.width
-                        // anchors.right: parent.right;
-                        // font.pointSize: 12;
-                        horizontalAlignment: Text.AlignRight
-                        clip: true
-                        elide: Text.ElideLeft
-                        text: root.ListView.view.model.bindInfo(section).dtm.substring(11,16)
-                    }
-                    Text{
-                        width: parent.width
-                        // anchors.right: parent.right;
-                        horizontalAlignment: Text.AlignRight
-                        clip: true
-                        elide: Text.ElideLeft
-                        text: root.ListView.view.model.bindInfo(section).dtm.substring(0,10)
-                    }
-                }
-
-            }
-
-        }
-
-    }
-
     Action {
         id: previousAction
         enabled: Number(vcrntEdit.text) > vcrntEdit.validator.bottom
@@ -250,7 +79,7 @@ Window {
         onTriggered: { vw.section.property = (checked ? "pid" : "")}
     }
 
-        Action {
+    Action {
         id: viewFullBindAction
         text: "Показати весь чек"
         onTriggered: vw.model.showFullBind(vw.currentIndex)
@@ -261,8 +90,11 @@ Window {
         // enabled: vw.model.get(vw.currentIndex).trade === "1"
         text: "Повернути"
         onTriggered: {
-            // console.log("[DcnView] #63g" + JSON.stringify(vw.model.get(vw.currentIndex)))
-            vkEvent("refuse", {"dcmid":vw.model.get(vw.currentIndex).dcmid, "pid":vw.model.get(vw.currentIndex).pid});
+            const dcm = vw.model.dcmForRefuse(vw.currentIndex)
+            // console.log(`DcmView#hys70 res=${JSON.stringify(dcm)}`); return;
+            if (dcm){
+                vkEvent("refuse", dcm);
+            } else logView.append("[bindForPrint] Dcm refuse error", 0)
         }
     }
 
@@ -270,12 +102,12 @@ Window {
         id: actionPrintCheck
         text: "Друкувати чек"
         onTriggered: {
-            const res = Lib.bindFromDb(dbDriver, vw.model.get(vw.currentIndex).pid)
-            if (res){
-                // Lib.log(JSON.stringify(res), "Main>bindFromDb", "II"); return;
-                prnDriver.saveCheckCopy( res )
-                prnDriver.printCheckCopy( res )
-            } else logView.append("[DcmView>bindFromDb] Database query error", 0)
+            const jbind = vw.model.bindForPrint(vw.currentIndex)
+            // console.log(`DcmView#d7hf res=${JSON.stringify(jbind)}`); return;
+            if (jbind){
+                prnDriver.saveCheckCopy( jbind )
+                prnDriver.printCheckCopy( jbind )
+            } else logView.append("[bindForPrint] Bind retrieving error", 0)
         }
     }
 
@@ -283,10 +115,10 @@ Window {
         id: actionPrintOrder
         text: "Зберегти накладну"
         onTriggered: {
-            const res = Lib.bindFromDb(dbDriver, vw.model.get(vw.currentIndex).pid)
-            if (res){
-                prnDriver.saveOrder( res )
-            } else logView.append("[DcmView>bindFromDb] Database query error", 0)
+            const jbind = vw.model.bindForPrint(vw.currentIndex)
+            if (jbind){
+                prnDriver.saveOrder( jbind )
+            } else logView.append("[bindForPrint] Bind retrieving error", 0)
         }
     }
 
@@ -297,6 +129,181 @@ Window {
         onTriggered: { vkEvent("docum.fiscCheck", vw.model.get(vw.currentIndex).bind); }
     }
 */
+
+    Component {
+        id: dlg
+        FocusScope{
+            id: rootDlg
+            width: rootDlg.ListView.view.width;
+            height: childrenRect.height;
+            // readonly property bool isTrade: eqamount !== 0 || dcmtype.startsWith("trade:")
+            readonly property real dcmPrice: Number(eqamount || 0)/Number(amount || 1)
+            MouseArea{
+                anchors.fill: parent;
+                onClicked: {vw.currentIndex = index;}
+                // onDoubleClicked: {vw.currentIndex = index; viewFullBindAction.trigger(); }
+            }
+            Item {
+//             width: rootDlg.ListView.view.width //childrenRect.width;
+                width:parent.width;
+                height: 32;
+                clip: true
+                // color: (index === vw.currentIndex) ?  'lightsteelblue' : (match ? 'honeydew' : 'white')
+                //                                         // (index%2 == 0 ?  Qt.darker('white',1.01) : 'white')
+                Row{
+                    anchors{fill: parent; margins: 1}
+                    spacing: 2
+                    Text{ width: 0.05*parent.width;
+                        anchors.verticalCenter: parent.verticalCenter;
+                        horizontalAlignment: Text.AlignHCenter;
+                        text: Number(amount) > 0 ? "+" : "-" }
+
+                    Column{     // name
+                        width: (isTrade ?  0.4 * parent.width - 2 : 0.7 * parent.width - 4);
+                        spacing: 2
+                        clip:true
+                        Text {
+                            clip: true
+                            font.italic: !flt
+                            text: isTrade ? (dcmnote.indexOf("#") === -1
+                                    ? '['+ itemchar + '] '+ dcmnote
+                                    : dcmnote.substring(0,dnote.indexOf("#")))
+                                : dcmnote
+                        }
+                        Row{
+                            spacing: 2
+                            Text {
+                                clip: true
+                                text: dcmid
+                                font{pointSize: 10; italic: !flt}
+                                color: 'gray'
+                            }
+                            Text{
+                                text: '['+ acntcdt + ']'
+                                font{pointSize: 10; italic: !flt}
+                                color: 'gray'
+                            }
+                        }
+                    }
+
+                    Column{     // price, eq,...
+                        visible: isTrade
+                        width: visible ? 0.3 * parent.width - 2 : 0;
+                        spacing: 2
+                        clip: true
+                        Text {
+                            font.italic: !flt
+                            text: rootDlg.dcmPrice.toFixed(4)
+                            // text: rootDlg.ListView.view.model.price(index)
+                        }
+                        Row{
+                            Text {
+                                font{pointSize: 10; italic: !flt}
+                                color: 'dimgray'
+                                text: Math.abs(Number(eqamount)).toLocaleString(Qt.locale(),'f',2)
+                            }
+                            Text {
+                                text:Number(discount)===0?'':('D:'+Math.abs(Number(discount)).toLocaleString(Qt.locale(),'f',2))
+                                font{pointSize: 10; italic: !flt}
+                                color: 'dimgray'
+                            }
+                            Text {
+                                text:Number(bonus)===0?'':('B:'+Math.abs(Number(bonus)).toLocaleString(Qt.locale(),'f',2))
+                                font{pointSize: 10; italic: !flt}
+                                color: 'dimgray'
+                            }
+                        }
+                    }
+
+                    Text {
+                        width: 0.25*parent.width-4;
+                        anchors.verticalCenter: parent.verticalCenter;
+                        horizontalAlignment: Text.AlignRight
+                        font{pointSize: 14; italic: !flt}
+                        text:Math.abs(Number(amount)).toLocaleString(Qt.locale(),'f',Number(unitprec))
+                    }
+                }
+            }
+        }
+    }
+
+    Component {
+        id: highlight
+        Rectangle {
+            width: vw.width; height: 32
+            color: "lightsteelblue"; radius: 5
+            y: vw.currentItem === null ? null : vw.currentItem.y
+            Behavior on y {
+                SpringAnimation {
+                    spring: 3
+                    damping: 0.2
+                }
+            }
+        }
+    }
+
+    Component {
+        id: secDlg
+        Rectangle{
+            id: rootSec
+            width: rootSec.ListView.view.width
+            height: 34  //childrenRect.height //*1.2
+            color: "whitesmoke"
+            Row{
+                anchors{fill: parent; margins:1}
+                spacing: 2
+                Text{
+                    width:parent.width * 0.4;
+                    anchors.verticalCenter: parent.verticalCenter;
+                    font.pointSize: 15;
+                    text: rootSec.ListView.view.model.bindInfo(section).dcmtype}
+                Column{
+                    width:parent.width * 0.3 -2;
+                    Text{ text: Number(rootSec.ListView.view.model.bindInfo(section).amount).toLocaleString(Qt.locale(),'f',2)}
+                    Row{
+                        spacing: 2
+                        Text{ font.pointSize: 10; color: 'gray'; text: rootSec.ListView.view.model.bindInfo(section).eqamount}
+                        Text{ font.pointSize: 10; color: 'gray'; text: rootSec.ListView.view.model.bindInfo(section).discount}
+                        Text{ font.pointSize: 10; color: 'gray'; text: rootSec.ListView.view.model.bindInfo(section).bonus}
+                    }
+
+                }
+                // Item{  }
+                Text{
+                    width:parent.width * 0.15 -4;
+                    anchors.verticalCenter: parent.verticalCenter;
+                    font.pointSize: 12;
+                    clip: true
+                    elide: Text.ElideRight
+                    text: rootSec.ListView.view.model.bindInfo(section).clid
+                }
+                Column{
+                    width:parent.width * 0.15 -2;
+                    Text{
+                        width: parent.width
+                        // anchors.right: parent.right;
+                        // font.pointSize: 12;
+                        horizontalAlignment: Text.AlignRight
+                        clip: true
+                        elide: Text.ElideLeft
+                        text: rootSec.ListView.view.model.bindInfo(section).dcmtime.substring(11,16)
+                    }
+                    Text{
+                        width: parent.width
+                        // anchors.right: parent.right;
+                        horizontalAlignment: Text.AlignRight
+                        clip: true
+                        elide: Text.ElideLeft
+                        text: rootSec.ListView.view.model.bindInfo(section).dcmtime.substring(0,10)
+                    }
+                }
+
+            }
+
+        }
+
+    }
+
     Page{
         anchors.fill: parent
         Pane{

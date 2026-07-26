@@ -1,4 +1,4 @@
-import QtCore
+import QtCore as QtCore
 import QtQuick
 import QtQuick.Controls
 // import QtQuick.Controls.Fusion   // best
@@ -7,350 +7,431 @@ import QtQuick.Controls
 //import QtQuick.Controls.Universal
 import QtQuick.Layouts
 
-import "../lib.js" as Lib
-import "../libREST.js" as REST
-import "../libTAX.js" as CashDesk
-
-// TEST
-// import "js/sqlItem.js" as LibItem
-// import "js/sqlAcnt.js" as LibAcnt
-
-import com.print 1.0
-import com.singleton.dbdriver4 1.0
+import vkPOS5
+import "js/main.js" as JS
 
 ApplicationWindow {
     id: root
     visible: true
-    title: String("vkPOS5#%1").arg("2.27")
+    title: qsTr("vkPOS5 #%1").arg(applicationVersion)
+    width: 640
+    height: 480
 
-    // property string pathToDb: "/data/"
     property string dbname: ''
-        onDbnameChanged: {
-            closeChildWindow()
-            Db.setDbParameter(dbname);
-            root.crntShift = Lib.crntShift(Db)
-            root.acnts = Lib.getAcntSettings(Db)
-            bindCheckAction.trigger()
 
-            Prn.setTerm(root.term)
-            Prn.setUser(crntShift.cshrname)
-            Prn.setCheck(root.checkPrintDcm)
+    onDbnameChanged: {
+        closeChildWindow();
+        if (!dbname || dbname === "") return;
 
-            if (stack.count > 0){
-                // dbg("count=" + stack.count
-                //     + " cidx=" + stack.currentIndex
-                //     + " title=" + stack.currentItem.title
-                //             ,"36g")
-                stack.currentItem.dfltClient = Lib.getClient(Db)
-                stack.currentItem.cashAcnt = Lib.getAccount(Db,acnts.cash)
-                stack.currentItem.dfltAcnt = Lib.getAccount(Db)
-                stack.currentItem.startBind()
+        console.log("[Main] Зміна файлу бази даних на: " + dbname);
+
+        const uiBridge = {
+            dbname: dbname,                          // Передаємо актуальне ім'я файлу бази
+            winShift: () => { winShiftAction.trigger(); },
+            setRateOnline: (v) => { rateLoader.isRESTConnected = !!v; },
+            setTaxAction: (v) => { bindTaxAction.enabled = !!v; },
+            setFooter: (v) => { footerLeftLabel.text = v; }
+        };
+
+        // Запуск C++/JS обробника підключення бази
+        const success = JS.handleDbNameChanged(Db, Prn, compContainer, logView, uiBridge);
+
+        if (!success) {
+            if (typeof logView !== "undefined") {
+                logView.error("Критична помилка підключення бази даних");
             }
-
-            if (root.crntShift.shftend !== '') {   // shift is closed
-                // Lib.log("222 here")
-                winShiftAction.trigger();
-            } else {
-                // Lib.log("111 here")
-                if (root.crntShift.shftdate !== Qt.formatDateTime(new Date(), "yyyy-MM-dd")){
-                    if (Lib.isIncas(Db, root.acnts)) {
-                      winShiftAction.trigger()
-                    } else {
-                      askDialog.code = 'askCloseShift'
-                      askDialog.jdata =  { "text" : "Закрити попередню зміну ?","shid":root.crntShift.id,"shdate":root.crntShift.shftdate, "cshr":root.crntShift.cshr }
-                      askDialog.open()
-                    }
-                } else {
-                    // bind is default
-                }
+            if (typeof quitTimer !== "undefined") {
+                quitTimer.start();
             }
+            return;
         }
 
-    property real z0: 0.0000001
-    property var crntShift: { "id":0,"errid":1,"errname":"","shftdate":"","shftbegin":"","shftend":"","cshr":"","cshrname":""}
-    // property var cashier: {"id":"", "name":""}
-    property var acnts: { "cash":"3000", "incas":"3003ELSV", "trade":"3500", "bulk":"3501", "profit":"3607-55" }
-
-
-    property string resthost: ""      //"http://localhost"
-        onResthostChanged: REST.gl_host = resthost
-    property string restapi: ""
-        onRestapiChanged: REST.gl_api = restapi
-    property string resttoken: ""
-        onResttokenChanged: REST.gl_token = resttoken
-    property string restuser: ""
-    property string restpassword: ""
-    property string term: ""
-    property string posPrinter: ""
-    property string bindList: ""
-    property string checkAmnt: "1"
-    property string checkAutoPrint: "0"
-    property string checkPrintDcm: ""
-
-    property string cdhost: ""
-        onCdhostChanged: CashDesk.gl_host = cdhost
-    property string cdprefix: ""
-        onCdprefixChanged: CashDesk.gl_prefix = cdprefix
-    property string cdcash: ""
-        onCdcashChanged: CashDesk.gl_cash = cdcash
-    property string cdtoken: ""
-        onCdtokenChanged: CashDesk.gl_token = cdtoken
-
-    Settings {
-        category: "terminal"
-        property alias code: root.term
-        property alias pos_printer: root.posPrinter
+        if (typeof bindCheckAction !== "undefined") {
+            bindCheckAction.trigger();
+        }
     }
 
-    Settings {
+    QtCore.Settings {
         category: "program"
-        property alias binds: root.bindList
         property alias width: root.width
         property alias height: root.height
     }
 
-    Settings {
-        category: "check"
-        property alias amnt: root.checkAmnt
-        property alias auto_print: root.checkAutoPrint
-        property alias print_dcm: root.checkPrintDcm
-    }
-
-    Settings {
-        category: "upload"
-        property alias http_host: root.resthost
-        property alias http_api: root.restapi
-        property alias http_user: root.restuser
-        property alias http_password: root.restpassword
-    }
-
-    Settings {
-        category: "cashdesk"
-        property alias host: root.cdhost
-        property alias prefix: root.cdprefix
-        property alias cash: root.cdcash
-        property alias token: root.cdtoken
-    }
-
     function dbg(str, code ="") {
-        console.log( String("[Main.qml]#%1 %2").arg(code).arg(str));
+        console.log( `[Main.qml]#${code} ${str}`);
     }
 
-    function isOnline() { return REST.gl_token != ""; }
-    // function isOnline() { return root.resttoken != "" }
-
-    function isTaxMode() { return root.cdtoken !== "" && root.cdhost !== "" && !root.cdhost.startsWith('*') }
-
-    function setClientFromBind(){
-        if (stack.currentItem.crntClient !== undefined){
-            btnClient.visible = true
-            btnClient.clName = stack.currentItem.crntClient.name
-            btnClient.clBonus = Number(stack.currentItem.crntClient.bonusTotal) !== 0
-                            ? Number(stack.currentItem.crntClient.bonusTotal).toFixed(0) : ""
-        } else {
-            btnClient.visible = false
-            btnClient.clName = ""
-            btnClient.clBonus = ""
-        }
-
+    function closeChildWindow(){
+        dcmViewLoader.active = false
+        clientLoader.active = false
+        cashWizardLoader.active = false
+        taxServiceLoader.active = false
+        // statLoader.active = false
+        rateLoader.active = false
     }
 
-    // for context menu
- /*   Component{
-        id: activateBind
-        Action{
-            id: croot
-            property int cindex
-            // text: croot.ctext
-            onTriggered:  stack.currentIndex = cindex
-        }
-
-    } */
-
+    function setClientFromBind(cl){
+        // dbg(JSON.stringify(compContainer.currentItem.crntClient), "s53tt")
+            btnClient.clName = cl?.name || null
+            btnClient.clBonus = cl?.bonusBalance || 0
+    }
     header: ToolBar {
         id: appToolBar
-        // height: 32
-        implicitHeight: headerLayout.implicitHeight
-        // height: childrenRect.height
-        Rectangle{
-            // border{color:"lightsteelblue"; width: 2}
-            width: parent.width
-            height: parent.height // Rectangle тепер заповнює ToolBar
-            color: "transparent" // Або ваш колір фону
-            // anchors{ fill: parent}
-            // clip: true
-            // color: stackBind.children[stackBind.currentIndex].state === "taxcheck" ? "khaki" : "transparent"
-            RowLayout {
-                id: headerLayout
-                anchors { fill: parent; margins:5}
-    //            width: parent.width
-                ToolButton {    //  ☰
-                    text: "☰"
-                    onClicked: naviMenu.open()
-                    flat: true
-                    Menu{
-                        id: naviMenu
-                        y: parent.height
-                        MenuItem { action: bindCheckAction; }
-                        MenuItem { action: bindFactureAction; }
-                        MenuItem { action: bindTaxAction; }
-                        // MenuSeparator { padding: 5; }
-                        // MenuItem { action: removeBindAction; }
-                        MenuSeparator { padding: 5; }
-                        MenuItem { action: winDcmsAction; }
-                        MenuItem { action: winBalanceAction; }
-                        MenuItem { action: winClientAction; }
-                        // MenuItem { action: winStatAction; }      // TODO
-                        MenuItem { action: winRateAction; }
-                        MenuItem { action: winShiftAction; }
-                        MenuSeparator {  padding: 5; }
-                        Menu{
-                            id: serviceMenu
-                            title: "Сервіс"
-                            MenuItem { action: winCashWizardAction; }
-                            MenuSeparator {  padding: 5; }
-                            MenuItem { action: winTaxServiceAction; }
-                            MenuItem { action: changeDBAction; }
-                            MenuSeparator {  padding: 5; }
-                            MenuItem { action: actionSetting; }
-                        }
-                        MenuSeparator { padding: 5; }
-                        MenuItem {
-                            text: "Вийти"
-                            onTriggered: quitTimer.start()
-                        }
-                    }
-                }
-                Label {
-                    id: headerTitle
-                    elide: Label.ElideRight
-                    horizontalAlignment: Qt.AlignHCenter
-                    verticalAlignment: Qt.AlignVCenter
-                    Layout.fillWidth: true
-                    font.pointSize: 16
-                    // text: stack.currentItem.title
-                }
-                Item{
-                    id: btnClient
-                    Layout.preferredWidth: childrenRect.width
-                    Layout.preferredHeight: childrenRect.height
-                    property string clName
-                    property string clBonus
-                    Row {
-                        // visible: stack.currentItem.crntClient !== undefined
-                        ToolButton{
-                            text: btnClient.clName
-                            // text: stack.currentItem.crntClient !== undefined ? stack.currentItem.crntClient.name : ''
-                            icon.source: "qrc:/icon/account.svg"
-    //                        flat: true
-                            onClicked: {
-                                selectPopup.code = "client"
-                                selectPopup.jsdata = Lib.getClientList(Db)
-                                selectPopup.open()
-                            }
-                        }
-                        ToolButton{
-                            width: 32
-        //                    Layout.preferredHeight: 35
-                            // visible: stack.currentItem.crntClient !== undefined && stack.currentItem.crntClient.id !== ''
-                            font.pointSize: 16
-                            text:"⌫"
-    //                        flat: true
-    //                        icon.source:"qrc:/icon/undo.svg"
-                            onClicked: {
-                                stack.currentItem.crntClient = Lib.getClient(Db);
-                                // setClientFromBind()
-                            }
-                        }
-                        Label{
-                            // visible: stack.currentItem.crntClient !== undefined && Math.abs(Number(stack.currentItem.crntClient.bonusTotal)) >= 0.01
-                            Layout.preferredHeight: 35
-                            color:'slategray'
-                            text: btnClient.clBonus
-                            // text: stack.currentItem.crntClient !== undefined ? Number(stack.currentItem.crntClient.bonusTotal).toFixed(0) : ''
-                            MouseArea{
-                                anchors.fill: parent
-                                onDoubleClicked: {
-                                    stack.currentItem.newBonus()
-                                }
+        implicitHeight: headerLayout.implicitHeight + 10 // додаємо невеликий падінг для повітряності
 
-                            }
-
-                        }
-                    }
-
-                }
-
-
-                ToolButton {    // ⋮
-                    id:contextMenu_toolbtn
-                    text: qsTr("⋮")
-
-                    onClicked:  contextMenu.popup()
-
-                    Menu{
-                        id: batchMenu
-                        title: "Додатково"
-                    }
-
-                    Menu{
-                        id: contextMenu
-                        y: parent.height
-
-                        onVisibleChanged: {
-                            // dbg("contextMenu_toolbtn vsbl="+ visible, "#72js")
-                            let i =0
-                            if (visible){
-                                if (stack.currentItem.vkContextActions !== undefined){
-                                      for (i =0; i < stack.currentItem.vkContextActions.length; ++i){
-                                          contextMenu.addAction(stack.currentItem.vkContextActions[i])
-                                      }
-                                }
-                                if (stack.currentItem.vkBatchActions !== undefined){
-                                    for (i =0; i < stack.currentItem.vkBatchActions.length; ++i){
-                                        batchMenu.addAction(stack.currentItem.vkBatchActions[i])
-                                    }
-                                    contextMenu.addMenu(batchMenu)
-                                }
-
-                                contextMenu.addItem( Qt.createQmlObject('import QtQuick.Controls; MenuSeparator {}',
-                                                                                              contextMenu.contentItem,
-                                                                                              "dynamicSeparator") )
-                                /*for (i =0; i < stack.count; ++i) {
-                                    contextMenu.addAction(activateBind.createObject(contextMenu,
-                                                                                    { cindex: i,
-                                                                                      text: String(i === stack.currentIndex ? "<b>%1. %2</b>" : "%1. %2").arg(i).arg(stack.contentChildren[i].textForMenu())
-                                                                                    }))
-
-                                } */
-                                for (i =0; i < stack.count; ++i) {
-                                    contextMenu.addItem(containerBindAction.createObject(parent,
-                                                                                    {
-                                                                                        index: i,
-                                                                                        title: stack.contentChildren[i].textForMenu()
-                                                                                    }))
-
-                                }
-                            } else {
-                                for (i =batchMenu.count -1; i >=0; --i) batchMenu.removeItem(batchMenu.itemAt(i))
-                                for (i =contextMenu.count -1; i >=0; --i) contextMenu.removeItem(contextMenu.itemAt(i))
-                            }
-
-                        }
-                    }
-
-                }
+        background: Rectangle {
+            color: "#F9FAFB" // Світлий пастельний фон (Tailwind Gray 50)
+            Rectangle {
+                anchors.bottom: parent.bottom
+                width: parent.width
+                height: 1
+                color: "#E5E7EB" // Тонка роздільна лінія знизу (Gray 200)
             }
         }
 
+        RowLayout {
+            id: headerLayout
+            anchors {
+                fill: parent
+                leftMargin: 8
+                rightMargin: 8
+            }
+            spacing: 12
+
+            // Головне бургер-меню (☰)
+            ToolButton {
+                id: mainMenuButton
+                flat: true
+                text: "☰"
+                icon.name: "format-list-bulleted"
+                icon.width: 18
+                icon.height: 18
+                onClicked: naviMenu.popup()
+
+                Menu {
+                    id: naviMenu
+                    title: qsTr("Головне меню")
+
+                    // Додаємо невеликі падінги для красивого сучасного вигляду
+                    topPadding: 4
+                    bottomPadding: 4
+
+                    // ---------------------------------------------------------------------
+                    // СЕКЦІЯ 1: Операційна діяльність (Додавання вкладок у SwipeView)
+                    // ---------------------------------------------------------------------
+                    MenuItem {
+                        action: bindCheckAction
+                        icon.source: "qrc:/icon/add.svg" // Використовуємо ваші іконки з CMake
+                        icon.width: 14
+                        icon.height: 14
+                        onTriggered: naviMenu.close()
+                    }
+                    MenuItem {
+                        action: bindInnerAction
+                        icon.source: "qrc:/icon/add.svg"
+                        icon.width: 14
+                        icon.height: 14
+                        onTriggered: naviMenu.close()
+                    }
+                    MenuItem {
+                        action: bindTaxAction
+                        icon.source: "qrc:/icon/add.svg"
+                        icon.width: 14
+                        icon.height: 14
+                        onTriggered: naviMenu.close()
+                    }
+                    MenuItem {
+                        action: bindFactureAction
+                        icon.source: "qrc:/icon/add.svg"
+                        icon.width: 14
+                        icon.height: 14
+                        onTriggered: naviMenu.close()
+                    }
+
+                    MenuSeparator { topPadding: 2; bottomPadding: 2 }
+
+                    // ---------------------------------------------------------------------
+                    // СЕКЦІЯ 2: Звіти та Вікна аналітики (Нові дочірні вікна)
+                    // ---------------------------------------------------------------------
+                    MenuItem {
+                        action: winDcmsAction
+                        // icon.source: "qrc:/icon/filter.svg"
+                        onTriggered: naviMenu.close()
+                    }
+                    MenuItem {
+                        action: winBalanceAction
+                        // icon.source: "qrc:/icon/account.svg"
+                        onTriggered: naviMenu.close()
+                    }
+                    MenuItem {
+                        action: winClientAction
+                        // icon.source: "qrc:/icon/find.svg"
+                        onTriggered: naviMenu.close()
+                    }
+                    MenuItem {
+                        action: winRateAction
+                        // icon.source: "qrc:/icon/reload.svg"
+                        onTriggered: naviMenu.close()
+                    }
+                    MenuItem {
+                        action: winShiftAction
+                        // icon.source: "qrc:/icon/drawer.svg"
+                        onTriggered: naviMenu.close()
+                    }
+
+                    MenuSeparator { topPadding: 2; bottomPadding: 2 }
+
+                    // ---------------------------------------------------------------------
+                    // СЕКЦІЯ 3: Сервісне підменю
+                    // ---------------------------------------------------------------------
+                    Menu {
+                        id: serviceMenu
+                        title: qsTr("Сервіс")
+
+                        MenuItem {
+                            action: winCashWizardAction
+                            onTriggered: naviMenu.close()
+                        }
+                        MenuSeparator { topPadding: 1; bottomPadding: 1 }
+
+                        // MenuItem {
+                        //     action: winTaxServiceAction
+                        //     onTriggered: naviMenu.close()
+                        // }
+                        MenuItem {
+                            action: changeDBAction // Виклик вашого Popup.open()
+                            // icon.source: "qrc:/icon/undo.svg"
+                            onTriggered: naviMenu.close()
+                        }
+                        MenuSeparator { topPadding: 1; bottomPadding: 1 }
+
+                        // Налаштування програми як вкладка у SwipeView
+                        // Переконайтеся, що actionSetting додає вкладку
+                        MenuItem {
+                            action: actionSetting
+                            // icon.source: "qrc:/icon/close.svg"
+                            onTriggered: naviMenu.close()
+                        }
+                    }
+                    // MenuItem {
+                    //     action: testAction
+                    //     onTriggered: naviMenu.close()
+                    // }
+
+                    MenuSeparator { topPadding: 2; bottomPadding: 2 }
+
+                    // ---------------------------------------------------------------------
+                    // СЕКЦІЯ 4: Вихід із програми (Таймер)
+                    // ---------------------------------------------------------------------
+                    MenuItem {
+                        text: qsTr("Вийти")
+                        icon.source: "qrc:/icon/close.svg"
+
+                        // Виділимо червоним кольором текст виходу, щоб касир не натиснув його випадково
+                        contentItem: Text {
+                            text: parent.text
+                            font: parent.font
+                            color: "#9B1C1C" // Пастельний червоний колір виходу
+                            verticalAlignment: Text.AlignVCenter
+                            leftPadding: 24 // Залишаємо відступ під іконку
+                        }
+
+                        onTriggered: {
+                            naviMenu.close();
+                            quitTimer.start();
+                        }
+                    }
+                }
+            }
+            // Заголовок поточної вкладки каси
+            Label {
+                id: headerTitle
+                Layout.fillWidth: true
+                elide: Label.ElideRight
+                horizontalAlignment: Qt.AlignLeft
+                verticalAlignment: Qt.AlignVCenter
+                font {
+                    pixelSize: 16
+                    bold: true
+                }
+                color: "#1F2937"
+            }
+
+            // =========================================================================
+            // КЛІЄНТСЬКИЙ БЛОК (Стильна картка-капсула)
+            // =========================================================================
+            Rectangle {
+                id: btnClient
+
+                // Властивості даних, які прокидаються з QML
+                property var clName: null    //"Оберіть клієнта..."
+                property real clBonus: 0
+
+                Layout.preferredWidth: clientRowLayout.implicitWidth
+                Layout.preferredHeight: 34
+
+                // Дизайн капсули
+                radius: 17 // половина висоти для ідеального заокруглення
+                color: clName ? "#F3F4F6" : "#EBF5FF" // М'який синій колір, якщо клієнта обрано
+                border {
+                    width: 1
+                    color: clName ? "#D1D5DB" : "#BFDBFE"
+                }
+
+                RowLayout {
+                    id: clientRowLayout
+                    anchors.fill: parent
+                    spacing: 4
+
+                    // Кнопка інформації клієнта
+                    ToolButton {
+                        Layout.preferredHeight: 32
+                        flat: true
+                        text: btnClient.clName ? btnClient.clName : "Оберіть клієнта..."
+                        icon.source: "qrc:/icon/account.svg"
+                        icon.width: 16
+                        icon.height: 16
+
+                        font {
+                            pixelSize: 12
+                            bold: btnClient.clName
+                        }
+
+                        onClicked: {
+                            const codeid = compContainer.currentItem.codeid;
+                            if (codeid === "bind") {
+                                compContainer.currentItem.selectClientAction.trigger()
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.preferredWidth: 1
+                        Layout.preferredHeight: 16
+                        color: btnClient.clName ? "#93C5FD" : "#D1D5DB"
+                    }
+
+                    Label {
+                        Layout.preferredHeight: 32
+                        verticalAlignment: Text.AlignVCenter
+                        horizontalAlignment: Text.AlignHCenter
+                        Layout.leftMargin: 4
+                        Layout.rightMargin: 4
+
+                        text: btnClient.clBonus ? btnClient.clBonus + " 🪙" : "" // 🪙Додано емодзі монети
+                        color: btnClient.clName ? "#1E429F" : "#6B7280"
+                        font {
+                            pixelSize: 12
+                            bold: true
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            onDoubleClicked:
+                                compContainer.currentItem.newDcm("",
+                              compContainer.currentItem?.crntClient.bonusAcnt ?? "",
+                              0 - compContainer.currentItem?.crntClient.bonusTotal ?? 0)
+                        }
+                    }
+
+                    // Кнопка скидання/очищення клієнта
+                    ToolButton {
+                        Layout.preferredWidth: 26
+                        Layout.preferredHeight: 32
+                        flat: true
+
+                        icon.source: "qrc:/icon/close.svg"
+                        icon.width: 10
+                        icon.height: 10
+
+                        // Показуємо хрестик тільки якщо якийсь клієнт реально обраний
+                        visible: btnClient.clName
+
+                        onClicked: {
+                            if (compContainer.currentItem) {
+                                compContainer.currentItem.crntClient = null;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Контекстне додаткове меню (⋮)
+            ToolButton {
+                id: contextMenu_toolbtn
+                flat: true
+                text: "⋮"
+                font.pixelSize: 16
+                onClicked: contextMenu.popup()
+
+                Menu {
+                    id: batchMenu
+                    title: "Додатково"
+                }
+
+                Menu {
+                    id: contextMenu
+                    y: parent.height
+                    onVisibleChanged: {
+                        // dbg("contextMenu_toolbtn vsbl="+ visible, "#72js")
+                        let i =0
+                        if (visible){
+                            if (compContainer.currentItem.vkContextActions !== undefined){
+                                  for (i =0; i < compContainer.currentItem.vkContextActions.length; ++i){
+                                      contextMenu.addAction(compContainer.currentItem.vkContextActions[i])
+                                  }
+                            }
+                            if (compContainer.currentItem.vkBatchActions !== undefined){
+                                for (i =0; i < compContainer.currentItem.vkBatchActions.length; ++i){
+                                    batchMenu.addAction(compContainer.currentItem.vkBatchActions[i])
+                                }
+                                contextMenu.addMenu(batchMenu)
+                            }
+
+                            contextMenu.addItem( Qt.createQmlObject('import QtQuick.Controls; MenuSeparator {}',
+                                                                                          contextMenu.contentItem,
+                                                                                          "dynamicSeparator") )
+                            for (i =0; i < compContainer.count; ++i) {
+                                contextMenu.addItem(containerBindAction.createObject(parent,
+                                                                                {
+                                                                                    index: i,
+                                                                                    title: compContainer.contentChildren[i].textForMenu(),
+                                                                                    // isDynamic: true
+                                                                                }))
+
+                            }
+                        } else {
+                            // (Очищення) BatchMenu
+                            // Екшени, додані через addAction, не створювалися динамічно, тому їх просто прибираємо
+                            for (i = batchMenu.count - 1; i >= 0; --i) {
+                                batchMenu.removeItem(batchMenu.itemAt(i));
+                            }
+
+                            // Не просто removeItem, а примусовий .destroy()
+                            for (i = contextMenu.count - 1; i >= 0; --i) {
+                                let item = contextMenu.itemAt(i);
+                                contextMenu.removeItem(item);
+
+                                // Якщо цей пункт був створений динамічно через createObject або createQmlObject,
+                                // знищуємо його, повністю звільняючи оперативну пам'ять терміналу
+                                if (item) {
+                                    // Перевіряємо кастомний маркер 'isDynamic', який додамо при створенні.
+                                    if (item.isDynamic === true && typeof item.destroy === "function") {
+                                        item.destroy();
+                                    }
+                                }
+                            }
+                        }
+
+                    }
+                }
+            }
+        }
     }
 
 
     onClosing: close =>
     {
-//        close.accepted = false
-//        askDialog.jdata = {"code":"zReport", "text":"zReport"}
-//        askDialog.open()
         closeChildWindow()
     }
 
@@ -363,96 +444,71 @@ ApplicationWindow {
             Label {
                 id: footerLeftLabel
                 anchors{/*centerIn: parent;*/ verticalCenter: parent.verticalCenter }
-                text: String(" %1@%2").arg(root.term).arg(root.resthost)
             }
-            // RowLayout{
-            //     width: parent.width
-            // }
         }
 
 
     }
 
-
-    Component{
+    Component {
         id: containerBindAction
-        MenuItem{
+
+        MenuItem {
             id: root
             property string title
             property int index
-            // width: parent.width
-            // height: contentItem.
-            contentItem:
-                // Item{
-                // hei
-                RowLayout{
-                    anchors{fill: parent; leftMargin: 10 }
-                    Label{
-                        Layout.fillWidth: true
-                        font.bold: root.index === stack.currentIndex
-                        clip: true
-                        elide: Label.ElideRight
-                        text: root.title
-                    }
-                    ToolButton{
-                        Layout.preferredHeight: 20
-                        Layout.preferredWidth: 20
-                        visible: root.index > 0
-                        flat: false
-                        text: "X"
-                        font.pixelSize: 16
-                        onClicked: {
-                            if (root.index > 0) { // can't remove forst tab
-                                const itemToRemove = stack.contentChildren[root.index]
-                                if (stack.currentIndex === root.index){
-                                    stack.currentIndex--;
-                                }
-                                itemToRemove.destroy();
-                            }
-                            root.triggered()
+            property bool isDynamic: true
+
+            contentItem: RowLayout {
+                anchors { fill: parent; leftMargin: 10 }
+
+                Label {
+                    Layout.fillWidth: true
+                    font.bold: root.index === compContainer.currentIndex
+                    clip: true
+                    elide: Label.ElideRight
+                    text: root.title
+                }
+                ToolButton {
+                    Layout.preferredHeight: 20
+                    Layout.preferredWidth: 20
+                    flat: true
+                    text: "✕"
+                    font.pixelSize: 14
+                    visible: root.index > 0 // не можна видалити першу вкладку
+
+                    onClicked: {
+                        if (root.index > 0 && root.index < compContainer.count) {
+                            JS.handleCloseTab(root.index, compContainer);
+                            contextMenu.close();
                         }
                     }
                 }
-            // }
-            onTriggered: stack.currentIndex = root.index
-        }
-    }
+            }
 
-    Action {
-        id: actionLogin
-        text: "Login"
-        onTriggered: {
-            REST.login(restuser, restpassword, (err) =>{
-                           if (err !== null) logView.append("[REST login]" + err, 1)
-                       });
+            // Якщо клікнули просто по тексту меню (не по хрестику) — перемикаємо вкладку
+            onTriggered: {
+                if (root.index < compContainer.count) {
+                    compContainer.currentIndex = root.index;
+                }
+            }
         }
     }
 
     Action {
         id: testAction
         text: "TEST"
-        checkable: true
-        checked: testLoader.active
+        // checkable: true
+        // checked: testLoader.active
 //        icon.name: "edit-copy"
 //        shortcut: StandardKey.Copy
         onTriggered: {
-            testLoader.active = checked;
-            // LibAcnt.dbBalance(Db, "substr(acntno,1,3)='300'")
+            popupCloseShift.open()
+            // testLoader.active = checked;
             // const a = LibItem.getItemById(Db, "200023")
             // const a = LibItem.getItemById(Db, "")
-            // Lib.log("#w93 a=" + JSON.stringify(a))
             // LibItem.fillFolderCache(Db)
         }
-    }
-
-
-    function closeChildWindow(){
-        dcmViewLoader.active = false
-        clientLoader.active = false
-        cashWizardLoader.active = false
-        taxServiceLoader.active = false
-        statLoader.active = false
-        rateLoader.active = false
     }
 
     Timer{
@@ -468,153 +524,101 @@ ApplicationWindow {
 
     Action {
         id: bindCheckAction
-        property string code: ""
-        property int dfltAmnt: Number(root.checkAmnt)
         text: "Новий Чек"        //qsTr("Check")
         onTriggered: {
-            actionBind.trigger(bindCheckAction)
+            const uiBridge = {
+                drawer: () => { drawer2Right.open(); },
+                setClientFromBind: (clnt) => { setClientFromBind(clnt || null); },
+                state: "",
+            }
+            const comp = Qt.createComponent("Bind.qml");
+            if (comp.status === Component.Ready) {
+                JS.handleAddBindTab(Db, Prn, comp, logView, compContainer, uiBridge);
+                compContainer.currentItem.startBindAction.trigger();
+            }
         }
     }
 
     Action {
         id: bindFactureAction
-        property string code: "facture"
-        property int dfltAmnt: 1
         text: "Нова Фактура"
         onTriggered: {
-            actionBind.trigger(bindFactureAction)
+            const uiBridge = {
+                drawer: () => { drawer2Right.open(); },
+                setClientFromBind: (clnt) => { setClientFromBind(clnt || null); },
+                state: "facture",
+            }
+            const comp = Qt.createComponent("Bind.qml");
+            if (comp.status === Component.Ready) {
+                JS.handleAddBindTab(Db, Prn, comp, logView, compContainer, uiBridge);
+                compContainer.currentItem.startBindAction.trigger();
+            }
         }
     }
 
     Action {
         id: bindTaxAction
-        property string code: "taxcheck"
-        property int dfltAmnt: Number(root.checkAmnt)
         text: "Новий ФІСК.Чек"
-        onTriggered: actionBind.trigger(bindTaxAction)
+        enabled: false
+        onTriggered: {
+            const uiBridge = {
+                drawer: () => { drawer2Right.open(); },
+                setClientFromBind: (clnt) => { setClientFromBind(clnt || null); },
+                state: "taxcheck",
+            }
+            const comp = Qt.createComponent("Bind.qml");
+            if (comp.status === Component.Ready) {
+                JS.handleAddBindTab(Db, Prn, comp, logView, compContainer, uiBridge);
+                compContainer.currentItem.startBindAction.trigger();
+            }
+        }
     }
 
     Action {
-        id: actionBind
-        onTriggered: (source) => {
-                        const component = Qt.createComponent("Bind.qml");
-                        if (component.status === Component.Ready) {
-                            const newObj = component.createObject(stack,
-                                {
-                                      dbDriver: Db,
-                                      funcRESTUpload: (jbind) => {
-                                          if (isOnline()) REST.uploadBindTran(root.term, root.term, jbind, Lib.uploadAcnt(Db, true).rows,
-                                                               (err) =>{ if (err !== null) dbg.append("[uploadBindTran] " + err, 0); })
-                                       },
-                                       funcFiscalizate: (bindid) =>{
-                                          if (!isTaxMode()) {
-                                               dbg("Fiscalization is unsupported", 1)
-                                               return
-                                          }
-                                          let jbind = Lib.cdtaxFromBind(Db, bindid)
-                                          if (!jbind) {
-                                              dbg("Fiscalization local error", 0)
-                                              return
-                                          }
-                                          CashDesk.sale(jbind, (err, resp) =>{
-                                                            if (err) {
-                                                                dbg("Fiscalization server error", 0)
-                                                                if (taxServiceLoader.active) taxServiceLoader.item.newMessage(
-                                                                    "SALE", "Fiscalization server error", "error")
-                                                            } else {
-                                                                if (taxServiceLoader.active) taxServiceLoader.item.newMessage(
-                                                                    "SALE", JSON.stringify(resp), "info")
-                                                            }
-                                                        }
-                                                            )
-                                      },
-                                        acnts: root.acnts,
-                                        funcLog: (text, logid =2) => { dbg.append("[Bind] " + text, logid); },
-                                        allowTax: isTaxMode(),
-                                        printDcm: root.checkPrintDcm,
-                                        autoPrint: root.checkAutoPrint,
-                                        dfltAmnt: source.dfltAmnt,
-                                        dfltClient: Lib.getClient(Db),
-                                        cashAcnt: Lib.getAccount(Db,acnts.cash),
-                                        dfltAcnt: Lib.getAccount(Db),
-                                        state: source.code
-                                });
-                            // newObj.acnts = root.acnts
-                            // newObj.dfltAmnt = source.dfltAmnt
-                            // newObj.dfltClient = Lib.getClient(Db)
-                            // newObj.cashAcnt = Lib.getAccount(Db,acnts.cash)
-                            // newObj.dfltAcnt = Lib.getAccount(Db)
-                            newObj.vkEvent.connect( (id, param)=>{
-                                 if (id === 'drawer'){
-                                     drawer2Right.open();
-                                 } else if (id === 'find'){
-                                     selectPopup.code = param[0].mask === "0" ? "client" : "article"
-                                     selectPopup.jsdata = param
-                                     selectPopup.open()
-                                 } else if (id === 'creditAcntClicked'){
-                                     selectPopup.code = "acntno"
-                                     selectPopup.jsdata = Lib.getAcntList(Db, param.cashno, param.clid, param.mode);
-                                     // Lib.log("#34rs HERE")
-                                     selectPopup.open()
-                                } else if (id === 'bind.clientChanged'){
-                                    setClientFromBind()
-                                 } else if (id === 'printCheck'){
-                                     Prn.saveCheck(param)
-                                     Prn.printCheck(param)
-                                 } else {
-                                     logView.append("[Bind] Bad event", 1)
-                                 }
-                            })
-                            // newObj.forceActiveFocus()
-                            newObj.startBind()
-                            stack.currentIndex = stack.count - 1;
-                        } else {
-                            Lib.log("Помилка завантаження:" + component.errorString(), "main", "EE" );
-                        }
-        }
-    }
-
-/*    Action {
-        id: removeBindAction
-        enabled: stack.count > 1
-        text: "Видалити поточний"
+        id: bindInnerAction
+        text: "Новий ВНУТРІШНІ"
         onTriggered: {
-            if (stack.count > 1) { // Залишаємо хоча б один екран
-                    const itemToRemove = stack.currentItem;
-
-                    stack.currentIndex--;
-
-                    itemToRemove.destroy();
+            const uiBridge = {
+                drawer: () => { drawer2Right.open(); },
+                setClientFromBind: (clnt) => { setClientFromBind(clnt || null); },
+                state: "folder",
             }
-
+            const comp = Qt.createComponent("Bind.qml");
+            if (comp.status === Component.Ready) {
+                JS.handleAddBindTab(Db, Prn, comp, logView, compContainer, uiBridge);
+                compContainer.currentItem.startBindAction.trigger();
+            }
         }
     }
-*/
 
     Action {
         id: winDcmsAction
-        checkable: true
-        checked: dcmViewLoader.active
-//        enabled: false
-        text: "Архів докум."
-        onTriggered: { dcmViewLoader.active = checked; }
+        text: "Архів документів"
+        onTriggered: {
+            if (dcmViewLoader.active) {
+                if (dcmViewLoader.item) dcmViewLoader.item.raise();
+            } else dcmViewLoader.active = true;
+        }
     }
 
     Action {
         id: winBalanceAction
-        text: "Залишки"
-        checkable: true
-        checked: balanceLoader.active
-        onTriggered:  balanceLoader.active = checked;
+        text: qsTr("Залишки")
+        onTriggered: {
+            // Якщо вікно вже відкрите — фокусуємо його, якщо ні — завантажуємо в пам'ять
+            if (balanceLoader.active) {
+                if (balanceLoader.item) balanceLoader.item.raise();
+            } else balanceLoader.active = true;
+        }
     }
 
     Action {
         id: winClientAction
-        checkable: true
-        checked: clientLoader.active
         text: "Клієнти"
         onTriggered: {
-            clientLoader.active = checked;
+            if (clientLoader.active) {
+                if (clientLoader.item) clientLoader.item.raise();
+            } else clientLoader.active = true;
         }
     }
 
@@ -624,101 +628,88 @@ ApplicationWindow {
         onTriggered: {
             closeChildWindow()
 
-            for (let i =0; i < stack.count; ++i ) {
-                // Lib.log(String("#w9j id=%1 codeid=%2").arg(i).arg(stack.children[i].codeid))
-                if (stack.contentChildren[i].codeid === "settings") {
-                    stack.currentIndex = i
+            for (let i =0; i < compContainer.count; ++i ) {
+                if (compContainer.contentChildren[i].codeid === "settings") {
+                    compContainer.currentIndex = i
                     return
                 }
             }
-            const component = Qt.createComponent("Settings.qml");
+            const component = Qt.createComponent("AppSettings.qml");
             if (component.status === Component.Ready) {
-                const newObj = component.createObject(stack,
-                    {
-                        dfltTerminal: {term:root.term, posPrinter: root.posPrinter, checkAmnt:root.checkAmnt, checkAutoPrint:root.checkAutoPrint, checkPrintDcm: root.checkPrintDcm },
-                        dfltAcnt: { cash: root.acnts.cash, trade: root.acnts.trade, bulk: root.acnts.bulk, incas: root.acnts.incas, profit: root.acnts.profit  },
-                        dfltREST: { resthost: root.resthost, restapi: root.restapi, restuser: root.restuser, restpassword: root.restpassword, resttoken: root.resttoken },
-                        dfltCashDisc: { cdhost: root.cdhost, cdprefix: root.cdprefix, cdcash: root.cdcash, cdtoken: root.cdtoken }
-                    })
+                const newObj = component.createObject(compContainer, { dbDriver: Db })
                 newObj.vkEvent.connect( (id, param) => {
-                     if (id === "saveTerminal"){
-                                               root.term = newObj.dfltTerminal.term
-                                               root.posPrinter = newObj.dfltTerminal.posPrinter
-                                               root.checkAmnt = newObj.dfltTerminal.checkAmnt
-                                               root.checkAutoPrint = newObj.dfltTerminal.checkAutoPrint
-                                               root.checkPrintDcm = newObj.dfltTerminal.checkPrintDcm
-                                           } else if (id === "saveAcnts"){
-                                                                     root.acnts = newObj.dfltAcnt
-                                                                     Db.dbUpdate("update settings set acnts = '" + JSON.stringify(newObj.dfltAcnt) + "' where rowid=1;")
-                     } else if (id === "loginREST"){
-                                               root.resthost = newObj.dfltREST.resthost
-                                               root.restapi = newObj.dfltREST.restapi
-                                               root.restuser = newObj.dfltREST.restuser
-                                               root.restpassword = newObj.dfltREST.restpassword
-                                               root.resttoken = ''
-                                               REST.login(restuser, restpassword, (err) => {
-                                                   // Lib.log("#984u token="+token);
-                                                   if (err === null){
-                                                       root.resttoken = REST.gl_token
-                                                   } else {
-                                                       logView.appenr(err, 0)
-                                                   }
-                                                   newObj.dfltREST = { resthost: root.resthost, restapi: root.restapi, restuser: root.restuser, restpassword: root.restpassword, resttoken: root.resttoken }
-                                               } )
-                     } else if (id === "saveCD"){
-                                               root.cdhost = newObj.dfltCashDisc.cdhost
-                                               root.cdprefix = newObj.dfltCashDisc.cdprefix
-                                               root.cdcash = newObj.dfltCashDisc.cdcash
-                                               root.cdtoken = newObj.dfltCashDisc.cdtoken
-                     } else {
-                         logView.append("[Bind] Bad event", 1)
-                     }
+                    if (id === 'info') {
+                        logView.info(`[Settings] ${param ?? "Unknown info"}`, 1, 5)
+                    } else if (id === 'warning') {
+                        logView.warn(`[Settings] ${param ?? "Unknown warning"}`, 4, 10)
+                    } else if (id === 'error') {
+                        logView.error(`[Settings] ${param ?? "Unknown error"}`, 16)
+                    } else {
+                        logView.warn("[Settings] Bad event", 1)
+                    }
                 })
-                stack.currentIndex = stack.count - 1;
+                compContainer.currentIndex = compContainer.count - 1;
 
             } else {
-                Lib.log("Помилка завантаження Settings.qml:" + component.errorString(), "main", "EE" );
+                logView.error("Помилка завантаження AppSettings.qml:" + component.errorString(), 0 );
             }
 
 
         }
     }
-
     Action {
         id: winShiftAction
-        checkable: true
-        checked: winShiftLoader.active
-        text: "Зміна"
-        onTriggered: { winShiftLoader.active = checked; }
+        text: qsTr("Зміна")
+
+        onTriggered: {
+            if (!winShiftLoader.active) {
+                winShiftLoader.active = true;
+            } else if (winShiftLoader.item) {
+                winShiftLoader.item.raise();
+                winShiftLoader.item.requestActivate();
+            }
+        }
     }
 
     Action {
         id: winCashWizardAction
-        checkable: true
-        checked: cashWizardLoader.active
         text: "Звірка каси"
-        onTriggered: { cashWizardLoader.active = checked; }
+        onTriggered: {
+            if (cashWizardLoader.active) {
+                if (cashWizardLoader.item) cashWizardLoader.item.raise();
+            } else cashWizardLoader.active = true;
+        }
     }
 
-    Action {
+/*    Action {
         id: winStatAction
         enabled: false
         checkable: true
         checked: statLoader.active
         text: "Статистика"
         onTriggered: { statLoader.active = checked; }
-    }
+    }*/
 
     Action {
         id: winRateAction
-        checkable: true
-        checked: rateLoader.active
-        text: "Курси валют"
-        onTriggered: { rateLoader.active = checked; }
+        text: qsTr("Курси валют")
+        // icon.source: "qrc:/icon/reload.svg"
+
+        onTriggered: {
+            // Якщо екран ще не завантажено — вмикаємо лоадер.
+            // Якщо він уже висить у фоні — примусово виводимо вікно курсів на передній план.
+            if (!rateLoader.active) {
+                rateLoader.active = true;
+            } else if (rateLoader.item) {
+                rateLoader.item.raise();
+                rateLoader.item.requestActivate(); // Фокусуємо вікно в Qt6
+            }
+        }
     }
 
     Action {
         id: winTaxServiceAction
+        enabled: false
         checkable: true
         checked: taxServiceLoader.active
         text: "ПРРО/касовий"
@@ -730,77 +721,77 @@ ApplicationWindow {
         enabled: false
         text: "Змінити БД ["+root.dbname.substring(dbname.lastIndexOf('/')+1)+"]"
         onTriggered: {
-            selectPopup.code = "database"
-            selectPopup.jsdata = Lib.getDbList(Db, applicationDirPath);
+            // selectPopup.code = "database"
+            selectPopup.jsdata = null
+            const source = Db.dirEntryList(`${applicationDirPath}/data/`,'*.sqlite', 2,0)
+            const list = source
+            .map(v => {
+                     return {
+                         "id": `${applicationDirPath}/data/${v}`,
+                         "name": v,
+                         "fullname": "",
+                        "code": "database",
+                         "sect": qsTr("Доступні БД")
+                      };
+                })
+            selectPopup.jsdata = list
             selectPopup.open()
         }
     }
 
-    Loader{
+    Loader {
         id: winShiftLoader
         active: false
-        source: 'Shift.qml'
-        onActiveChanged: if (active) {
-                             closeChildWindow()
-                             item.visible = true
-                             item.title = String("%1(%2)").arg(root.title).arg("Shift")
-                             item.dbDriver = Db
-                             item.acnts = root.acnts
-                             item.vshift = root.crntShift
-                             item.toBulk = (root.acnts.bulk !== undefined && root.acnts.bulk !== "")
-                             item.funcOnShiftChanged = (newShift) => { root.crntShift = newShift; }
-                             item.funcUploadBind = (jbind) => {
-                                if (!isOnline()){ return; }// isOnline
-                                // dbg("Shift upload ...", "#w7g"); return;
+        source: "Shift.qml"
 
+        onLoaded: {
+            if (typeof closeChildWindow === "function") {
+                closeChildWindow();
+            }
+            item.dbDriver = Db;
+            item.title = qsTr("%1 (Зміна)").arg(root.title);
 
-                                REST.uploadBindTran(root.term, root.term, jbind, Lib.uploadAcnt(Db, true).rows,
-                                            (err) =>{ if (err !== null) logView.append("[uploadBindTran] " + err, 0); })
-                            }
-                            item.funcUploadBalace = () => {
-                                 if (!isOnline()){ return; }// isOnline
-                                 REST.uploadBalance({"term":root.term,"reqid":"del","shop":root.term},
-                                                    (err) => { if (err !== null) logView.append("[REST uploadBalance]" + err, 0) });
-                                 const jacnt = Lib.uploadAcnt(Db, false)
-                                 if (jacnt && jacnt.rows.length) {
-                                     REST.uploadBalance( {"term":root.term,"reqid":"upd","shop":root.term,"data":jacnt.rows},
-                                                        (err) => { if (err !== null) logView.append("[REST uploadBalance]" + err, 0) });
-                                 }
-                            }
-                            item.funcShiftClose = (param) => {
-                                 if( isTaxMode() ) {
-                                    askDialog.code = 'zreport'
-                                    askDialog.jdata =  { "text" : "Закрити фіскальну зміну ДПС ?" }
-                                    askDialog.open()
-                                 }
-                                 // revaluate TRADE
-                                 const jbinds = Lib.makeBind_reval(Db, root.crntShift.cshr);
-                                 let cbindId = 0;
-                                 for (let r =0; r < jbinds.length; ++r){
-                                     cbindId = Lib.tranBind(Db, jbinds[r]);
-                                     if (cbindId !== 0 ){
-                                         REST.uploadBindTran(root.term, root.term, jbinds[r], Lib.uploadAcnt(Db, true).rows,
-                                                     (err) =>{ if (err !== null) logView.append("[uploadBindTran] " + err, 0); })
-                                     }
-                                 }
-
-                                 if (Lib.closeShift(Db, param)){
-                                 // TODO error
-                                 }
-
-                                 root.visible = false;
-                                 quitTimer.start()
-
-                             }
-                         } else {
-                             // root.crntShift = Lib.crntShift(Db)
-                             // if shift is closed
-                             if (crntShift.shftend !== "") { quitTimer.start(); }
-                         }
+            item.show();            // Робить вікно видимим на рівні графічного сервера ОС
+            item.raise();           // Примусово піднімає його на найвищий візуальний шар екрана
+            item.requestActivate(); // Передає фокус миші та клавіатури касира прямо всередині вікна зміни
+        }
 
         Connections {
-            target: winShiftLoader.item
-            function onClosing() { winShiftLoader.active = false; }
+            target: winShiftLoader.status === Loader.Ready ? winShiftLoader.item : null
+
+            function onClosing() {
+                winShiftLoader.active = false;
+                // console.log(`Main.qml/winShiftLoader#8dj onClosing popupCloseShift.opened=${popupCloseShift.opened}`)
+                if (!popupCloseShift.opened) {
+                    JS.handleShiftWinClose(Db, quitTimer);
+                }
+            }
+
+            function onVkEvent(id, param) {
+                if (id === "bindTransacted"){
+                    // console.log(`Main.qml/onVkEvent bind=${JSON.stringify(param)}`)
+                    if (!!param) JS.uploadBind(param, logView);
+                } else if (id === "balanceChanged"){
+                    JS.uploadBalance(Db, "upd", logView);
+                } else if (id === "shiftClosed"){
+                    // console.log("Main.qml/winShiftLoader#36y onVkEvent/shiftClosed")
+                    logView.info("Зміну ЗАКРИТО");
+                    // root.visible = false;
+                    if (bindTaxAction.enabled || false) {
+                        // console.log(`Main.qml/onVkEvent popupCloseShift.open()`)
+                        popupCloseShift.open()
+                    } else {
+                        if (typeof quitTimer !== "undefined")  quitTimer.start();
+                    }
+
+                } else if (id === "info"){
+                    logView.info(`${param ?? "Unknown info"}`);
+                } else if (id === "warning"){
+                    logView.warn(`${param ?? "Unknown warning"}`);
+                } else if (id === "error"){
+                    logView.error(`${param ?? "Unknown error"}`);
+                }
+            }
         }
     }
 
@@ -808,38 +799,41 @@ ApplicationWindow {
         id: dcmViewLoader
         active: false
         source: 'DcmView.qml'
-        onActiveChanged: if (active) {
-                            item.visible = true
-                            item.title = String("%1(%2)").arg(root.title).arg("Documents")
-                            item.dbDriver = Db
-                            item.prnDriver = Prn
-                         }
+        onLoaded: {
+            item.title = `${root.title}(Documents)`;
+            item.dbDriver = Db;
+            item.prnDriver = Prn;
+            item.show();
+        }
+
         Connections {
-            target: dcmViewLoader.item
+            target: dcmViewLoader.status === Loader.Ready ? dcmViewLoader.item : null
             function onClosing() {
                 dcmViewLoader.active = false
             }
             function onVkEvent(id, param) {
-                if (id === "refuse"){
-                    // console.log("[MAIN>DcnView] dcmid=" + param.dcmid + " pid=" + param.pid)
-                    stack.currentItem.newRefused(param)
-                }
+                const res = compContainer.currentItem.newRefused(param)
             }
         }
     }
 
-    Loader{
+    Loader {
         id: balanceLoader
         active: false
-        source: 'Balance.qml'
-        onActiveChanged: if (active) {
-                            item.dbDriver = Db
-                            item.visible = true
-                            item.title = String("%1(%2)").arg(root.title).arg("Balance")
-                         }
+        source: "Balance.qml"
+
+        onLoaded: {
+            item.dbDriver = Db;
+            item.title = qsTr("%1 (Залишки)").arg(root.title);
+            item.show();
+        }
+
         Connections {
-            target: balanceLoader.item
-            function onClosing() { balanceLoader.active = false ; }
+            target: balanceLoader.status === Loader.Ready ? balanceLoader.item : null
+
+            function onClosing() {
+                balanceLoader.active = false;
+            }
         }
     }
 
@@ -862,18 +856,19 @@ ApplicationWindow {
         id: cashWizardLoader
         active: false
         source: 'WizardCash.qml'
-        onActiveChanged: if (active) {
-                            item.visible = true
-                            item.title = String("%1(%2)").arg(root.title).arg("Cash wizard")
-                            item.db = Db
-                         }
+        onLoaded: {
+            item.visible = true
+            item.title = String("%1(%2)").arg(root.title).arg("Cash wizard")
+            item.db = Db
+            item.show();
+        }
         Connections {
             target: cashWizardLoader.item
             function onClosing() { cashWizardLoader.active = false ; }
         }
     }
 
-    Loader{
+/*    Loader{
         id: statLoader
         active: false
         source: 'Stat.qml'
@@ -887,26 +882,39 @@ ApplicationWindow {
             target: statLoader.item
             function onClosing() { statLoader.active = false; }
         }
-    }
+    } */
 
-    Loader{
+    Loader {
         id: rateLoader
+        property bool isRESTConnected: false
         active: false
-        source: 'Rate.qml'
-        onActiveChanged: if (active) {
-                             item.visible = true
-                             item.title = String("%1(%2)").arg(root.title).arg("Rates")
-                             item.online = isOnline()
-                             item.uri = resthost + restapi + "/rates?api_token=" + resttoken
-                             item.queryData = {"term": root.term, "reqid": "sel", "shop": root.term}
-                             item.dbDriver = Db
+        source: "Rate.qml"
 
-                             item.funcCreateDcm = (atclid) => {stack.currentItem.newDcm(atclid);
-                                 }
-                         }
+        onLoaded: {
+            item.dbDriver = Db;
+            item.online = rateLoader.isRESTConnected;
+
+            item.title = qsTr("%1 (Курси валют)").arg(root.title);
+
+            // TODO rewrite without the callback
+            // Безпечний інжект колбека створення документа (фіксуємо compContainer за його id)
+            item.funcCreateDcm = function(atclid) {
+                if (compContainer.currentItem && typeof compContainer.currentItem.newDcm === "function") {
+                    compContainer.currentItem.newDcm(atclid);
+                } else {
+                    logView.append("Помилка: Активна вкладка не підтримує швидке створення чека!", 1);
+                }
+            };
+
+            item.show();
+        }
+
         Connections {
-            target: rateLoader.item
-            function onClosing() { rateLoader.active = false; }
+            target: rateLoader.status === Loader.Ready ? rateLoader.item : null
+
+            function onClosing() {
+                rateLoader.active = false;
+            }
         }
     }
 
@@ -914,13 +922,16 @@ ApplicationWindow {
         id: clientLoader
         active: false
         source: 'Client.qml'
-        onActiveChanged: if (active) {
-                             item.visible = true
-                             item.title = String("%1(%2)").arg(root.title).arg("clients")
-                             item.db = Db
-                         }
+        onLoaded: {
+            item.title = String("%1(%2)").arg(root.title).arg("clients")
+            item.db = Db
+            item.show();
+            item.raise();
+            item.requestActivate();
+        }
+        // onActiveChanged: if (active) { }
         Connections {
-            target: clientLoader.item
+            target: clientLoader.status === Loader.Ready ? clientLoader.item : null
             function onClosing() { clientLoader.active = false; }
         }
     }
@@ -941,6 +952,7 @@ ApplicationWindow {
         }
     }
 
+    // is using for select Database file only
     Popup{
         id: selectPopup
         property string code :""   // client|database|acntno|(1|2|4 article)
@@ -979,21 +991,10 @@ ApplicationWindow {
                 MouseArea{
                     anchors.fill: parent
                     onClicked: {
-                        if (selectPopup.code==="client"){                  // client
-                            stack.currentItem.crntClient = Lib.getClient(Db,id);
-                            stack.currentItem.crntAcnt = Lib.getAccount(Db)
-                            // setClientFromBind()
-                        } else if (selectPopup.code==="database") {        // database
+                        if (code === "database") {        // database
                             root.dbname = id
-                            // openConnection(id)
-                        } else if (selectPopup.code==="acntno") {        // acntno
-                            stack.currentItem.crntAcnt = Lib.getAccount(Db, id)
-                            // setAccount(id)
-                        } else if (selectPopup.code==="article") {
-                            stack.currentItem.newDcm(id)
                         } else {
-                            Lib.log("selectPopup bad code, nothing to do","Main", "EE")
-                            // bad code, nothing to do
+                            logView.append("[Main] selectPopup bad code, nothing to do", 1)
                         }
                         selectPopup.close()
                     }
@@ -1013,7 +1014,7 @@ ApplicationWindow {
             }
             function vpopulate(vfilter) {
                 model.clear()
-                for (var r =0; r < selectPopup.jsdata.length; ++r){
+                for (var r =0; r < selectPopup.jsdata?.length ?? 0; ++r){
                     if (vfilter === undefined || vfilter === ''
                             || ~(selectPopup.jsdata[r].id.indexOf(vfilter))
                             || ~(selectPopup.jsdata[r].name.toLowerCase()).indexOf(String(vfilter).toLowerCase())
@@ -1040,137 +1041,270 @@ ApplicationWindow {
 
     }
 
-    Dialog{
-        id: askDialog
-        width: 300
-        property string code: ''
-        property var jdata: ({})        // JSON
+    Popup {
+        id: popupCloseShift
 
-        anchors.centerIn: parent
+        onClosed: if (typeof quitTimer !== "undefined")  quitTimer.start();
+        // Центруємо вікно на екрані каси
+        width: 380
+        height: 240
+        x: (parent.width - width) / 2
+        y: (parent.height - height) / 2
+
         modal: true
-        title: 'Підтвердження дії'
-        contentItem: Text{ wrapMode: Text.Wrap; text: askDialog.jdata.text === undefined ? 'some text' : askDialog.jdata.text; }
-        footer: DialogButtonBox {
-            standardButtons: Dialog.Ok|Dialog.Cancel
-//            standardButtons: Dialog.Yes|Dialog.No
-//            alignment: Qt.AlignHCenter
-            Keys.onEnterPressed: askDialog.accept()
-            Keys.onReturnPressed: askDialog.accept()
-            onVisibleChanged: if (visible) forceActiveFocus()
+        dim: true
+        closePolicy: Popup.NoAutoClose // Забороняємо закривати кліком повз, касир має свідомо обрати дію
+
+        background: Rectangle {
+            color: "#ffffff"
+            radius: 12
+            border.color: "#e5e7eb"
+            border.width: 1
+            // Легка преміальна тінь
+            Rectangle { anchors.fill: parent; anchors.margins: -2; color: "transparent"; border.color: "#0a000000"; border.width: 2; radius: 14; z: -1 }
         }
 
-        onAccepted: {
-            if (code === 'printCheck'){
-//                console.log("#48d accepted, check printing...\n prid="+askDialog.jdata.prid+" prname="+askDialog.jdata.prname)
-                if (askDialog.jdata.prid !== undefined && askDialog.jdata.prname !== undefined) {
-                    Prn.printCheck(jbind)
-                } else {
-                    logView.append("Не вдається роздрукувати чек", 0)
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 20
+            spacing: 14
+
+            RowLayout {
+                spacing: 10
+                Label { text: "⚠️"; font.pixelSize: 24 }
+                ColumnLayout {
+                    spacing: 2
+                    Label { text: "Закриття касової зміни"; font.pixelSize: 16; font.bold: true; color: "#1f2937" }
+                    Label { text: "Увага! Буде виконано Z-Звіт для ДПС України."; font.pixelSize: 12; color: "#6b7280" }
                 }
-            } else if (code === "askCloseShift"){       // { "text" : "Закрити попередню зміну ?","shid":crsh.id,"shdate":crsh.shftdate, "cshr":crsh.cshr }
-                winShiftAction.trigger()
-            } else  {
-                logView.append("[askDialog] BAD event code", 0)
-                // console.log("#0i code undefined")
+            }
+
+/*                Rectangle {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                color: "#f9fafb"
+                radius: 8
+                border.color: "#e5e7eb"
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    spacing: 4
+                    Label { text: "• Автоматичне службове вилучення готівки"; font.pixelSize: 11; color: "#4b5563" }
+                    Label { text: "• Обнулення оперативних підсумків каси"; font.pixelSize: 11; color: "#4b5563" }
+                    Label { text: "• Відправка фіскального пакету на шлюз ДПС"; font.pixelSize: 11; color: "#4b5563" }
+                }
+            } */
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+                Layout.preferredHeight: 40
+
+                // Кнопка скасування (Повернутися в інтерфейс)
+                Button {
+                    id: btnCancelShiftClose
+                    text: "Пропустити"
+                    Layout.fillWidth: true
+                    // Layout.fillHeight: true
+
+                    background: Rectangle {
+                        color: btnCancelShiftClose.pressed ? "#e5e7eb" : (btnCancelShiftClose.hovered ? "#f3f4f6" : "#ffffff")
+                        radius: 6
+                        border.color: "#d1d5db"
+                    }
+                    onClicked:  popupCloseShift.close()
+                }
+
+                // Головна червона кнопка: Виконати Z-Звіт
+                Button {
+                    id: btnConfirmZReport
+                    text: "🔒 Закрити зміну (Z)"
+                    font.bold: true
+                    Layout.fillWidth: true
+                    // Layout.fillHeight: true
+
+                    background: Rectangle {
+                        color: btnConfirmZReport.pressed ? "#b71c1c" : (btnConfirmZReport.hovered ? "#c62828" : "#d32f2f")
+                        radius: 6
+                    }
+                    contentItem: Text {
+                        text: parent.text; font: parent.font; color: "white"
+                        horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                    }
+
+                    onClicked: {
+                        btnConfirmZReport.enabled = false; // Блокуємо від подвійних кліків
+                        if (JS.handleZReport(logView)) popupCloseShift.close();
+                                else popupCloseShift.close();
+                        // console.log("[РРО] Ініціалізація фінального закриття зміни...");
+
+                        // // Крок 1: Пінгуємо сервер ДПС через  Callback-метод, перевіряючи мережу
+                        // TAX.connect((success, errorMsg) => {
+                        //     if (!success) {
+                        //         root.vkEvent("error", "ДПС сервер недоступний: " + String(errorMsg) + ". Z-звіт відхилено задля безпеки!");
+                        //         btnConfirmZReport.enabled = true;
+                        //         return;
+                        //     }
+
+                        //     // Крок 2: Викликаємо бізнес-функцію повного фіскального закриття зміни
+                        //     // Передаємо DbDriver та Prn (Принтер) з вашого Main.qml
+                        //     root.executeZReportProcedure();
+                        // });
+                    }
+                }
             }
         }
-//        onRejected:  { console.log("#348j rejected"); }
-        onClosed: { askDialog.jdata = ({}); }
     }
 
     Drawer {
         id: drawer2Right
 
-        width: parent.width < 500 ? parent.width*0.8 : 400
+        // Адаптивна ширина: на вузьких екранах займає 80%, на широких — фіксовано 400px
+        width: parent.width < 500 ? parent.width * 0.8 : 400
         height: parent.height
         edge: Qt.RightEdge
 
-        DrawerItem{
+        modal: true             // Блокує кліки по основному екрану чека, поки відкрито меню
+        dim: true               // М'яко затемнює задній план (екран Bind.qml)
+        focus: true             // Дозволяє закривати Drawer по клавіші Escape
+        // interactive: false      // 🚫 Забороняє випадкове відкриття свайпом пальця при прокрутці товарів
+
+        // Ефекти плавного відкриття (опціонально для красивого інтерфейсу)
+        enter: Transition { NumberAnimation { property: "position"; duration: 250; easing.type: Easing.OutCubic } }
+        exit: Transition { NumberAnimation { property: "position"; duration: 200; easing.type: Easing.InCubic } }
+
+        // Події відкриття/закриття
+        onOpened: {
+            // Передаємо активний фокус на перший елемент всередині меню
+            drawer2RightItem.forceActiveFocus();
+        }
+        onClosed: {
+            if (typeof fldMainInput !== "undefined") {
+                fldMainInput.forceActiveFocus();
+            }
+        }
+
+        DrawerItem {
             id: drawer2RightItem
             dbDriver: Db
             anchors.fill: parent
 
+            // можна додати сигнал закриття, якщо всередині DrawerItem є кнопка "Назад/Закрити"
+            // onCancelClicked: drawer2Right.close()
         }
     }
 
+    Item{
+        anchors.fill: parent
 
-    // StackLayout {
-    //     id: stack
-    //     anchors.fill: parent
-    //     // width: 0; height: 0
-    //     clip: true
-    //     // onCountChanged: Lib.log(String("#18g count=%1").arg(count))
-    //     onCurrentIndexChanged: stack.children[stack.currentIndex].forceActiveFocus()
-    // }
-        Item{
+        SwipeView {
+            id: compContainer
+
             anchors.fill: parent
-            // color: 'blue'
-            SwipeView {
-                id: stack
 
-                // currentIndex: 1
-                anchors.fill: parent
-
-                onCurrentIndexChanged: {
-                    headerTitle.text = currentItem.title
-                    setClientFromBind()
-
-                    stack.currentItem.forceActiveFocus()
-                    // dbg("currentIndex=" + currentIndex
-                    //             ,"63gb")
+            onCurrentIndexChanged: {
+                if (currentIndex < 0) return;
+                // console.log(`w98j#Main currentIndex=${currentIndex}`)
+                headerTitle.text = currentItem.title
+                if (currentItem.codeid === "bind"){
+                    setClientFromBind(currentItem.crntClient)
+                    btnClient.visible = true;
+                } else {
+                    btnClient.visible = false;
                 }
 
-            }
-            PageIndicator {
-                id: indicator
-                visible: stack.count > 1
-                count: stack.count
-                currentIndex: stack.currentIndex
 
-                anchors{bottom: parent.bottom;
-                    horizontalCenter: parent.horizontalCenter;
-                    bottomMargin: 70}
+                compContainer.currentItem.forceActiveFocus()
+                // dbg("currentIndex=" + currentIndex
+                //             ,"63gb")
             }
 
         }
+        PageIndicator {
+            id: indicator
+            visible: compContainer.count > 1
+            count: compContainer.count
+            currentIndex: compContainer.currentIndex
+
+            anchors{
+                bottom: parent.bottom;
+                horizontalCenter: parent.horizontalCenter;
+                // bottomMargin: 70
+            }
+        }
+
+    }
 
 
-
-    LogView{
+    LogView {
         id: logView
-        width: parent.width
-        height: (count * 25 < parent.height / 4) ? count * 25 : parent.height / 4
-        z: 10
-        anchors.bottom: parent.bottom
+
+        // Фіксуємо ширину плаваючих карток, щоб вони виглядали як Snackbars
+        width: parent.width < 400 ? parent.width - 16 : 360
+
+        // Динамічна висота: росте вгору залежно від кількості активних повідомлень (макс. 4 рядки)
+        height: Math.min(count * 45, parent.height * 0.4)
+
+        // Максимальний пріоритет шару — лежить поверх SwipeView та футера
+        z: 999
+
+        anchors {
+            // Притискаємо стек до правого нижнього кута (класика для сповіщень)
+            bottom: parent.bottom
+            right: parent.right
+
+            // Робимо відступи від країв екрана каси, щоб картки «висіли» в повітрі
+            // margins{right: 10; bottom:50}
+            bottomMargin: 70 // Трохи вище вашого футера Rectangle
+            rightMargin: 10
+        }
+
+        // Вимикаємо інтерактивний скрол мишкою, бо це тепер просто контейнер карток
+        interactive: false
         debug: true
     }
 
     Component.onCompleted: {
+        // logView.append("this is INFO message")
+        // logView.append("this is WARNING message",1)
+        // logView.append("this is ERROR message",0)
         // let p = "f26r"    //"s5k9";
         // console.log("#387y psw = " + p + " b64: " + Qt.btoa( p));
-        // console.log("env=")
-        // console.log(applicationDirPath)
-        // console.log("+++")
-        // bindCheckAction.trigger()
-        if (resthost != undefined && resthost != "") {
-            actionLogin.trigger();
-        }
+        // console.log(`Main.qml#8wur user=[${root.restuser}] psw=[${root.restpassword}] `);
+        // console.log(`Main.qml#s582 Null=${Component.Null}
+        //             Redy=${Component.Ready}
+        //             Loading=${Component.Loading}
+        //             Error=${Component.Error}
+        //             `);
         // pathToDb = "./data/"
         // pathToDb = applicationDirPath + "/data/"
 //         var dbList = Db.dirEntryList(pathToDb,'*.sqlite', 2,0)
 // //            console.log('main db list='+dbList)
-        const dbList = Lib.getDbList(Db, applicationDirPath)
-        if (dbList.length === 1) {
-            // root.dbname = pathToDb+dbList[0]
-            root.dbname = dbList[0].id
-            // openConnection(pathToDb+dbList[0])
-        } else if (dbList.length > 1) {
-            changeDBAction.enabled = true
-            changeDBAction.trigger()
+        // Завантаження локальної SQLite бази даних
+        const source = Db.dirEntryList(`${applicationDirPath}/data/`,'*.sqlite', 2,0)
+        const dbList = source
+        .map(v => {
+                 return {
+                     "id": `${applicationDirPath}/data/${v}`,
+                     "name": v,
+                     "fullname": "",
+                    "code": "database",
+                     "sect": qsTr("Доступні БД")
+                  };
+            })
 
-        } else {        // no database
-            // error
-            logView.append("Недоступна база даних", 0)
+        if (dbList.length === 1) {
+            root.dbname = dbList[0].id;
+            logView.append("Базу даних ініціалізовано успішно: " + root.dbname, 2);
+        } else if (dbList.length > 1) {
+            if (typeof changeDBAction !== "undefined") {
+                changeDBAction.enabled = true;
+                changeDBAction.trigger();
+            }
+        } else {
+            // Якщо папка data порожня або файл пошкоджено
+            logView.append("Критична помилка: Локальна база даних sqlite недоступна!", 0);
         }
 
     }

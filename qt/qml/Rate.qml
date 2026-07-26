@@ -1,155 +1,277 @@
+// Rate.qml
 import QtQuick
 import QtQuick.Controls
-// import QtQuick.Controls.Fusion
 import QtQuick.Layouts
 
 Window {
     id: root
-    width: 200
-    height: 400
+    width: 280  // Трохи збільшимо ширину (з 200 до 280) для комфортного відображення довгих курсів валют (напр. 41.5550)
+    height: 420
+    minimumWidth: 240
+    minimumHeight: 350
 
     property bool online: false
-    property string uri
-    property var queryData  // {"term":term,"reqid":"sel","shop":root.term}
-    property var dbDriver                 // DataBase driver
+    // property string uri
+    // property var queryData
+    property var dbDriver: null
+
     onDbDriverChanged: {
-        vw.model.populate(dbDriver)
-        if (getWebAction.enabled) vw.model.loadWebRates(uri, queryData)
-    }
-    property real zero: 0.0000001
-
-    property var funcCreateDcm // (atclid)
-
-    // signal vkEvent(string id, var param)
-
-    ModelRates{
-        id: data
-        onVkEvent: (id, param) => {
-            if (id === 'log'){
-                logView.append("[ModelRates] " + param, 2)
-            } else if (id === 'err') {
-                logView.append("[ModelRates] " + param, 0)
-            } else {
-                logView.append("[ModelRates] BAD event !!!", 1)
+        if (dbDriver) {
+            ratesDataModel.populate(dbDriver);
+            if (getWebAction.enabled) {
+                getWebAction.trigger();
             }
-
         }
     }
 
-    Popup{
+    property real zero: 0.0000001
+    property var funcCreateDcm: null // Колбек для швидкого чека
+
+    // --- ОНОВЛЕНИЙ БЛОК МОДЕЛІ ДАНИХ (Перейменовано для безпеки Qt6) ---
+    ModelRates {
+        id: ratesDataModel
+
+        onVkEvent: (id, param) => {
+            // Звертаємось до глобального logView головного вікна Main.qml
+            if (typeof logView !== "undefined") {
+                if (id === 'log') {
+                    logView.append("[Курси] " + param, 2); // Зелений інфо-знак
+                } else if (id === 'err') {
+                    logView.append("[Курси] Помилка: " + param, 0); // Червона картка помилки
+                }
+            } else {
+                console.log(`[Fallback ModelRates] ${id}: ${param}`);
+            }
+        }
+    }
+
+    // Спливаюче попередження про перевищення ліміту курсу (Захист від помилок касира)
+    Popup {
         id: rateWarningPopup
-        property string str
-        width: root.width * 0.8
-        height: 80
-        x: (root.width-width)/2
-        y: (root.height-height)/2
+        property string str: ""
+        width: root.width * 0.9
+        height: 90
+        x: (root.width - width) / 2
+        y: (root.height - height) / 2
         modal: true
+        focus: true
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-        Item{
+
+        background: Rectangle {
+            radius: 8
+            color: "#FEF2F2" // Пастельний світло-червоний фон попередження
+            border { width: 1; color: "#FCA5A5" }
+        }
+
+        Item {
             anchors.fill: parent
-            clip: true
-            Text{
+            Text {
                 anchors.centerIn: parent
                 text: rateWarningPopup.str
+                horizontalAlignment: Text.AlignHCenter
+                font { pixelSize: 12; bold: true }
+                color: "#9B1C1C"
             }
         }
-
     }
+
 
     Component {
         id: dlg
+
         FocusScope {
             id: dlgroot
             property bool web: root.online
-            width: dlgroot.ListView.view.width //childrenRect.width;
-            height: 28;
-//            color: (index==dlgroot.ListView.view.currentIndex?"PaleGreen":(index%2 == 0 ?  "white" : 'HoneyDew'))
-            // color: (index%2 == 0 ?  "whitesmoke" : 'white')
-//            color: (index%2 == 0 ?  "PaleGreen" : 'Aquamarine')
-//            color: (index%2 == 0 ?  Qt.darker('white',1.03) : 'white')
-                MouseArea{
-                    anchors.fill: parent
-                    onClicked: { dlgroot.ListView.view.currentIndex=index; }
+
+            width: vw.width
+            height: 30
+
+            // Інтерактивна підкладка для виділення поточної валюти та ефекту «зебри»
+            Rectangle {
+                anchors.fill: parent
+                color: vw.currentIndex === index ? "#EFF6FF" : ((index % 2 === 0) ? "#FFFFFF" : "#F9FAFB")
+
+                Rectangle {
+                    anchors.bottom: parent.bottom
+                    width: parent.width
+                    height: 1
+                    color: "#F3F4F6"
                 }
 
-            Row{
-                anchors.fill: parent
-                Text{          // bid
-                    width: parent.width*0.35;
-                    height: parent.height
-                    verticalAlignment: Text.AlignVCenter
-                    horizontalAlignment: Text.AlignHCenter
-                    text: Number(lbid)!==0 ? Number(lbid).toFixed(Number(lbid)<10?3:2) : "" //(bid==''||Number(bid)===0)?'':bid+"/"+lbid
-                    font.bold: web && Math.abs(Number(bid)-Number(lbid))>zero
-                    MouseArea{
-                        anchors.fill: parent
-                        hoverEnabled :true
-                        onClicked: { bidedit.visible = true; bidedit.text=lbid; bidedit.forceActiveFocus() }
+                MouseArea {
+                    anchors.fill: parent
+                    // Дозволяємо кліку проходити крізь MouseArea, щоб TextField міг перехоплювати фокус
+                    propagateComposedEvents: true
+                    onClicked: (mouse) => {
+                        vw.currentIndex = index;
+                        mouse.accepted = false; // Передаємо клік далі елементам
                     }
-                    TextField{
+                }
+            }
+
+            RowLayout {
+                anchors.fill: parent
+                spacing: 0
+
+                // =============================================================
+                // 1. КОЛОНКА КУРСУ КУПІВЛІ (BID)
+                // =============================================================
+                Item {
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 35
+                    Layout.fillHeight: true
+
+                    Text {
+                        anchors.fill: parent
+                        verticalAlignment: Text.AlignVCenter
+                        horizontalAlignment: Text.AlignHCenter
+                        visible: !bidedit.visible
+
+                        // Безпечне форматування курсу залежно від його номіналу
+                        text: lbid !== 0 ? lbid.toFixed(lbid < 10 ? 3 : 2) : ""
+                        // {
+                        //     let bidNum = Number(lbid || 0);
+                        //     return bidNum !== 0 ? bidNum.toFixed(bidNum < 10 ? 3 : 2) : "";
+                        // }
+
+                        // Підсвічуємо жирним, якщо курс відрізняється від сайту
+                        font {
+                            pixelSize: 12
+                            bold: dlgroot.web && Math.abs(Number(bid || 0) - Number(lbid || 0)) > root.zero
+                        }
+                        color: font.bold ? "#1E429F" : "#1F2937" // Робимо невідповідний курс синішим
+
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: {
+                                bidedit.text = String(lbid || "");
+                                bidedit.visible = true;
+                                bidedit.forceActiveFocus();
+                            }
+                        }
+                    }
+
+                    // Поле інпуту для миттєвої зміни курсу купівлі
+                    TextField {
                         id: bidedit
                         anchors.fill: parent
                         visible: false
                         selectByMouse: true
-                        validator: DoubleValidator {bottom: 0; decimals: 4; notation: "StandardNotation"; locale: "en_US" }
-                        onActiveFocusChanged: if (activeFocus) {selectAll()} else {visible = false}
+                        horizontalAlignment: Text.AlignHCenter
+                        font.pixelSize: 12
+
+                        // Працює надійно під американську локаль чисел з крапкою
+                        validator: DoubleValidator { bottom: 0; decimals: 4; notation: "StandardNotation"; locale: "en_US" }
+                        onActiveFocusChanged: if (activeFocus) selectAll(); else visible = false;
+
                         onAccepted: {
-                            dlgroot.ListView.view.upd(index, text)
-                            // if ((Number(text)===0) || (Math.abs((Number(text)-Number(lbid))/Number(lbid)) < 0.04)) { lbid = text
-                            // } else { text = lbid } // error
-                            visible = false
-                            dlgroot.forceActiveFocus()
+                            vw.upd(index, text, "bid");
+                            visible = false;
+                            dlgroot.forceActiveFocus();
                         }
                     }
                 }
-                Text{      // currency name
-                    width: parent.width*0.3;height:parent.height;
-                    verticalAlignment: Text.AlignVCenter
-                    horizontalAlignment: Text.AlignHCenter
-                    text:(qty==='1'?'':(qty+' ')) + curchar
-                    font.bold: web && ((Math.abs(Number(bid)-Number(lbid))>zero) || (Math.abs(Number(ask)-Number(lask))>zero))
-                    MouseArea{
+
+                // =============================================================
+                // 2. КОЛОНКА НАЗВИ ВАЛЮТИ (CURRENCY)
+                // =============================================================
+                Item {
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 30
+                    Layout.fillHeight: true
+
+                    Text {
                         anchors.fill: parent
-                        hoverEnabled :true
-                        ToolTip{
-                            id: rateToolTip
-                            width: 150
-                            visible: false
-                            delay: 1000
-                            timeout: 5000
-                            text: 'код: '+ curid+'\n' + curname+'\n'+'к-сть: '+ qty
-                                + String("\nсайт: %1/%2").arg(bid===""?"--":bid).arg(ask===""?"--":ask)
-                                + String("\nпопередні: %1/%2").arg(dfltbid===""?"--":dfltbid).arg(dfltask===""?"--":dfltask)
+                        verticalAlignment: Text.AlignVCenter
+                        horizontalAlignment: Text.AlignHCenter
+
+                        // Вивід кратності валюти (напр. "100 HUF" або просто "USD")
+                        text: (qty === '1' || qty === 1 || !qty ? "" : (qty + " ")) + (curchar || "???")
+
+                        font {
+                            pixelSize: 12
+                            bold: dlgroot.web && ((Math.abs(Number(bid || 0) - Number(lbid || 0)) > root.zero) ||
+                                                 (Math.abs(Number(ask || 0) - Number(lask || 0)) > root.zero))
                         }
-                        onEntered: {rateToolTip.visible = true}
-                        onExited: rateToolTip.visible = false
-                        onDoubleClicked: { dlgroot.ListView.view.newDoc(index); }
+                        color: "#111827"
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+
+                            // Подвійний клік по валюті автоматично відкриває швидкий чек у Bind.qml
+                            onDoubleClicked: vw.newDoc(index)
+
+                            ToolTip {
+                                id: rateToolTip
+                                width: 180
+                                visible: parent.containsMouse
+                                delay: 600
+                                timeout: 4000
+
+                                text: `Код: ${curid || "—"}\n` +
+                                      `Назва: ${curname || "—"}\n` +
+                                      `Кратність: ${qty || "1"}\n` +
+                                      `Сайт (К/П): ${bid === "" ? "—" : bid} / ${ask === "" ? "—" : ask}\n` +
+                                      `Попередні: ${dfltbid === "" ? "—" : dfltbid} / ${dfltask === "" ? "—" : dfltask}`
+                            }
+                        }
                     }
                 }
-                Label{      // ask
-                    width: parent.width*0.35;
-                    height: parent.height
-                    verticalAlignment: Text.AlignVCenter
-                    horizontalAlignment: Text.AlignHCenter
-                    text: Number(lask)!==0 ? Number(lask).toFixed(Number(lask)<10?3:2) : ""
-                    font.bold: web && Math.abs(Number(ask)-Number(lask))>zero
-                    font.underline: lask !== dfltask
-                    MouseArea{
+
+                // =============================================================
+                // 3. КОЛОНКА КУРСУ ПРОДАЖУ (ASK)
+                // =============================================================
+                Item {
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 35
+                    Layout.fillHeight: true
+
+                    Text {
                         anchors.fill: parent
-                        hoverEnabled :true
-                        onClicked: { askedit.visible = true; askedit.text=lask; askedit.forceActiveFocus() }
+                        verticalAlignment: Text.AlignVCenter
+                        horizontalAlignment: Text.AlignHCenter
+                        visible: !askedit.visible
+
+                        text: lask !== 0 ? lask.toFixed(lask < 10 ? 3 : 2) : ""
+                        // {
+                        //     let askNum = Number(lask || 0);
+                        //     return askNum !== 0 ? askNum.toFixed(askNum < 10 ? 3 : 2) : "";
+                        // }
+
+                        font {
+                            pixelSize: 12
+                            bold: dlgroot.web && Math.abs(Number(ask || 0) - Number(lask || 0)) > root.zero
+                            underline: lask !== dfltask // підкреслюємо, якщо курс змінено від дефолтного
+                        }
+                        color: font.bold ? "#1E429F" : "#1F2937"
+
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: {
+                                askedit.text = String(lask || "");
+                                askedit.visible = true;
+                                askedit.forceActiveFocus();
+                            }
+                        }
                     }
-                    TextField{
+
+                    // Поле інпуту для миттєвої зміни курсу продажу
+                    TextField {
                         id: askedit
                         anchors.fill: parent
                         visible: false
                         selectByMouse: true
-                        validator: DoubleValidator {bottom: 0; decimals: 4; notation: "StandardNotation"; locale: "en_US" }
-                        onActiveFocusChanged: if (activeFocus) {selectAll()} else {visible = false}
+                        horizontalAlignment: Text.AlignHCenter
+                        font.pixelSize: 12
+
+                        validator: DoubleValidator { bottom: 0; decimals: 4; notation: "StandardNotation"; locale: "en_US" }
+                        onActiveFocusChanged: if (activeFocus) selectAll(); else visible = false;
+
                         onAccepted: {
-                            dlgroot.ListView.view.upd(index, text, "ask")
-                            visible = false
-                            dlgroot.forceActiveFocus()
+                            vw.upd(index, text, "ask");
+                            visible = false;
+                            dlgroot.forceActiveFocus();
                         }
                     }
                 }
@@ -157,101 +279,127 @@ Window {
         }
     }
 
-    Action{
+    // --- БЛОК ОПЕРАЦІЙНИХ КОМАНД (ACTIONS) ---
+    Action {
         id: getWebAction
         enabled: root.online
-        text: "Курси з сайту"
-        onTriggered: vw.model.loadWebRates(root.uri, root.queryData)
+        text: qsTr("Завантажити з сайту")
+        onTriggered: {
+            vw.model.loadWebRates()
+        }
     }
 
-    Action{
+    Action {
         id: saveWebAction
-        enabled: root.online
-        text: "Встановити з сайту"
-        onTriggered: vw.model.updateLocalRates(dbDriver);
+        enabled: root.online && root.dbDriver !== null && !ratesDataModel.isWebEmpty
+        text: qsTr("Встановити для каси")
+        onTriggered: vw.model.updateLocalRates(root.dbDriver)
     }
 
-    Pane{
-        anchors{fill: parent;}
-        ColumnLayout{
-            anchors{fill: parent; }
-            ListView{
+    // --- ГОЛОВНИЙ ЖУРНАЛ КУРСІВ ВАЛЮТ ---
+    Pane {
+        anchors.fill: parent
+        padding: 6
+
+        background: Rectangle { color: "#FFFFFF" }
+
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 8
+
+            ListView {
                 id: vw
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 clip: true
-                model: data
-                // model: ListModel{}
-                header:
-                    Row{
-                        width: vw.width
-                        height: 20
-                        Label{
-                            width: parent.width*0.35-parent.spacing
-                            height: parent.height
-                            verticalAlignment: Text.AlignVCenter
-                            horizontalAlignment: Text.AlignHCenter
-                            color: 'dimgrey'
-                            text: 'СКУП'
-                        }
-                        Label{
-                            width: parent.width*0.30;
-                            height: parent.height
-                            verticalAlignment: Text.AlignVCenter
-                            horizontalAlignment: Text.AlignHCenter
-                            color: 'dimgrey'
-                            text: 'ВАЛ'
-                        }
-                        Label{
-                            width: parent.width*0.35-parent.spacing
-                            height: parent.height
-                            verticalAlignment: Text.AlignVCenter
-                            horizontalAlignment: Text.AlignHCenter
-                            color: 'dimgrey'
-                            text: 'ПРОД'
-                        }
-
-                    }
-
+                model: ratesDataModel
                 delegate: dlg
 
-                function newDoc(row){
-                    funcCreateDcm(model.get(row).curid)
+                header: Rectangle {
+                    width: vw.width
+                    height: 24
+                    color: "#F3F4F6" // Світло-сіра підкладка шапки
+
+                    RowLayout {
+                        anchors.fill: parent
+                        spacing: 0
+
+                        Label {
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: 35
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            font { pixelSize: 11; bold: true }
+                            color: "#4B5563"
+                            text: qsTr("КУПІВЛЯ")
+                        }
+                        Label {
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: 30
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            font { pixelSize: 11; bold: true }
+                            color: "#4B5563"
+                            text: qsTr("ВАЛЮТА")
+                        }
+                        Label {
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: 35
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            font { pixelSize: 11; bold: true }
+                            color: "#4B5563"
+                            text: qsTr("ПРОДАЖ")
+                        }
+                    }
                 }
 
-                function upd(row, amnt, ba = "bid"){
-                    if ((Number(amnt) === 0) || model.get(row).lbid === 0 || (Math.abs(Number(amnt)- model.get(row).lbid)/model.get(row).lbid < 0.04))
-                        model.updateLocalRate(dbDriver, row, amnt, ba === "bid" ? "1" : "-1")
-                    else {
-                        // difference is too much
-                        rateWarningPopup.str = "Перевищення діапазону.\nДопустимі значення \n0, \nвід " + (model.get(row).lbid * 0.96).toFixed(4) + " до " + (model.get(row).lbid * 1.04).toFixed(4)
-                        rateWarningPopup.open()
+                // Швидке створення чека при подвійному кліку по валюті
+                function newDoc(row) {
+                    if (typeof root.funcCreateDcm === "function") {
+                        let itemData = ratesDataModel.get(row);
+                        if (itemData && itemData.curid) {
+                            root.funcCreateDcm(itemData.curid);
+                        }
+                    }
+                }
+
+                function upd(row, amnt, ba = "bid") {
+                    let itemData = ratesDataModel.get(row);
+                    if (!itemData) return;
+
+                    let amountNum = Number(amnt);
+                    let baseBid = Number(itemData.lbid || 0);
+
+                    // Якщо курс 0, або в базі немає старого курсу, або відхилення менше 4% — дозволяємо запис
+                    if (amountNum === 0 || baseBid === 0 || (Math.abs(amountNum - baseBid) / baseBid < 0.04)) {
+                        ratesDataModel.updateLocalRate(root.dbDriver, row, amnt, ba === "bid" ? "1" : "-1");
+                    } else {
+                        // ✅ ВИПРАВЛЕНО: Математичний захист від випадкового введення зайвого нуля
+                        rateWarningPopup.str = qsTr("Перевищення ліміту курсу!\nДопустимий діапазон відхилення ±4%:\nвід %1 до %2")
+                            .arg((baseBid * 0.96).toFixed(4))
+                            .arg((baseBid * 1.04).toFixed(4));
+                        rateWarningPopup.open();
                     }
                 }
             }
 
-            Button{
+            // --- НИЖНІ КНОПКИ СИНХРОНІЗАЦІЇ ---
+            Button {
                 id: loadBtn
                 Layout.fillWidth: true
+                Layout.preferredHeight: 36
                 action: getWebAction
+                font.bold: true
             }
 
-            Button{
+            Button {
                 id: saveBtn
                 Layout.fillWidth: true
+                Layout.preferredHeight: 36
                 action: saveWebAction
+                font.bold: true
             }
-
-            LogView{
-                id: logView
-                Layout.fillWidth: true
-                Layout.preferredHeight: count * 25
-                Layout.maximumHeight: parent.height / 4
-            }
-
         }
-
     }
-
-
 }
