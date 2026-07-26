@@ -210,7 +210,7 @@ function handleAddBindTab(db, prn, comp, msg, container, ui){
     const dfltAmnt = (ui.state === "facture")
                    ? 1
                    : Number(basicConf?.amnt_sign || -1);
-
+console.info(`main.js/handleAddBindTab container ${container.count}`);
     const newObj = comp.createObject(container, {
         dbDriver: db,
         dfltAmnt: Number(dfltAmnt),

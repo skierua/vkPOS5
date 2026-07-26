@@ -19,6 +19,17 @@ find_package(Qt6 REQUIRED COMPONENTS PrintSupport)
 # find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Sql)
 # find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS PrintSupport)
 
+# Виправляємо баг Qt з відсутнім AGL на нових macOS
+if(APPLE)
+    if(TARGET Qt6::Gui)
+        get_target_property(GUI_LINKS Qt6::Gui INTERFACE_LINK_LIBRARIES)
+        if(GUI_LINKS)
+            string(REPLACE "-framework AGL" "" GUI_LINKS "${GUI_LINKS}")
+            set_target_properties(Qt6::Gui PROPERTIES INTERFACE_LINK_LIBRARIES "${GUI_LINKS}")
+        endif()
+    endif()
+endif()
+
 qt_standard_project_setup()
 
 set(CPP_FILES
@@ -28,7 +39,7 @@ set(CPP_FILES
 
 set(JS_FILES
     qt/qml/js/v147/config.js
-    qt/lib.js
+    # qt/lib.js
     # qt/libTAX.js
     qt/qml/js/libREST.js
     qt/qml/js/main.js
