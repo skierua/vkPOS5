@@ -12,8 +12,8 @@
 // mode all | updated account
 function uploadBalance(db, mode = "upd", msg){
     if (!(REST.isConnected ?? false)) return;
-    const basicConf = Conf.getBasic(db);
-    const currentTerm = String(basicConf?.id || "TEST");
+    // const basicConf = Conf.getBasic(db);
+    const currentTerm = String(Conf.TERM || "TEST");
     const currentShop = currentTerm;
     let acntData = [];
     const loadMode = (mode === "all" ? false : true);
@@ -40,8 +40,8 @@ function uploadBind(bind, msg){
         msg.error("[uploadBind] Bind is missing");
         return;
     }
-    const basicConf = Conf.getBasic(db);
-    const currentTerm = String(basicConf?.id || "TEST");
+    // const basicConf = Conf.getBasic(db);
+    const currentTerm = String(Conf.TERM || "TEST");
     const currentShop = currentTerm;
     const bindReq = { "term": currentTerm, "reqid": "upd", "shop": currentShop, "data": bind }
     REST.uploadBind(bindReq,
@@ -210,7 +210,7 @@ function handleAddBindTab(db, prn, comp, msg, container, ui){
     const dfltAmnt = (ui.state === "facture")
                    ? 1
                    : Number(basicConf?.amnt_sign || -1);
-console.info(`main.js/handleAddBindTab container ${container.count}`);
+// console.info(`main.js/handleAddBindTab container ${container.count}`);
     const newObj = comp.createObject(container, {
         dbDriver: db,
         dfltAmnt: Number(dfltAmnt),
@@ -223,7 +223,6 @@ console.info(`main.js/handleAddBindTab container ${container.count}`);
             if (ui && typeof ui.setClientFromBind === "function")
                 ui.setClientFromBind(param || null);
         } else if (id === 'tranOk') {
-            const basicConf = Conf.getBasic(db);
            uploadBind(param?.bind || null, msg);
            uploadBalance(db, "upd", msg);
            // print dcm

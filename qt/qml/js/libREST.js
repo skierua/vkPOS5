@@ -1,6 +1,12 @@
 .pragma library
 .import "v147/config.js" as Conf
 
+// sending is prohibited for debugging purposes
+// sending uploadBind, uploadBalance is prohibited
+// sending connect, loginRequest, loadRates is NOT prohibited
+// const BAN_SEND = true;
+const BAN_SEND = false;
+
 let HOST = "https://test.kantorfk.com";
 let API = "/api/v5";
 let USER = "";
@@ -80,94 +86,12 @@ function connect(callback) {
     });
 }
 
-/*const Param = (() => {
-    const db_key = "rest";
-
-    let v_url = null;
-    let v_api = null;
-    let v_token = null;
-    let v_user = null;
-    let v_psw = null;
-
-    // Створюємо об'єкт інтерфейсу
-    const apiInstance = {
-        reset(db) {
-            v_url = null;
-            v_api = null;
-            v_token = null;
-            v_user = null;
-            v_psw = null;
-
-            if (!db) return;
-
-            // Чистий виклик з бази даних без друкарських помилок
-            const val = Conf.getREST(db);
-            if (!val) return;
-
-            apiInstance.setUrl(val.host ? String(val.host) : "");
-            apiInstance.setApi(val.api ? String(val.api) : "");
-            apiInstance.setLogin(
-                val.user ? String(val.user) : "",
-                val.psw ? String(val.psw) : ""
-            );
-        },
-
-        save(db) {
-            if (!db) return false;
-
-            const paramData = {
-                "host": String(v_url || ""),
-                "api": String(v_api || ""),
-                "user": String(v_user || ""),
-                "psw": String(v_psw || "")
-            };
-
-            return Conf.setREST(db, paramData);
-        },
-
-        // --- Сетери (Встановлення значень) ---
-        setUrl(val) { v_url = val; },
-        setApi(val) { v_api = val; },
-        setToken(val) { v_token = val; },
-        setLogin(userVal, pswVal) {
-            v_user = userVal;
-            v_psw = pswVal;
-        },
-
-        // --- Гетери (Отримання значень) ---
-        url() { return v_url; },
-        api() { return v_api; },
-        token() { return v_token; },
-        user() { return v_user; },
-        psw() { return v_psw; }
-    };
-
-    return apiInstance;
-})();
-*/
-
 function parse(raw) {
     try {
         return JSON.parse(raw);
     } catch (err) {
         return false;
     }
-}
-
-
-// DEPRECATED, use connect instead
-function login(callback) {
-    console.log("libREST.js/login DEPRECATED, use connect instead")
-    loginRequest(Param.user(), Param.psw(), (err, token) => {
-        if (err === null) {
-            Param.setToken(token);
-            TOKEN = token;
-            callback(null);
-        } else {
-            TOKEN = "";
-            callback(err.text);
-        }
-    });
 }
 
 function loginRequest(usr, psw, callback) {
@@ -209,17 +133,29 @@ function loadRates(req, callback) {
 }
 
 function uploadBind(req, callback) {
-    console.log(`WW: libREST.js/uploadBind BLOKKED !!!`); return;
-    postRequest("/dcms", req, (err, resp) => { callback(err); });
+    if (BAN_SEND) {
+    // debug info
+        console.warn("WW: REST.uploadBind is PROHIBITED (BAN_SEND = true) !!!")
+    } else {
+        postRequest("/dcms", req, (err, resp) => { callback(err); });
+    }
+
 }
 function uploadBalance(req, callback) {
-    console.log(`WW: libREST.js/uploadBalance BLOKKED !!!`); return;
-    postRequest("/accounts", req, (err, resp) => { callback(err); });
+    // console.warn(`WW: libREST.js/uploadBalance BLOKKED !!!`); return;
+    if (BAN_SEND) {
+    // debug info
+        console.warn("WW: REST.uploadBalance is PROHIBITED (BAN_SEND = true) !!!")
+    } else {
+        postRequest("/accounts", req, (err, resp) => { callback(err); });
+    }
+
 }
 
 // deprecated
 function uploadBindTran(term, shop, dcms, acnts, callback) {
-    console.log(`WW: libREST.js/uploadBindTran DEPRECATED BLOKKED !!!`); return;
+    console.warn(`WW: libREST.js/uploadBindTran DEPRECATED BLOKKED !!!`);
+    return;
     let req = { "term": term, "reqid": "upd", "shop": term, "data": dcms };
     uploadBind(req, (err) => {
         if (err === null) {
@@ -277,17 +213,17 @@ function postRequest(path, req, callback) {
         }
     };
 
-    request.open("POST", url);
-    request.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-    request.setRequestHeader("Accept", "application/json");
+        request.open("POST", url);
+        request.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+        request.setRequestHeader("Accept", "application/json");
 
-    if (!isLegacyApi && TOKEN !== "") {
-        request.setRequestHeader("Authorization", "Bearer " + TOKEN);
-    }
+        if (!isLegacyApi && TOKEN !== "") {
+            request.setRequestHeader("Authorization", "Bearer " + TOKEN);
+        }
 
-    console.log("REST.postRequest send is BLOCKED !!!")
-    // console.log(`${JSON.stringify(req)}`)
-    // request.send("data=" + encodeURIComponent(JSON.stringify(req)));
+        // console.log(`${JSON.stringify(req)}`)
+        request.send("data=" + encodeURIComponent(JSON.stringify(req)));
+
 }
 
 // DEPRECATED
@@ -306,11 +242,17 @@ function patchRequest(url, req, token, callback) {
             callback(response);
         }
     }
-    request.open("PATCH", url);
-    request.setRequestHeader("Content-Type","application/x-www-form-urlencoded");
-    request.setRequestHeader("Bearer",token);
-    // request.send("term="+term+"&reqid=curAmnt&acnt=" + crntacnt);
-    request.send("data=" + Qt.btoa(JSON.stringify(req)));
+
+    if (BAN_SEND) {
+    // debug info
+        console.warn("WW: REST.patchRequest send is PROHIBITED (BAN_SEND = true) !!!")
+    } else {
+        request.open("PATCH", url);
+        request.setRequestHeader("Content-Type","application/x-www-form-urlencoded");
+        request.setRequestHeader("Bearer",token);
+        // request.send("term="+term+"&reqid=curAmnt&acnt=" + crntacnt);
+        request.send("data=" + Qt.btoa(JSON.stringify(req)));
+    }
 }
 
 function getRequest(url, path, query, callback) {
@@ -356,13 +298,19 @@ function postRequest2(url, req, callback) {
             callback(err, resp);
         }
     }
-    request.open("POST", url);
-    request.setRequestHeader("Content-Type","application/x-www-form-urlencoded");
-    // request.setRequestHeader("Content-Type","multipart/form-data");
-    request.setRequestHeader("Accept","application/json");
-    // request.setRequestHeader("Bearer",token);
-    // request.send("data=" + Qt.btoa(JSON.stringify(req)));
-    request.send("data=" + JSON.stringify(req));
+
+    if (BAN_SEND) {
+    // debug info
+        console.warn("WW: REST.postRequest2 send is PROHIBITED (BAN_SEND = true) !!!")
+    } else {
+        request.open("POST", url);
+        request.setRequestHeader("Content-Type","application/x-www-form-urlencoded");
+        // request.setRequestHeader("Content-Type","multipart/form-data");
+        request.setRequestHeader("Accept","application/json");
+        // request.setRequestHeader("Bearer",token);
+        // request.send("data=" + Qt.btoa(JSON.stringify(req)));
+        request.send("data=" + JSON.stringify(req));
+    }
 }
 
 /*

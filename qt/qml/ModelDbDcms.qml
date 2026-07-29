@@ -6,7 +6,7 @@ ListModel {
     id: mRoot
     property var bind
     property var data
-    property int pageCapacity: 10
+    property int pageCapacity: 25
     property list<int> pager: []
     property int bindCount: 0   // filtered bind count
     // property bool acntOnly: false
@@ -23,14 +23,20 @@ ListModel {
         const joinSource = source1.concat(source2);
         const bindMap = new Map(
             joinSource.filter(v => v.pid === "")
-                .sort((a,b) => b.pid - a.pid
-                      || b.dcmid - a.dcmid )
+                // .sort((a, b) => new Date(b.dcmtime) - new Date(a.dcmtime))
+                // .sort((a, b) => b.dcmtime > a.dcmtime ? 1 : -1
+                // .sort((a,b) => b.pid - a.pid
+                //       || b.dcmid - a.dcmid )
                 .map(v => [v.dcmid, v])
         );
         // console.log(`ModelDbDcms#d7yh ${JSON.stringify([...bindMap.entries()])}`)
         const dcmList = joinSource
         .filter(v => v.pid !== "")
-        .sort((a,b) => b.dcmid - a.dcmid )
+        .sort((a, b) =>
+            (a.shftid === 0 && b.shftid !== 0) ? -1 :
+            (a.shftid !== 0 && b.shftid === 0) ? 1 :
+            ((b.shftid - a.shftid) || (b.pid - a.pid) || (a.dcmid - b.dcmid))
+        )
         .map(function(v) {
                 // Створюємо копію об'єкта v та додаємо jarticle
                 return Object.assign({}, v, {
@@ -122,7 +128,7 @@ ListModel {
 
     }
 
-    function bindInfo(pid){
+   function bindInfo(pid){
         return mRoot.bind.get(Number(pid));
 
 
@@ -214,27 +220,6 @@ ListModel {
              // , "flt": row.flt
             };
         return res;
-    }
-
-    function old_showFullBind(row){
-        const pid = get(row).pid
-        ++row
-        for( ; row < count && pid === get(row).pid; ++row){ }
-        let lf =0, rt = mRoot.data.length -1, md =0;
-        while (lf < rt /*&& pid !== mRoot.data[lf].pid*/) {
-            // dbg("showFullBind pid="+ pid + " lf="+ lf + "/" + mRoot.data[lf].pid + " rt="+rt + "/" + mRoot.data[rt].pid+ " md="+md)
-            md = lf + Math.floor((rt - lf)/2)
-            if (mRoot.data[md].pid > pid) lf = md + 1
-            else rt = md
-        }
-        // dbg("showFullBind pid="+pid + " lf=" + lf + " finded="+ mRoot.data[lf].pid)
-        for( ; lf > 0 && pid === mRoot.data[lf-1].pid; --lf){}
-        // dbg("showFullBind AFTER pid="+pid + " lf=" + lf + " finded="+ mRoot.data[lf].pid)
-        for( ; lf < data.length && pid === mRoot.data[lf].pid; ++lf) {
-            if (data[lf].flt) continue;
-            addNew(data[lf], row)
-            // insert(row, data[lf])
-        }
     }
 
 }

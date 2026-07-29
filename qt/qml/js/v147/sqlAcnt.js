@@ -346,7 +346,7 @@ function dbAcntbal(db, condition, filter) {
 function balanceForUpload(db, updatedOnly) {
     if (!db) return [];
 
-    // ✅ ОПТИМІЗАЦІЯ UTC: Прибрано 'localtime'. Тепер порівняння часу транзакцій
+    // Прибрано 'localtime'. Тепер порівняння часу транзакцій
     // з системним 'now' за Гринвічем відбувається безпомилково і миттєво!
     const whereCondition = updatedOnly
         ? "datetime(tm) > datetime('now', '-10 minutes')"

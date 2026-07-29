@@ -349,7 +349,8 @@ ApplicationWindow {
 
                         onClicked: {
                             if (compContainer.currentItem) {
-                                compContainer.currentItem.crntClient = null;
+                                if (typeof compContainer.currentItem.setCrntClient === "function")
+                                    compContainer.currentItem.setCrntClient();
                             }
                         }
                     }
@@ -532,7 +533,7 @@ ApplicationWindow {
                 state: "",
             }
             const comp = Qt.createComponent("Bind.qml");
-            console.info(`Main.qml/bindCheckAction status=${comp.status}`)
+            // console.info(`Main.qml/bindCheckAction status=${comp.status}`)
             if (comp.status === Component.Ready) {
                 JS.handleAddBindTab(Db, Prn, comp, logView, compContainer, uiBridge);
                 compContainer.currentItem.startBindAction.trigger();
@@ -770,15 +771,19 @@ ApplicationWindow {
             }
 
             function onVkEvent(id, param) {
-                if (id === "bindTransacted"){
-                    // console.log(`Main.qml/onVkEvent bind=${JSON.stringify(param)}`)
-                    if (!!param) JS.uploadBind(param, logView);
-                } else if (id === "balanceChanged"){
-                    JS.uploadBalance(Db, "upd", logView);
-                } else if (id === "shiftClosed"){
+                if (id === "shiftStarted"){
+                    const startBind = param?.bind || null;
+                    if (!!startBind) JS.uploadBind(startBind, logView);
+                    JS.uploadBalance(Db, "all", logView);
+                    logView.info("Зміну успішно ВІДКРИТО");
+                } else if (id === "shiftFinished"){
                     // console.log("Main.qml/winShiftLoader#36y onVkEvent/shiftClosed")
                     logView.info("Зміну ЗАКРИТО");
-                    // root.visible = false;
+                    const bindList = param?.bindList || []
+                    for (let bind of bindList){
+                        JS.uploadBind(bind, logView);
+                    }
+                    JS.uploadBalance(Db, "upd", logView);
                     if (bindTaxAction.enabled || false) {
                         // console.log(`Main.qml/onVkEvent popupCloseShift.open()`)
                         popupCloseShift.open()
@@ -786,13 +791,18 @@ ApplicationWindow {
                         if (typeof quitTimer !== "undefined")  quitTimer.start();
                     }
 
+                } else if (id === "incasFinished"){
+                    const incasBind = param?.bind || null;
+                    if (!!incasBind) JS.uploadBind(incasBind, logView);
+                    JS.uploadBalance(Db, "upd", logView);
+                    logView.info("Валюти успішно ІНКАСОВАНО");
                 } else if (id === "info"){
-                    logView.info(`${param ?? "Unknown info"}`);
+                    logView.info(`[Shift] ${param ?? "Unknown info"}`);
                 } else if (id === "warning"){
-                    logView.warn(`${param ?? "Unknown warning"}`);
+                    logView.warn(`[Shift] ${param ?? "Unknown warning"}`);
                 } else if (id === "error"){
-                    logView.error(`${param ?? "Unknown error"}`);
-                }
+                    logView.error(`[Shift] ${param ?? "Unknown error"}`);
+                } else logView.warn("[Shift] Unknown event");
             }
         }
     }

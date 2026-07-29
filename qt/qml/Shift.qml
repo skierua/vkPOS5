@@ -66,8 +66,8 @@ Window {
                 root.isProcessing = false;
                 // console.log(`237#Shift.qml status=${(res?.status ?? -1)}`)
                 if((res?.status ?? -1) > 0) {
-                    if (!!res.bind) vkEvent("bindTransacted", (res.bind || null));
-                    vkEvent("info", "Зміну успішно ВІДКРИТО");
+                    vkEvent("shiftStarted", res);
+                    // vkEvent("info", "Зміну успішно ВІДКРИТО");
                     root.close();
                 } else if((res?.status ?? -1) < 0){
                     vkEvent("error", `Не вдалося відкрити зміну: ${bindModel.lastError || "???"}`);
@@ -93,8 +93,7 @@ Window {
                 const res = JS.handleIncasAction(dbDriver, vw.model, bindModel);
                 root.isProcessing = false;
                 if((res?.status ?? -1) > 0) {
-                    vkEvent("bindTransacted", res.bind);
-                    vkEvent("balanceChanged", null);
+                    vkEvent("incasFinished", res);
                     populateIncasAction.trigger();
                 } else if((res?.status ?? -1) < 0){
                     vkEvent("error", `Помилка інкасації: ${res?.errstr || bindModel.lastError || "???"}`);
@@ -117,11 +116,7 @@ Window {
                 const res = JS.finishShift(dbDriver, bindModel);
                 root.isProcessing = false;
                 if((res?.status ?? -1) > 0) {
-                    for (let bind of res.bindList){
-                        vkEvent("bindTransacted", bind);
-                    }
-                    vkEvent("balanceChanged", null);
-                    vkEvent("shiftClosed", null);
+                    vkEvent("shiftFinished", res);
                     root.close();
                 } else if((res?.status ?? -1) < 0){
                     vkEvent("error", `Не вдалося закрити зміну: ${res?.errstr || bindModel.lastError || "???"}`);

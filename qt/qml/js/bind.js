@@ -47,10 +47,21 @@ function crnTotalList(model) {
     return res;
 }
 
-function handleCrnToAcnt(db, model, acntno){
-    const crnTotal = crnTotalList(model);
+function handleDomToAcnt(db, model, acnt, amnt){
+    const atcl = LibItem.getItemById(db);
+    const type = amnt < 0 ? "pay:out" : "pay:in"
+    const ok = model.addDcm(atcl, acnt, type, amnt, null, "зарахування на рахунок");
+    if (!ok) console.error(model.lastError);
+}
+
+function handleCrnToAcnt(db, crnTotal, model, acnt){
+    // const crnTotal = crnTotalList(model);
     for (let i = 0; i < crnTotal.length; ++i) {
-        model.addDcm(db, crnTotal[i].id, acntno, -1 * crnTotal[i].amnt);
+        // console.info(`II: bind.js/handleCrnToAcnt acntno=${acnt} cur=${crnTotal[i].id} amnt=${-1 * crnTotal[i].amnt}`)
+        const atcl = LibItem.getItemById(db, crnTotal[i].id);
+        const type = crnTotal[i].amnt > 0 ? "pay:out" : "pay:in"
+        const ok = model.addDcm(atcl, acnt, type, -1 * crnTotal[i].amnt, null, "ВАЛ. зарахування на рахунок");
+        if (!ok) console.error(model.lastError);
     }
 }
 
@@ -186,7 +197,7 @@ function handleTranAction(db, model, prnMode, ui) {
 
     if (sendToTax) bindForTax = createBindForTax_cd(db, bid, "cash");
 
-    console.log(`7wh2#Bind.qml ${JSON.stringify(jbind)}`)
+    // console.log(`II: bind.js/handleTranAction#7wh2 ${JSON.stringify(jbind)}`)
     if (ui && typeof ui.vkEvent === "function")
         ui.vkEvent("tranOk",
                    {"bindid": bid,
@@ -353,6 +364,12 @@ function handleFind(db, str, popup, ui) {
             }
         }
         if (res.length === 0 && str.length < 5) {
+            if (str === "0000"){
+                console.info(`bind.js#j480 cl=0000`)
+                ui.setClient();
+                return;
+            }
+
             const cl = LibClient.client(db, str)
             if (cl){
                 res.push({
@@ -411,7 +428,7 @@ function handleFind(db, str, popup, ui) {
             popup.open()
         } else {
             if (res[0].code==="client"){                  // client
-                handleClientChanged(Db, res[0].id)
+                // handleClientChanged(db, res[0].id)
                 const clnt = getClient(db, res[0].id);
                 ui.setClient(clnt || null);
                 ui.vkEvent("clientChanged", clnt)
@@ -455,7 +472,14 @@ function handleNewDcm(db, model, ui){
         const bidAskSign = (dcmType === "trade:sell" ? -1
                                                      : (dcmType === "trade:buy" ? 1 :
                                                                                   (amntVal < 0 ? -1 : 1)));
-        jprice = LibPrice.price(db, jatcl.id, bidAskSign, ui.acnt?.acntno || "")
+        if (isCurrency){
+            jprice = model.rate !== 1 ?
+                        LibPrice.dummyPrice(jatcl.id, 1.0)
+                      : LibPrice.price(db, jatcl.id, bidAskSign, ui.acnt?.acntno || "")
+        } else {
+            jprice = LibPrice.price(db, jatcl.id, bidAskSign, ui.acnt?.acntno || "")
+        }
+
         // console.log(`bind.js#mdh30 crn=${jatcl.id} ba=${bidAskSign} no=${ui.acnt?.acntno || ""}`)
         // console.log(`bind.js#mdh30 price=${JSON.stringify(jprice)}\natcl=${JSON.stringify(jatcl)}`)
         note = jatcl.itemchar + " " + ((!!jprice?.offer) ? "#АКЦІЯ!" : (!!jprice?.dsc ? "#ЗНИЖКА!" : ""))
