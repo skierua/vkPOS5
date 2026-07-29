@@ -140,12 +140,13 @@ ListModel {
 
     // ДОДАВАННЯ ОДНОГО ДОКУМЕНТА (ПРОВОДКИ) В ЧЕК
     function addDcm(atcl, acnt, type, amnt, price, note) {
-        // console.log(`II: 62g#ModelBind/addDcm
-        //             atclid=${atcl.id}
-        //             acntno=${acnt.acntno}
-        //             amnt=${amnt}
-        //             type=${type}
-        //             price=${JSON.stringify(price)}`)
+        // console.log(`II: ModelBind/addDcm#82js
+        //             atcl=${JSON.stringify(atcl)}
+        //             acntno=${JSON.stringify(acnt)}
+        //             // amnt=${amnt}
+        //             // type=${type}
+        //             // price=${JSON.stringify(price)}
+        //             `)
         if (!atcl || !acnt || !type) {
             mRoot.lastError = "Document parameter missing";
             return false;
@@ -183,8 +184,7 @@ ListModel {
 
         insert(idx, dcm);
         setDcmTradeData(idx);
-        // for (let r =0; r < count; ++r) console.log(`iw3w#ModelBind ${JSON.stringify(get(r))}`)
-        // recalculate();
+        // for (let r =0; r < count; ++r) console.log(`II: ModelBind#i920 ${JSON.stringify(get(r))}`)
 
         return true;
     }

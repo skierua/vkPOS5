@@ -47,9 +47,6 @@ Item {
             PropertyChanges { target: root; title: "ЧЕК" }
             PropertyChanges { target: dscbnsColumn; visible: true }
             PropertyChanges { target: rateColumn; visible: false }
-            // PropertyChanges { target: fldDsc; visible: true }
-            // PropertyChanges { target: fldBns; visible: true }
-            // PropertyChanges { target: fldRate; visible: false }
             PropertyChanges { target: actionRsltToProfit; enabled: false }
         },
         State {
@@ -57,9 +54,6 @@ Item {
             PropertyChanges { target: root; title: "ФАКТУРА" }
             PropertyChanges { target: dscbnsColumn; visible: true }
             PropertyChanges { target: rateColumn; visible: true }
-            // PropertyChanges { target: fldDsc; visible: true }
-            // PropertyChanges { target: fldBns; visible: true }
-            // PropertyChanges { target: fldRate; visible: true }
             PropertyChanges { target: actionRsltToProfit; enabled: false }
         },
         State {
@@ -67,9 +61,6 @@ Item {
             PropertyChanges { target: root; title: "Внутрішні операції" }
             PropertyChanges { target: dscbnsColumn; visible: false }
             PropertyChanges { target: rateColumn; visible: false }
-            // PropertyChanges { target: fldDsc; visible: false }
-            // PropertyChanges { target: fldBns; visible: false }
-            // PropertyChanges { target: fldRate; visible: false }
             PropertyChanges { target: actionRsltToProfit; enabled: true }
         },
         State {
@@ -77,9 +68,6 @@ Item {
             PropertyChanges { target: root; title: "ФІСКАЛЬНИЙ" }
             PropertyChanges { target: dscbnsColumn; visible: false }
             PropertyChanges { target: rateColumn; visible: false }
-            // PropertyChanges { target: fldDsc; visible: false }
-            // PropertyChanges { target: fldBns; visible: false }
-            // PropertyChanges { target: fldRate; visible: false }
             PropertyChanges { target: actionRsltToProfit; enabled: false }
     }
         ]
@@ -126,20 +114,24 @@ Item {
 
     Action {
         id: uahToAcntAction
-        enabled: (Number(crntAcnt?.mask ?? 0)&1) === 1
+        enabled: Number(root.crntAcnt?.trade ?? 0) === 0 && (Number(root.crntAcnt?.mask ?? 0)&1) === 1
         text: "ГРН на рахунок"
         onTriggered: {
-            bindModel.addDcm(dbDriver, "", crntAcnt.acntno, -1 * bindModel.pmntTotal);
+            JS.handleDomToAcnt(dbDriver, bindModel, crntAcnt, -1 * root.totalPmnt);
+            // bindModel.addDcm(dbDriver, "", crntAcnt, -1 * root.totalPmnt);
+            // bindView.restart();
             newRowAction.trigger();
         }
     }
 
     Action {
         id: curToAcntAction
-        enabled: (Number(crntAcnt?.mask ?? 0)&2) === 2
+        enabled: Number(root.crntAcnt?.trade ?? 0) === 0 && (Number(root.crntAcnt?.mask ?? 0)&2) === 2
         text: "ВАЛЮТА на рахунок"
         onTriggered: {
-            JS.handleCrnToAcnt(dbDriver, bindModel, crntAcnt.acntno);
+            // console.log(`II: Bind.qml#8e7 acnt=${JSON.stringify(root.crntAcnt)}`)
+            JS.handleCrnToAcnt(dbDriver, totalCurrencyView.model, bindModel, crntAcnt);
+            // bindView.restart();
             newRowAction.trigger();
         }
     }
@@ -258,6 +250,12 @@ Item {
         newRowAction.trigger();
     }
 
+    function setCrntClient(clnt){
+        root.crntClient = (!!clnt ? clnt : null);
+        newRowAction.trigger();
+        vkEvent("clientChanged", clnt)
+    }
+
 
 
     Component {
@@ -370,7 +368,6 @@ Item {
                             onActiveFocusChanged: if (activeFocus) selectAll(); else visible = false
                             onAccepted: {
                                 let cleanText = text.replace(/\\/g, "/");
-                                // ✅ БЕЗПЕЧНО: Оновлюємо через інтерфейс моделі, зберігаючи реактивність
                                 if (dlgRoot.ListView.view && dlgRoot.ListView.view.model) {
                                     if (typeof dlgRoot.ListView.view.model.setProperty === "function") {
                                         dlgRoot.ListView.view.model.setProperty(index, "dnote", cleanText);
@@ -458,8 +455,6 @@ Item {
                             RowLayout {
                                 Layout.fillWidth: true
                                 visible: dlgRoot.isTrade
-                                /* ... сюди стає ваш блок equivalent, discount, bonus info ... */
-                                // ✅ Цей блок стає всередину вашого RowLayout { visible: dlgRoot.isTrade }
 
                                 RowLayout {
                                     Layout.fillWidth: true
@@ -474,7 +469,7 @@ Item {
                                         verticalAlignment: Text.AlignVCenter
 
                                         // Безпечно форматуємо число з бази даних
-                                        text: Math.abs(model.moneyEq ?? 0).toLocaleString(Qt.locale(), 'f', 2)
+                                        text: Math.abs((model.moneyEq ?? 0)/ (dlgRoot.ListView.view.model.rate ?? 1)).toLocaleString(Qt.locale(), 'f', 2)
                                         font.pointSize: 9
                                         color: 'dimgray'
 
@@ -504,7 +499,7 @@ Item {
                                         verticalAlignment: Text.AlignVCenter
 
                                         // Форматування тексту знижки
-                                        text: (model.moneyDsc || 0) !== 0 ? Math.abs(model.moneyDsc).toFixed(2) : 'знижка'
+                                        text: (model.moneyDsc || 0) !== 0 ? Math.abs((model.moneyDsc)/ (dlgRoot.ListView.view.model.rate ?? 1)).toFixed(2) : 'знижка'
                                         font.pointSize: 9
                                         // Текст стає блідим, якщо знижка відсутня
                                         color: (model.moneyDsc ?? 0) !== 0 ? '#d32f2f' : 'lightgray' // Червонуватий відтінок, якщо знижка є
@@ -532,6 +527,7 @@ Item {
                             anchors.fill: parent
                             // visible: false // ✅ ВИПРАВЛЕНО: Керуємо видимістю явно через функції, а не через activeFocus
                             focus: true
+                            visible: dlgRoot.ListView.view.currentIndex === index;
                             selectByMouse: true
                             horizontalAlignment: Text.AlignHCenter
                             font.pixelSize: 18
@@ -564,7 +560,6 @@ Item {
                                 if (inputVal !== 0 && dlgRoot.ListView.view && dlgRoot.ListView.view.model) {
                                     const currentModel = dlgRoot.ListView.view.model;
 
-                                    // ✅ ВИПРАВЛЕНО: Оновлюємо дані через роль моделі (або метод), зберігаючи реактивність
                                     if (typeof currentModel.setProperty === "function") {
                                         currentModel.setProperty(index, "damnt", inputVal);
                                     } else {
@@ -575,7 +570,10 @@ Item {
                                     dlgRoot.ListView.view.restart();
                                 }
                                 visible = false;
-                                fldMainInput.forceActiveFocus(); // Повертаємо фокус на головний сканер
+                                if (Number(model.jprice?.offer || model.jprice?.price || 0) === 0) {
+                                    fldPriceEdit.visible = true;
+                                    fldPriceEdit.forceActiveFocus();
+                                } else fldMainInput.forceActiveFocus(); // Повертаємо фокус на головний сканер
                             }
                             onAccepted: visible = false
                         }
@@ -591,6 +589,7 @@ Item {
                             leftPadding: 10
                             rightPadding: suffix.visible ? 65 : 10 // ✅ ВИПРАВЛЕНО: Фіксований безпечний відступ для суфікса
                             verticalAlignment: TextInput.AlignVCenter
+                            placeholderText: "Ціна, курс ..."
 
                             readonly property int pqty: model.jprice?.qty || (model.darticle ? Number(model.darticle.qty ?? 1) : 1)
 
@@ -715,308 +714,6 @@ Item {
 
 
 
- /*  // delegate
-    Component {
-        id: dlg1
-        FocusScope{
-            id: dlgRoot
-            readonly property string test: 'for testing'
-            readonly property bool isAmntEditable: (retfor || "") === ""
-            readonly property bool isTrade: Number(dacnt?.trade ?? 0) === 1
-            readonly property bool isPriceEditable: isTrade && isAmntEditable && (jprice?.offer || 0) === 0
-            width: dlgRoot.ListView.view.width;
-            height: 40
-            Rectangle{
-                anchors { fill: parent; } radius: 6
-                color: dlgRoot.ListView.view.currentIndex === index ? "#EFF6FF" : ((index % 2 === 0) ? "#FFFFFF" : "#F9FAFB")
-                border { width: 1; color: dlgRoot.ListView.view.currentIndex === index ? "#BFDBFE" : "#F3F4F6" }
-                RowLayout{
-                    id: layout
-                    anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 8
-                    clip: true
-                    spacing: 2
-                    Text{
-                        font{pointSize: 30; bold:true;}
-                        visible: model.err || false // Number(dacnt.trade) && jprice.price === 0 && jprice.offer === 0
-                        color: "tomato"
-                        text: " ! "
-                        MouseArea{
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            ToolTip.delay: 1000
-                            ToolTip.timeout: 5000
-                            ToolTip.visible: containsMouse
-                            ToolTip.text: model.err || ""
-                        }
-                    }
-
-                    Text{
-                        id: fldSgn
-                        property int value : (dsign < 0 ? -1 : 1)
-                        Layout.preferredWidth: 30   //parent.height
-                        Layout.preferredHeight: 40  //parent.height
-                        font.pointSize: 30
-                        horizontalAlignment: Text.AlignHCenter
-                        text: dsign < 0 ? '-' : '+'
-                    }
-
-                    Item{   // note
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: parent.height
-                        ColumnLayout{
-                            anchors.fill: parent
-                            spacing: 0
-                            clip: true
-                            Text{
-                                text: dnote
-                                font.pointSize: 12
-                            }
-                            Text{
-                                readonly property string dtag: (model.jprice?.offer ?? 0) ? "#АКЦІЯ!" : ((model.jprice?.dsc ?? 0) ? "#ЗНИЖКА!" : "")
-                                text: `#${darticle.id} ${dlgRoot.isTrade ? "" : ` [${dacnt.acntno}/${dacnt.note || ""}]`} ${dtag}`
-                                color: 'dimgray'
-                                font.pointSize: 10
-                            }
-                        }
-                        MouseArea{
-                            anchors.fill: parent
-                            enabled: !dlgRoot.isTrade
-                            onClicked: {fldNoteEdit.visible = true; fldNoteEdit.forceActiveFocus();}
-                        }
-
-                        TextField{
-                            id: fldNoteEdit
-                            anchors.fill: parent
-                            visible: false
-                            selectByMouse: true
-                            onActiveFocusChanged: if (activeFocus) {selectAll()} else {visible = false}
-                            text: dnote
-                            onAccepted: {
-                                text = text.replace(/\\/g,"/")
-                                dnote = text
-                                dlgRoot.ListView.view.restart()
-                            }
-                        }
-                    }
-
-                    Item {  // amnt & rate
-                        Layout.minimumWidth: 200
-                        Layout.fillHeight: true
-    //                    clip: true
-
-                        ColumnLayout{
-                            anchors.fill: parent
-                            spacing: 0
-                            RowLayout{
-                                Text{
-                                    id: fldAmnt
-                                    Layout.fillWidth: true
-                                    horizontalAlignment: Text.AlignHCenter
-                                    verticalAlignment: Text.AlignVCenter
-                                    text: damnt.toLocaleString(Qt.locale(),'f',Number(darticle.unitprec))
-                                    font.pointSize: 14
-                                    clip: true
-                                    elide: Text.ElideLeft
-                                    MouseArea{
-                                        anchors.fill: parent
-                                        onClicked: {
-                                            if (dlgRoot.isAmntEditable){
-                                                dlgRoot.ListView.view.currentIndex = index
-                                                fldAmntEdit.visible = true;
-                                                fldAmntEdit.forceActiveFocus();
-                                            }
-
-                                        }
-                                    }
-                                }
-                                Text{
-                                    id: fldPrice
-                                    readonly property int prec: {
-                                        const vv = Number(model.jprice?.offer || model.jprice?.price || 0);
-                                        return Math.abs((vv * 100) - Math.round(vv * 100)) > 0.0001 ? 4 : 2;
-                                    }
-                                    Layout.fillWidth: true
-                                    visible: dlgRoot.isTrade
-                                    font.pointSize: 12
-                                    horizontalAlignment: Text.AlignHCenter
-                                    text: (model.jprice?.offer || model.jprice?.price || 0).toFixed(prec)
-                                    MouseArea{
-                                        anchors.fill: parent
-                                        enabled: !(model.jprice?.offer || model.jprice?.dsc || 0)
-                                        onClicked: {
-                                            fldPriceEdit.visible = true;
-                                            dlgRoot.ListView.view.currentIndex = index
-                                            fldPriceEdit.text = jprice?.offer || jprice?.price
-                                            // fldPriceEdit.pqty = jprice?.qty || item?.qty || 1
-                                            fldPriceEdit.forceActiveFocus();}
-                                    }
-                                }
-
-                            }
-
-                            RowLayout{
-                                visible: dlgRoot.isTrade
-                                Text{
-                                    id: fldEq
-                                    // readonly property real eqVal: Math.abs(Number(damnt)*dprice / (dlgRoot.ListView.view.model.rate * Number(darticle.qty || 1)))
-                                    Layout.fillWidth: true
-                                    horizontalAlignment: Text.AlignHCenter
-                                    text: Math.abs(model.moneyEq ?? 0).toLocaleString(Qt.locale(),'f',2)
-                                    font.pointSize: 10
-                                    color: 'dimgray'
-                                    MouseArea{
-                                        anchors.fill: parent
-                                        onClicked: {
-                                            if (dlgRoot.isAmntEditable){
-                                                dlgRoot.ListView.view.currentIndex = index
-                                                fldEqEdit.text = Math.abs(moneyEq);
-                                                fldEqEdit.visible = true;
-                                                fldEqEdit.forceActiveFocus();
-                                            }
-                                        }
-                                    }
-                                }
-                                Text{
-                                    id: fldDsc
-                                    width: parent.width/2
-                                    text: (model.moneyDsc || 0)  !== 0 ? Math.abs(model.moneyDsc) : 'знижка'
-                                    horizontalAlignment: Text.AlignHCenter
-                                    color: (model.moneyDsc ?? 0) !== 0 ? 'dimgray' : 'lightgray'
-                                }
-                                Text{
-                                    id: fldBns
-                                    width: parent.width/2
-                                    text: (model.moneyBns ?? 0)  !== 0 ? Math.abs((moneyBns ?? 0)) : 'бонус'
-                                    horizontalAlignment: Text.AlignHCenter
-                                    color: (model.moneyBns || 0) !== 0 ? 'dimgray' : 'lightgray'
-                                }
-
-
-                            }
-
-                        }
-                        TextField{
-                            id: fldAmntEdit
-    //                        width: parent.width; height: parent.height
-                            anchors.fill: parent
-                            visible: activeFocus    //index === dlgRoot.ListView.view.currentIndex
-                            focus: true
-                            selectByMouse: true
-                            validator: DoubleValidator {bottom: 0; decimals: darticle.unitprec; notation: "StandardNotation"; locale: "en_US" }
-                            onActiveFocusChanged: if (activeFocus) selectAll();
-                            horizontalAlignment: Text.AlignHCenter
-                            font.pixelSize: 20
-                            text: damnt.toFixed(darticle.unitprec || 2)
-                            onEditingFinished: {
-                                if (Number(text) !== 0){
-                                    damnt = Number(text);
-                                    dlgRoot.ListView.view.model.setDcmTradeData(index)
-                                }
-                                visible = false;
-                                dlgRoot.ListView.view.restart()
-                            }
-                            // onAccepted: visible = false
-                        }
-
-                        TextField {
-                            id: fldPriceEdit
-                            readonly property int pqty: model.jprice?.qty || darticle?.qty || 1
-                            anchors.fill: parent // Керуйте цією властивістю ззовні (наприклад, по double click на комірку)
-                            visible: false
-                            selectByMouse: true
-                            font.pixelSize: 16
-                            color: "#212121"
-                            leftPadding: 14
-                            rightPadding: suffix.visible ? suffix.width + 16 : 14
-                            verticalAlignment: TextInput.AlignVCenter
-
-                            validator: DoubleValidator {
-                                bottom: 0
-                                decimals: 6
-                                notation: DoubleValidator.StandardNotation
-                                locale: "en_US"
-                            }
-
-                            onActiveFocusChanged: if (activeFocus)  selectAll();
-
-                            onEditingFinished: {
-                                const inputVal = Number(text);
-                                if (inputVal !== 0 && jprice) {
-                                    jprice.price = inputVal;
-                                    if (!jprice.qty)  jprice.qty = pqty;
-                                    dlgRoot.ListView.view.model.setDcmTradeData(index);
-                                }
-                                visible = false;
-                                dlgRoot.ListView.view.restart();
-                            }
-
-                            Text {
-                                id: suffix
-                                text: fldPriceEdit.pqty > 1 ? `x ${fldPriceEdit.pqty.toFixed(0)}` : ""
-                                visible: text !== ""
-
-                                anchors {
-                                    right: parent.right
-                                    rightMargin: 14
-                                    verticalCenter: parent.verticalCenter
-                                }
-                                font {
-                                    pixelSize: 14
-                                    weight: Font.Medium
-                                }
-                                color: "#757575" // Material Secondary Text Color
-                            }
-
-                            // --- Компонент 2: Елегантна Material рамка ---
-                            // background: Rectangle {
-                            //     implicitHeight: 48
-                            //     color: "#f5f5f5" // Світло-сірий фон у стилі MUI Filled Input
-                            //     radius: 4
-                            //     border.width: fldPriceEdit.activeFocus ? 2 : 1
-                            //     border.color: fldPriceEdit.activeFocus ? "#1976d2" : "#e0e0e0" // Синє підсвічування при редагуванні
-
-                            //     Behavior on border.color { ColorAnimation { duration: 150 } }
-                            //     Behavior on color { ColorAnimation { duration: 150 } }
-                            // }
-                        }
-                        TextField{
-                            id: fldEqEdit
-                            anchors.fill: parent
-                            visible: false
-                            selectByMouse: true
-                            validator: DoubleValidator {bottom: 0; decimals: 2; notation: "StandardNotation"; locale: "en_US" }
-                            onActiveFocusChanged: if (activeFocus) selectAll();
-                            onEditingFinished: {
-                                if (Number(text) !== 0){
-                                    damnt = Number(text) * Number(jprice?.qty || 0) / Number(jprice?.offer || jprice?.price || 1)
-                                    dlgRoot.ListView.view.model.setDcmTradeData(index)
-                                }
-                                dlgRoot.ListView.view.restart()
-                            }
-                            onAccepted: visible = false
-                        }
-                    }
-
-                    ToolButton {
-                        Layout.preferredWidth: 26
-                        Layout.preferredHeight: 32
-                        icon.source: "qrc:/icon/close.svg"
-                        icon.width: 16
-                        icon.height: 16
-
-                        onClicked: {
-                            dlgRoot.ListView.view.model.remove(index)
-                            // dlgRoot.ListView.view.model.recalculate()
-                            dlgRoot.ListView.view.restart()
-                        }
-                    }
-                }
-            }
-
-        }
-    }
-*/
-
     ColumnLayout{
         anchors{fill: parent; margins: 5}
 
@@ -1124,7 +821,7 @@ Item {
                                 const uiBridge = {
                                     vkEvent: (type, msg) => { root.vkEvent(type, msg); },
                                     setAcnt: (v) => { root.crntAcnt = v; },
-                                    setClient: (v) => { root.crntClient = v; },
+                                    setClient: (v) => { setCrntClient(v) },
                                     startNewRow: () => { newRowAction.trigger(); },
                                     mask: root.crntAcnt?.mask || 0,
                                     createDocum: (v) => { root.newDcm(v); },
@@ -1136,7 +833,6 @@ Item {
                         }
                     }
 
-                    // ✅ ВИПРАВЛЕНО: Кнопка "ГРН" тепер є частиною RowLayout і не перекриває текст
                     Button {
                         id: btnGrnShortcut
                         Layout.preferredWidth: 50
@@ -1181,7 +877,6 @@ Item {
                     Layout.preferredWidth: 40
                     Layout.fillHeight: true
                     font.pixelSize: 16
-                    // ✅ Безпечна перевірка підрядка для захисту від null
                     visible: (root.crntAcnt?.acntno || "").substring(0, 2) !== '35'
                     action: resetAcntAction
                     background: Rectangle {
@@ -1217,7 +912,6 @@ Item {
                 }
             }
         }
-        // ✅ Використовуємо жорстке обмеження висоти для Layout-контейнерів
         Rectangle {
             id: statusBarArea
             Layout.fillWidth: true
@@ -1391,7 +1085,10 @@ Item {
                             horizontalAlignment: Text.AlignRight
                             verticalAlignment: Text.AlignVCenter
                             color: root.totalPmnt < 0 ? "#b71c1c" : "#0d47a1" // Глибокий фінансовий колір
-                            text: (root.totalPmnt < 0 ? "- " : "") + Math.abs(root.totalPmnt).toLocaleString(Qt.locale(), 'f', 2) + " грн"
+                            text: (root.totalPmnt < 0 ? "- " : "")
+                                  + Math.abs(root.totalPmnt / (bindModel?.rate ?? 1)).toLocaleString(Qt.locale(), 'f', 2)
+                                  + (bindModel.rate === 1 ? " грн" : " 💱")
+                            // text: (root.totalPmnt < 0 ? "- " : "") + Math.abs(root.totalPmnt).toLocaleString(Qt.locale(), 'f', 2) + " грн"
                             font.pixelSize: 24
                             font.bold: true
                         }
@@ -1459,7 +1156,7 @@ Item {
                                     onEditingFinished: {
                                         bindModel.setBindDsc(Number(text) / 100);
                                         visible = false;
-                                        fldMainInput.forceActiveFocus();
+                                        newRowAction.trigger();
                                     }
                                     onAccepted: visible = false
                                 }
@@ -1518,7 +1215,8 @@ Item {
                                     onActiveFocusChanged: if (activeFocus) selectAll();
                                     onEditingFinished: {
                                         bindModel.setBindBns(Number(text) / 100);
-                                        visible = false;fldMainInput.forceActiveFocus();
+                                        visible = false;
+                                        newRowAction.trigger();
                                     }
                                     onAccepted: visible = false
                                 }
@@ -1573,7 +1271,7 @@ Item {
                                     onEditingFinished: {
                                         bindModel.setRate(text);
                                         visible = false;
-                                        fldMainInput.forceActiveFocus();
+                                        newRowAction.trigger();
                                     }
                                     onAccepted: visible = false
                                 }
@@ -1589,7 +1287,7 @@ Item {
                             color: "#78909c"
                             font.pixelSize: 11
                             font.bold: true
-                            text: bindModel.rate === 1 ? '' : `$ ${(bindModel.eqTotal / bindModel.rate).toFixed(2)}`
+                            text: bindModel.rate === 1 ? '' : `₴ ${((root.totalEq + root.totalDsc)/* / bindModel.rate*/).toFixed(2)}`
                         }
                     }
                 }
@@ -1761,12 +1459,12 @@ Item {
                                 const entityId = model.id;
                                 const entityCode = model.code;
                                 if (entityCode==="client"){                  // client
+                                    root.crntAcnt = JS.getAcnt(dbDriver)    // set default account
                                     const clnt = JS.getClient(dbDriver, entityId);
                                     root.crntClient = clnt;
-                                    vkEvent("clientChanged", clnt)
+                                    setCrntClient(clnt);
                                     // console.log(`w82j$Bind.qml HERE 1111`)
-                                    root.crntAcnt = JS.getAcnt(dbDriver)
-                                    newRowAction.trigger();
+                                    // newRowAction.trigger();
                                 } else if (entityCode === "acntno") {        // acntno
                                     root.crntAcnt = JS.getAcnt(dbDriver, entityId)
                                     newRowAction.trigger();

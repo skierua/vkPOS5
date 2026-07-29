@@ -42,13 +42,13 @@ const DfltPriceQty = (() => {
 /**
  * Дефолтна структура курсу валюти (Захист від null/undefined)
  */
-function dummyPrice(atclid) {
+function dummyPrice(atclid, price = 0) {
     const qtyVal = !atclid ? 1 : (DfltPriceQty.val(atclid) || 1);
     return {
         "id": "",   // rate id in DB table
         "item": atclid || "",
         "qty": qtyVal,
-        "price": 0.0,
+        "price": Number(price || 0.0),
         "offer": 0.0,
         "dsc": 0.0,
         "bsc": 0.0, // basic price for accounting

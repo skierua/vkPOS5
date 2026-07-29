@@ -3,13 +3,12 @@ import QtQuick.Window
 import QtQuick.Layouts
 import QtQuick.Controls
 
-// import com.singleton.dbdriver4 1.0
-import "../lib.js" as Lib
 
 Window {
-    id: root
-    width: 480
-    height: 480
+    id: dcmViewRootWindow
+    width: 600
+    height: 600
+    visible: true
 
     property var dbDriver                 // DataBase driver
     onDbDriverChanged: {
@@ -19,70 +18,65 @@ Window {
 
     property var prnDriver                 // printer manager
 
-/*    property bool fiscMode
-    onFiscModeChanged: {
-        if (fiscMode) {
-            contextMenu.addItem( Qt.createQmlObject('import QtQuick.Controls; MenuSeparator {}', contextMenu.contentItem, "actionFiscalizate_separator") )
-            contextMenu.addAction(actionFiscalizate)
-        } else {
-            contextMenu.removeItem( Qt.createQmlObject("actionFiscalizate_separator") )
-            contextMenu.removeAction(actionFiscalizate)
-        }
-
-        // console.log("#89h DcmView.onFiscModeChanged fiscMode=" + fiscMode)
-    }
-*/
-
-/*    property string sqlFilter: "select pkey as id, clchar as name, coalesce('tel.'||phone,'') || coalesce(' '||clnote,'')  as fullname, '' as scancode, 64 as mask, 'Клієнти' as sect, '0' as odr from client "
-    +"union select item.pkey as id, itemchar as name, coalesce(itemname, itemnote,'') as fullname, coalesce(scancode,'') as scancode, itemmask as mask, case when itemmask=4 then 'Товари' else 'Валюти' end as sect, '1' as odr from item where folder = 0 "
-    +"union select acntno as id, acntno||'-'||coalesce(acntnote,'['||balname||']','') as name, '' as fullname, '' as scancode, 128 as mask, 'Рахунки' as sect, '3' as odr from acntbal left join balname on(substr(acntno,1,2)=bal) where client is null "
-    +"order by odr, sect,itemmask,name;";
-*/
-    // property alias sqlMode : vw.sm // mode=EMPTY|1|2|4|64(client)|128(acnt)
-
     signal vkEvent(string eventId, var eventParam)
-
-    ModelDbDcms{
-        id: dataModel
-        pageCapacity: 25
-    }
 
     Action {
         id: previousAction
-        enabled: Number(vcrntEdit.text) > vcrntEdit.validator.bottom
+        enabled: vcrntEdit.text !== "" && Number(vcrntEdit.text) > (vcrntEdit.validator ? vcrntEdit.validator.bottom : 1)
         text: "❮"
-        onTriggered: vcrntEdit.text = Number(vcrntEdit.text) -1
+        onTriggered: {
+            const currentPage = parseInt(vcrntEdit.text) || 1;
+            vcrntEdit.text = String(currentPage - 1);
+        }
     }
 
     Action {
         id: nextAction
-        enabled: vw.model !== null && Number(vcrntEdit.text) !== vw.model.pager.length
+        enabled: vw.model !== null && vcrntEdit.text !== "" && (vw.model.pager !== undefined) && parseInt(vcrntEdit.text) < vw.model.pager.length
         text: "❯"
-        onTriggered: vcrntEdit.text = Number(vcrntEdit.text) +1
+        onTriggered: {
+            const currentPage = parseInt(vcrntEdit.text) || 1;
+            vcrntEdit.text = String(currentPage + 1);
+        }
     }
 
     Action {
-        id: loadAction
-        // text: "🔄"
-        icon.source:"qrc:/icon/reload.svg"
-        onTriggered: {
-            vfilterEdit.text = ""
-            if (dbDriver !== undefined) dataModel.load(dbDriver, findInterval.model.get(findInterval.currentIndex).filter)
+            id: loadAction
+            icon.source: "qrc:/icon/reload.svg"
+            onTriggered: {
+                vfilterEdit.text = "";
+                // console.info(`II: DcmView.qml/loadAction dbDriver=${dbDriver}`)
+                if (dbDriver !== undefined && dbDriver !== null) {
+                    // ✅ Захист від currentIndex === -1 за допомогою currentValue
+                    const activeFilter = findInterval.currentValue !== undefined ? String(findInterval.currentValue) : "shftid = 0";
+                    // console.info(`II: DcmView.qml/loadAction activeFilter=${activeFilter}`)
+                    if (vw.model && typeof vw.model.load === "function") {
+                        // console.info(`II: DcmView.qml/loadAction load`)
+                        vw.model.load(dbDriver, activeFilter);
+                    }
+                } else {
+                    console.warn("Драйвер бази даних відсутній")
+                    // logView.error("Драйвер бази даних відсутній");
+                }
+            }
         }
-    }
 
     Action {
         id: bindModeAction
         text: qsTr("Bind")
         checkable: true
         checked: true
-        onTriggered: { vw.section.property = (checked ? "pid" : "")}
+        onTriggered: { if (vw) vw.section.property = (checked ? "pid" : ""); }
     }
 
     Action {
         id: viewFullBindAction
         text: "Показати весь чек"
-        onTriggered: vw.model.showFullBind(vw.currentIndex)
+        onTriggered: {
+            if (vw.model && typeof vw.model.showFullBind === "function" && vw.currentIndex !== -1) {
+                vw.model.showFullBind(vw.currentIndex);
+            }
+        }
     }
 
     Action {
@@ -90,11 +84,12 @@ Window {
         // enabled: vw.model.get(vw.currentIndex).trade === "1"
         text: "Повернути"
         onTriggered: {
+            if (vw.currentIndex === -1 || !vw.model) return;
             const dcm = vw.model.dcmForRefuse(vw.currentIndex)
             // console.log(`DcmView#hys70 res=${JSON.stringify(dcm)}`); return;
             if (dcm){
                 vkEvent("refuse", dcm);
-            } else logView.append("[bindForPrint] Dcm refuse error", 0)
+            } else logView.error("Dcm refuse error")
         }
     }
 
@@ -102,12 +97,19 @@ Window {
         id: actionPrintCheck
         text: "Друкувати чек"
         onTriggered: {
+            if (vw.currentIndex === -1 || !vw.model) return;
             const jbind = vw.model.bindForPrint(vw.currentIndex)
             // console.log(`DcmView#d7hf res=${JSON.stringify(jbind)}`); return;
             if (jbind){
-                prnDriver.saveCheckCopy( jbind )
-                prnDriver.printCheckCopy( jbind )
-            } else logView.append("[bindForPrint] Bind retrieving error", 0)
+                const printer = prnDriver ? prnDriver : (typeof Prn !== "undefined" ? Prn : null);
+                if (printer) {
+                    printer.saveCheckCopy(jbind);
+                    printer.printCheckCopy(jbind);
+                    logView.info("Копію чека успішно відправлено на друк");
+                } else {
+                    logView.error("Драйвер принтера чеків не ініціалізовано!");
+                }
+            } else logView.error("Bind retrieving error")
         }
     }
 
@@ -115,10 +117,19 @@ Window {
         id: actionPrintOrder
         text: "Зберегти накладну"
         onTriggered: {
-            const jbind = vw.model.bindForPrint(vw.currentIndex)
-            if (jbind){
-                prnDriver.saveOrder( jbind )
-            } else logView.append("[bindForPrint] Bind retrieving error", 0)
+            if (vw.currentIndex === -1 || !vw.model) return;
+            const jbind = vw.model.bindForPrint(vw.currentIndex);
+            if (jbind) {
+                const printer = prnDriver ? prnDriver : (typeof Prn !== "undefined" ? Prn : null);
+                if (printer) {
+                    printer.saveOrder(jbind);
+                    logView.info("Накладну успішно експортовано", 1);
+                } else {
+                    logView.error("Драйвер експорту накладних відсутній", 0);
+                }
+            } else {
+                logView.error("Помилка отримання накладної", 0);
+            }
         }
     }
 
@@ -130,113 +141,180 @@ Window {
     }
 */
 
+
     Component {
         id: dlg
-        FocusScope{
+
+        FocusScope {
             id: rootDlg
-            width: rootDlg.ListView.view.width;
-            height: childrenRect.height;
-            // readonly property bool isTrade: eqamount !== 0 || dcmtype.startsWith("trade:")
-            readonly property real dcmPrice: Number(eqamount || 0)/Number(amount || 1)
-            MouseArea{
-                anchors.fill: parent;
-                onClicked: {vw.currentIndex = index;}
-                // onDoubleClicked: {vw.currentIndex = index; viewFullBindAction.trigger(); }
+
+            // Переконуємося, що розміри чітко відповідають ListView вікна
+            width: rootDlg.ListView.view ? rootDlg.ListView.view.width : 400
+            height: 36 // Фіксована висота для усунення Binding loop
+
+            // Явне безпечне оголошення логіки типу операції
+            readonly property bool isTrade: model.isTrade !== undefined ? model.isTrade : (Number(model.eqamount || 0) !== 0)
+            // Розрахунок ціни за одиницю товару
+            readonly property real dcmPrice: Number(model.eqamount || 0) / Number(model.amount || 1)
+
+            // Інтерактивна зона кліку (перенесена на самий низ для правильної обробки Z-індексів)
+            MouseArea {
+                anchors.fill: parent
+                onClicked: {
+                    if (rootDlg.ListView.view) {
+                        rootDlg.ListView.view.currentIndex = index;
+                    }
+                }
             }
+
+            // Головний контейнер вмісту рядка позиції чека
             Item {
-//             width: rootDlg.ListView.view.width //childrenRect.width;
-                width:parent.width;
-                height: 32;
+                anchors.fill: parent
                 clip: true
-                // color: (index === vw.currentIndex) ?  'lightsteelblue' : (match ? 'honeydew' : 'white')
-                //                                         // (index%2 == 0 ?  Qt.darker('white',1.01) : 'white')
-                Row{
-                    anchors{fill: parent; margins: 1}
-                    spacing: 2
-                    Text{ width: 0.05*parent.width;
-                        anchors.verticalCenter: parent.verticalCenter;
-                        horizontalAlignment: Text.AlignHCenter;
-                        text: Number(amount) > 0 ? "+" : "-" }
 
-                    Column{     // name
-                        width: (isTrade ?  0.4 * parent.width - 2 : 0.7 * parent.width - 4);
-                        spacing: 2
-                        clip:true
-                        Text {
-                            clip: true
-                            font.italic: !flt
-                            text: isTrade ? (dcmnote.indexOf("#") === -1
-                                    ? '['+ itemchar + '] '+ dcmnote
-                                    : dcmnote.substring(0,dnote.indexOf("#")))
-                                : dcmnote
-                        }
-                        Row{
-                            spacing: 2
-                            Text {
-                                clip: true
-                                text: dcmid
-                                font{pointSize: 10; italic: !flt}
-                                color: 'gray'
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 6
+                    anchors.rightMargin: 12
+                    spacing: 6
+
+                    // 1. Індикатор знаку операції (Прихід / Розхід)
+                    Label {
+                        Layout.preferredWidth: 16
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.bold: true
+                        font.pixelSize: 14
+                        color: Number(model.amount || 0) > 0 ? "#2e7d32" : "#d32f2f"
+                        text: Number(model.amount || 0) > 0 ? "＋" : "−"
+                    }
+
+                    // 2. Колонка НАЗВИ ТОВАРУ / Нотатки та коду операції
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 1
+                        Layout.alignment: Qt.AlignVCenter
+
+                        Label {
+                            Layout.fillWidth: true
+                            font.pixelSize: 11
+                            font.italic: !model.flt
+                            color: "#212121"
+                            elide: Text.ElideRight
+
+                            text: {
+                                const noteStr = String(model.dcmnote || "");
+                                if (rootDlg.isTrade) {
+                                    const hashIdx = noteStr.indexOf("#");
+                                    if (hashIdx === -1) {
+                                        return '[' + (model.itemid || "?") + '] ' + noteStr;
+                                    } else {
+                                        return noteStr.substring(0, hashIdx).trim();
+                                    }
+                                }
+                                return noteStr;
                             }
-                            Text{
-                                text: '['+ acntcdt + ']'
-                                font{pointSize: 10; italic: !flt}
-                                color: 'gray'
+                        }
+
+                        RowLayout {
+                            spacing: 6
+                            Label {
+                                text: "ID: " + String(model.dcmid || "")
+                                font.pixelSize: 9
+                                font.italic: !model.flt
+                                color: "gray"
+                            }
+                            Label {
+                                text: "[" + String(model.acntcdt || "") + "]"
+                                font.pixelSize: 9
+                                font.italic: !model.flt
+                                color: "gray"
                             }
                         }
                     }
 
-                    Column{     // price, eq,...
-                        visible: isTrade
-                        width: visible ? 0.3 * parent.width - 2 : 0;
-                        spacing: 2
-                        clip: true
-                        Text {
-                            font.italic: !flt
-                            text: rootDlg.dcmPrice.toFixed(4)
-                            // text: rootDlg.ListView.view.model.price(index)
+                    // 3. Фінансова колонка (Ціна, Еквівалент, Знижки, Бонуси) - Видима тільки для комерційного роздробу
+                    ColumnLayout {
+                        Layout.preferredWidth: 110
+                        visible: rootDlg.isTrade
+                        spacing: 1
+                        Layout.alignment: Qt.AlignVCenter
+
+                        // Розрахункова ціна за одиницю товару
+                        Label {
+                            Layout.fillWidth: true
+                            font.pixelSize: 11
+                            font.italic: !model.flt
+                            color: "#37474f"
+                            text: rootDlg.dcmPrice.toFixed(2) // Зазвичай для чеків 2 знаків достатньо, за потреби змініть на 4
                         }
-                        Row{
-                            Text {
-                                font{pointSize: 10; italic: !flt}
-                                color: 'dimgray'
-                                text: Math.abs(Number(eqamount)).toLocaleString(Qt.locale(),'f',2)
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 4
+
+                            Label {
+                                font.pixelSize: 9
+                                font.italic: !model.flt
+                                color: "dimgray"
+                                text: Math.abs(Number(model.eqamount || 0)).toFixed(2)
                             }
-                            Text {
-                                text:Number(discount)===0?'':('D:'+Math.abs(Number(discount)).toLocaleString(Qt.locale(),'f',2))
-                                font{pointSize: 10; italic: !flt}
-                                color: 'dimgray'
+                            Label {
+                                font.pixelSize: 9
+                                font.italic: !model.flt
+                                color: "#c62828" // Червоний маркер знижки
+                                text: Number(model.discount || 0) === 0 ? "" : "🏷️ " + Math.abs(Number(model.discount)).toFixed(1)
+                                visible: text !== ""
                             }
-                            Text {
-                                text:Number(bonus)===0?'':('B:'+Math.abs(Number(bonus)).toLocaleString(Qt.locale(),'f',2))
-                                font{pointSize: 10; italic: !flt}
-                                color: 'dimgray'
+                            Label {
+                                font.pixelSize: 9
+                                font.italic: !model.flt
+                                color: "#ff8f00" // Золотий маркер бонусів
+                                text: Number(model.bonus || 0) === 0 ? "" : "⭐ " + Math.abs(Number(model.bonus)).toFixed(1)
+                                visible: text !== ""
                             }
                         }
                     }
 
-                    Text {
-                        width: 0.25*parent.width-4;
-                        anchors.verticalCenter: parent.verticalCenter;
-                        horizontalAlignment: Text.AlignRight
-                        font{pointSize: 14; italic: !flt}
-                        text:Math.abs(Number(amount)).toLocaleString(Qt.locale(),'f',Number(unitprec))
+                    // 4. Колонка КІЛЬКОСТІ (Завжди притиснута праворуч, великий тач-шрифт)
+                    Label {
+                        Layout.preferredWidth: 70
+                        horizontalAlignment: Text.AlignHCenter
+                        // horizontalAlignment: Text.AlignLeft
+                        // horizontalAlignment: Text.AlignRight
+                        verticalAlignment: Text.AlignVCenter
+                        font.pixelSize: 14
+                        font.bold: true
+                        font.italic: !model.flt
+                        color: "#2c3e50"
+
+                        // Форматуємо кількість відповідно до точності одиниці виміру товару з бази
+                        text: Math.abs(Number(model.amount || 0)).toLocaleString(Qt.locale(), 'f', Number(model.unitprec ?? 2))
                     }
                 }
             }
         }
     }
 
+
+
     Component {
-        id: highlight
+        id: highlightComponent
+
         Rectangle {
-            width: vw.width; height: 32
-            color: "lightsteelblue"; radius: 5
-            y: vw.currentItem === null ? null : vw.currentItem.y
+            width: vw.width
+            height: 34 // Повинно чітко відповідати висоті рядка делегата чека
+            color: "#e3f2fd" // Ніжний пастельно-блакитний колір Material Active
+            radius: 6
+
+            // Захист від null-значень у Qt 6. Якщо об'єкта немає — повертаємо 0
+            y: (vw.currentItem !== null && typeof vw.currentItem !== "undefined") ? vw.currentItem.y : 0
+
+            // Плавна та красива пружинна анімація перетікання фокусу
             Behavior on y {
                 SpringAnimation {
                     spring: 3
-                    damping: 0.2
+                    damping: 0.3 // Трохи збільшимо демпфування для зменшення зайвого "тремтіння"
                 }
             }
         }
@@ -244,215 +322,313 @@ Window {
 
     Component {
         id: secDlg
-        Rectangle{
+
+        Rectangle {
             id: rootSec
-            width: rootSec.ListView.view.width
-            height: 34  //childrenRect.height //*1.2
-            color: "whitesmoke"
-            Row{
-                anchors{fill: parent; margins:1}
-                spacing: 2
-                Text{
-                    width:parent.width * 0.4;
-                    anchors.verticalCenter: parent.verticalCenter;
-                    font.pointSize: 15;
-                    text: rootSec.ListView.view.model.bindInfo(section).dcmtype}
-                Column{
-                    width:parent.width * 0.3 -2;
-                    Text{ text: Number(rootSec.ListView.view.model.bindInfo(section).amount).toLocaleString(Qt.locale(),'f',2)}
-                    Row{
-                        spacing: 2
-                        Text{ font.pointSize: 10; color: 'gray'; text: rootSec.ListView.view.model.bindInfo(section).eqamount}
-                        Text{ font.pointSize: 10; color: 'gray'; text: rootSec.ListView.view.model.bindInfo(section).discount}
-                        Text{ font.pointSize: 10; color: 'gray'; text: rootSec.ListView.view.model.bindInfo(section).bonus}
-                    }
+            width: rootSec.ListView.view ? rootSec.ListView.view.width : 400
+            height: 38 // Трохи збільшимо для кращої верстки в два рядки
+            color: "#eeeeee" // Whitesmoke / Light Gray для чіткого розділення чеків
 
-                }
-                // Item{  }
-                Text{
-                    width:parent.width * 0.15 -4;
-                    anchors.verticalCenter: parent.verticalCenter;
-                    font.pointSize: 12;
-                    clip: true
-                    elide: Text.ElideRight
-                    text: rootSec.ListView.view.model.bindInfo(section).clid
-                }
-                Column{
-                    width:parent.width * 0.15 -2;
-                    Text{
-                        width: parent.width
-                        // anchors.right: parent.right;
-                        // font.pointSize: 12;
-                        horizontalAlignment: Text.AlignRight
-                        clip: true
-                        elide: Text.ElideLeft
-                        text: rootSec.ListView.view.model.bindInfo(section).dcmtime.substring(11,16)
-                    }
-                    Text{
-                        width: parent.width
-                        // anchors.right: parent.right;
-                        horizontalAlignment: Text.AlignRight
-                        clip: true
-                        elide: Text.ElideLeft
-                        text: rootSec.ListView.view.model.bindInfo(section).dcmtime.substring(0,10)
-                    }
-                }
+            // Отримуємо посилання на модель через контекст ListView
+            readonly property var viewObj: rootSec.ListView.view
+            readonly property var infoObj: (viewObj && viewObj.model) ? viewObj.model.bindInfo(section) : null
 
-            }
-
-        }
-
-    }
-
-    Page{
-        anchors.fill: parent
-        Pane{
-            anchors.fill: parent
-            ListView{
-                id: vw
-                anchors{fill: parent; /*margins:2*/}
-                clip: true
-                spacing: 1
-                model: dataModel
-                delegate: dlg
-                add: Transition {
-                        NumberAnimation { properties: "x,y"; from: 100; duration: 300 }
-                    }
-                addDisplaced: Transition {
-                        NumberAnimation { properties: "x,y"; duration: 300 }
-                    }
-                remove: Transition {
-                        ParallelAnimation {
-                            NumberAnimation { property: "opacity"; to: 0; duration: 300 }
-                            NumberAnimation { properties: "x,y"; to: 100; duration: 300 }
-                        }
-                    }
-                removeDisplaced: Transition {
-                        NumberAnimation { properties: "x,y"; duration: 300 }
-                    }
-                ScrollBar.vertical: ScrollBar{
-                    parent: vw.parent
-                    anchors.top: vw.top
-                    anchors.left: vw.right
-                    anchors.bottom: vw.bottom
-                }
-                section.property: "pid"
-                section.criteria: ViewSection.FullString
-                section.delegate: secDlg
-                highlight: highlight
-                highlightFollowsCurrentItem: false
-                focus: true
-            }
-
-            LogView{
-                id: logView
-                width: parent.width
-                height: (count * 25 < parent.height / 4) ? count * 25 : parent.height / 4
-                z: 10
-                anchors.bottom: parent.bottom
-            }
-        }
-
-        header: ToolBar {
             RowLayout {
                 anchors.fill: parent
-                ToolButton{
+                anchors.leftMargin: 8
+                anchors.rightMargin: 14
+                spacing: 8
+
+                // Колонка 1: Тип документа (наприклад: ЧЕК, ФАКТУРА)
+                Label {
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 40 // Займає близько 40% простору
+                    font.pixelSize: 13
+                    font.bold: true
+                    color: "#2c3e50"
+                    text: rootSec.infoObj ? String(rootSec.infoObj.dcmtype || "") : ""
+                    elide: Text.ElideRight
+                }
+
+                // Колонка 2: Фінансові підсумки (Сума / Еквівалент / Знижки / Бонуси)
+                ColumnLayout {
+                    Layout.preferredWidth: 100
+                    spacing: 1
+                    Layout.alignment: Qt.AlignVCenter
+
+                    Label {
+                        font.pixelSize: 12
+                        font.bold: true
+                        // Якщо сума повернення (від'ємна) — підсвічуємо червоним
+                        color: (rootSec.infoObj && Number(rootSec.infoObj.amount || 0) < 0) ? "#d32f2f" : "#2e7d32"
+                        text: rootSec.infoObj ? Number(rootSec.infoObj.amount || 0).toLocaleString(Qt.locale(), 'f', 2) : "0.00"
+                    }
+
+                    RowLayout {
+                        spacing: 4
+                        visible: rootSec.infoObj ? (Number(rootSec.infoObj.eqamount || 0) !== 0 || Number(rootSec.infoObj.discount || 0) !== 0) : false
+
+                        Label {
+                            font.pixelSize: 10; color: 'gray'
+                            text: rootSec.infoObj && rootSec.infoObj.eqamount ? "💱 " + String(rootSec.infoObj.eqamount) : ""
+                            visible: text !== ""
+                        }
+                        Label {
+                            font.pixelSize: 10; color: '#c62828'
+                            text: rootSec.infoObj && rootSec.infoObj.discount ? "🏷️ " + String(rootSec.infoObj.discount) : ""
+                            visible: text !== ""
+                        }
+                        Label {
+                            font.pixelSize: 10; color: '#ff8f00'
+                            text: rootSec.infoObj && rootSec.infoObj.bonus ? "⭐ " + String(rootSec.infoObj.bonus) : ""
+                            visible: text !== ""
+                        }
+                    }
+                }
+
+                // Колонка 3: Код клієнта (Client ID)
+                Label {
+                    Layout.preferredWidth: 120
+                    font.pixelSize: 11
+                    color: "#546e7a"
+                    horizontalAlignment: Text.AlignHCenter
+                    elide: Text.ElideRight
+                    text: (rootSec.infoObj && rootSec.infoObj.clid) ? "👤 ID: " + String(rootSec.infoObj.clid) : ""
+                }
+
+                // Колонка 4: Дата та час фіксації ордера (з виправленим безпечним UTC-парсингом)
+                ColumnLayout {
+                    Layout.preferredWidth: 80
+                    spacing: 1
+                    Layout.alignment: Qt.AlignVCenter
+
+                    // Час чека (HH:MM)
+                    Label {
+                        Layout.fillWidth: true
+                        horizontalAlignment: Text.AlignRight
+                        font.pixelSize: 11
+                        font.bold: true
+                        color: "#37474f"
+                        text: {
+                            if (!rootSec.infoObj || !rootSec.infoObj.dcmtime) return "00:00";
+                            const rawTime = String(rootSec.infoObj.dcmtime);
+                            // ✅ БЕЗПЕЧНО: шукаємо позицію літери 'T' або пробілу для точного відсікання часу
+                            const tIdx = rawTime.indexOf('T');
+                            const start = tIdx !== -1 ? tIdx + 1 : 11;
+                            return rawTime.substring(start, start + 5);
+                        }
+                    }
+
+                    // Дата чека (YYYY-MM-DD)
+                    Label {
+                        Layout.fillWidth: true
+                        horizontalAlignment: Text.AlignRight
+                        font.pixelSize: 9
+                        color: "gray"
+                        text: {
+                            if (!rootSec.infoObj || !rootSec.infoObj.dcmtime) return "0000-00-00";
+                            const rawDate = String(rootSec.infoObj.dcmtime);
+                            // ✅ БЕЗПЕЧНО: Беремо перші 10 символів ISO рядка дати
+                            return rawDate.length >= 10 ? rawDate.substring(0, 10) : rawDate;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Page {
+        id: dcmPage
+        // Замість anchors використовуємо пряме зв'язування з розмірами вікна Window.
+        // Це гарантує 100% точність відмальовки header та footer без графічних багів у Qt 6!
+        width: parent.width
+        height: parent.height
+
+        // 1. СУЧАСНИЙ СПИСОК ЧЕКІВ ТА ОРДЕРІВ
+        ListView {
+            id: vw
+            anchors{fill: parent}
+            clip: true
+            spacing: 2
+            model: ModelDbDcms{}
+            delegate: dlg
+
+            // Плавні тач-анімації списку
+            add: Transition { NumberAnimation { properties: "x,y"; from: 100; duration: 250; easing.type: Easing.OutQuad } }
+            addDisplaced: Transition { NumberAnimation { properties: "x,y"; duration: 250 } }
+            remove: Transition { ParallelAnimation { NumberAnimation { property: "opacity"; to: 0; duration: 200 } NumberAnimation { properties: "x,y"; to: 100; duration: 200 } } }
+            removeDisplaced: Transition { NumberAnimation { properties: "x,y"; duration: 200 } }
+
+            // Повзунок скролу (Притиснутий праворуч зсередини списку)
+            ScrollBar.vertical: ScrollBar {
+                id: verticalScrollBar
+                policy: ScrollBar.AsNeeded
+                anchors.top: vw.top
+                anchors.right: vw.right
+                anchors.bottom: vw.bottom
+                contentItem: Rectangle { implicitWidth: 6; radius: 3; color: verticalScrollBar.pressed ? "#757575" : "#bdbdbd" }
+            }
+
+            section.property: "pid"
+            section.criteria: ViewSection.FullString
+            section.delegate: secDlg
+
+            highlight: highlightComponent
+            highlightFollowsCurrentItem: false
+            focus: true
+        }
+
+        // Журнал логування (спливає знизу за потребою)
+        LogView {
+            id: logView
+            width: parent.width
+            height: (count * 25 < parent.height / 4) ? count * 25 : parent.height / 4
+            z: 10
+            anchors.bottom: parent.bottom
+        }
+
+        // 🏢 ВЕРХНЯ ПАНЕЛЬ: Інтервальний фільтр архіву
+        header: ToolBar {
+            background: Rectangle { color: "#f8f9fa"; border.color: "#e0e0e0"; border.width: 1 }
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 12; anchors.rightMargin: 12
+                spacing: 12
+
+                ToolButton {
                     action: loadAction
-//                    font.pixelSize: 24;
+                    font.bold: true
                 }
 
                 Label {
                     id: headerTitle
-                    // text: sqlMode.text
                     elide: Label.ElideRight
+                    font.bold: true
+                    font.pixelSize: 14
+                    color: "#263238"
                     horizontalAlignment: Qt.AlignHCenter
                     verticalAlignment: Qt.AlignVCenter
                     Layout.fillWidth: true
                 }
-                ComboBox{
+
+                ComboBox {
                     id: findInterval
-                    Layout.preferredWidth: 150
-//                    Layout.fillWidth: true
+                    Layout.preferredWidth: 160
                     flat: true
+
+                    // Фільтри адаптовані під новий ISO-UTC формат нашої міграції 147 версії
                     model: ListModel {
-//                        id: sqlFilterModel
-                        ListElement { text: "за зміну"; table: "docum"; filter: "shftid = 0" }
-                        ListElement { text: "2 тижні"; table: "documall"; filter: "dcmtime >= date('now', '-14 day')" }
-                        ListElement { text: "місяць"; table: "documall"; filter:"dcmtime >= date('now', '-1 month')" }
-                        ListElement { text: "квартал"; table: "documall"; filter:"dcmtime >= date('now', '-3 month')" }
-                        ListElement { text: "рік"; table: "documall"; filter:"dcmtime >= date('now', '-1 year')" }
-                        ListElement { text: "з поч.місяця"; table: "documall"; filter:"dcmtime >= date('now','start of month')" }
-                        ListElement { text: "з поч.року"; table: "documall"; filter:"dcmtime >= date('now','start of year')" }
-                        ListElement { text: "весь період"; table: "documall"; filter:"" }
+                        ListElement { text: "За поточну зміну"; table: "docum"; filter: "shftid = 0" }
+                        ListElement { text: "Останні 2 тижні"; table: "documall"; filter: "datetime(dcmtime) >= datetime('now', 'localtime', '-14 day')" }
+                        ListElement { text: "За останній місяць"; table: "documall"; filter: "datetime(dcmtime) >= datetime('now', 'localtime', '-1 month')" }
+                        ListElement { text: "За поточний квартал"; table: "documall"; filter: "datetime(dcmtime) >= datetime('now', 'localtime', '-3 month')" }
+                        ListElement { text: "За весь рік"; table: "documall"; filter: "datetime(dcmtime) >= datetime('now', 'localtime', '-1 year')" }
+                        ListElement { text: "З початку місяця"; table: "documall"; filter: "datetime(dcmtime) >= datetime('now', 'localtime', 'start of month')" }
+                        ListElement { text: "З початку року"; table: "documall"; filter: "datetime(dcmtime) >= datetime('now', 'localtime', 'start of year')" }
+                        ListElement { text: "Весь період (архів)"; table: "documall"; filter: "" }
                     }
+
                     textRole: 'text'
                     valueRole: 'filter'
-                    onCurrentIndexChanged: loadAction.trigger()
+                    onCurrentValueChanged: loadAction.trigger();
                 }
-                ToolButton {    // ⋮
-                    text: qsTr("⋮")
-                    onClicked: {
-                        contextMenu.open()
-                    }
-                    Menu{
+
+                ToolButton {
+                    text: "⋮"
+                    font.pixelSize: 16
+                    font.bold: true
+                    onClicked: contextMenu.open()
+
+                    Menu {
                         id: contextMenu
-                        // MenuItem { action: clearFilterAction; }
-                        MenuItem { action: viewFullBindAction; }
-                        MenuItem { action: refuseAction; }
-                        MenuSeparator { padding: 5; }
-                        MenuItem { action: actionPrintCheck; }
-                        MenuItem { action: actionPrintOrder; }
-                        MenuSeparator { padding: 5; }
-                        MenuItem { action: bindModeAction; }
+                        MenuItem { action: viewFullBindAction }
+                        MenuItem { action: refuseAction }
+                        MenuSeparator { padding: 4 }
+                        MenuItem { action: actionPrintCheck }
+                        MenuItem { action: actionPrintOrder }
+                        MenuSeparator { padding: 4 }
+                        MenuItem { action: bindModeAction }
                     }
                 }
-
             }
-
         }
 
+        // 🏷 НИЖНЯ ПАНЕЛЬ: Пагінація сторінок журналу (Pager)
         footer: ToolBar {
-            RowLayout {
-                anchors{fill: parent;leftMargin:5; rightMargin:5;}
-                TextField{
-                    id: vfilterEdit
-                    Layout.preferredWidth: 100
-//                    focus: true
-                    selectByMouse: true
-                    onActiveFocusChanged: if (activeFocus) {selectAll()}
-                    horizontalAlignment: Text.AlignHCenter
-                    // text: vw.vfilter
-                    onAccepted: {
-                        vw.model.filterData(text)
-                        vcrntEdit.text = 1
-                    }
-                }
-                Item{
-                    Layout.fillWidth: true
-                }
-                ToolButton{ action: previousAction; }
-                TextField{
-                    id: vcrntEdit
-                    Layout.preferredWidth: 50
-//                    focus: true
-                    selectByMouse: true
-                    validator: IntValidator {bottom: 1; }
-                    onActiveFocusChanged: if (activeFocus) { selectAll(); }
-                    horizontalAlignment: Text.AlignHCenter
-                    text: "1"
-                    onTextChanged: {
-                        if (Number(text) > vw.model.pager.length ) text = vw.model.pager.length
-                        vw.model.populate(text)
-                    }
-                }
-                ToolButton{ action: nextAction; }
+            background: Rectangle { color: "#f8f9fa"; border.color: "#e0e0e0"; border.width: 1 }
 
-                Label{
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 12; anchors.rightMargin: 12
+                spacing: 10
+
+                // Пошуковий фільтр
+                Rectangle {
+                    Layout.preferredWidth: 140
+                    height: 32
+                    color: "white"
+                    radius: 4
+                    border.color: vfilterEdit.activeFocus ? "#0288d1" : "#bdbdbd"
+
+                    TextField {
+                        id: vfilterEdit
+                        anchors.fill: parent
+                        leftPadding: 6
+                        selectByMouse: true
+                        font.pixelSize: 12
+                        placeholderText: "🔍 Фільтр чеків..."
+                        background: null
+                        onActiveFocusChanged: if (activeFocus) selectAll();
+                        onAccepted: {
+                            vw.model.filterData(text.trim());
+                            vcrntEdit.text = "1";
+                        }
+                    }
+                }
+
+                Item { Layout.fillWidth: true } // Розпірка простору
+
+                ToolButton { action: previousAction }
+
+                Rectangle {
+                    Layout.preferredWidth: 44
+                    height: 32
+                    color: "white"
+                    radius: 4
+                    border.color: vcrntEdit.activeFocus ? "#0288d1" : "#bdbdbd"
+
+                    TextField {
+                        id: vcrntEdit
+                        anchors.fill: parent
+                        font.pixelSize: 12
+                        font.bold: true
+                        selectByMouse: true
+                        background: null
+                        validator: IntValidator { bottom: 1 }
+                        horizontalAlignment: Text.AlignHCenter
+                        text: "1"
+                        onActiveFocusChanged: if (activeFocus) selectAll();
+                        onTextChanged: {
+                            if (!text || text === "") return;
+                            const maxPage = (vw.model && vw.model.pager) ? vw.model.pager.length : 1;
+                            if (Number(text) > maxPage) text = String(maxPage);
+                            if (vw.model && typeof vw.model.populate === "function") {
+                                vw.model.populate(text);
+                            }
+                        }
+                    }
+                }
+
+                ToolButton { action: nextAction }
+
+                Label {
                     id: footerCount
-                    // text: String(" з %1 (%2)").arg(Math.ceil(vw.bindList.length/vw.vlen)).arg(vw.bindList.length)
-                    text: String(" з %1 (%2)")
-                    .arg(vw.model === null ? 0 : vw.model.pager.length)
-                    .arg(vw.model === null ? 0 : vw.model.bindCount)
+                    font.pixelSize: 11
+                    color: "#546e7a"
+                    text: String(" з %1 (%2 позицій)")
+                        .arg((vw.model && vw.model.pager) ? vw.model.pager.length : 0)
+                        .arg((vw.model) ? (vw.model.bindCount || 0) : 0)
                 }
             }
         }

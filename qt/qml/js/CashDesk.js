@@ -6,7 +6,14 @@
   JS library
   CashDesk
 */
-const db_key = "tax";   // database key for config
+
+// sending is prohibited for debugging purposes
+// sending sale, z_report is prohibited
+// sending connect, ping, x_report is NOT prohibited
+// raw postRequest is NOT prohibite !!!
+// const BAN_SEND = true;
+const BAN_SEND = false;
+
 let HOST = "https://test.cashdesk.com.ua";
 let API = "/api/v2";
 let CASH = "";
@@ -26,7 +33,7 @@ function reset(db){
 
     if (!db) return;
 
-    const val = Conf.getVal(db, db_key);
+    const val = Conf.getTAX(db);
     if (!val) return;
     setParam(val.host, val.api, val.cash, val.token)
 }
@@ -41,7 +48,7 @@ function save(db) {
         "token": String(TOKEN || "")
     };
 
-    return Conf.setVal(db, db_key, paramData);
+    return Conf.setTAX(db, paramData);
 }
 
 function parse(raw){
@@ -99,7 +106,7 @@ function ping(callback) {
 }
 
 // DEPRECATED, use sale() instead
-function sendSaleToTax(db, dcmid, payType, callback){
+/*function sendSaleToTax(db, dcmid, payType, callback){
     console.log("CashDesk.js/sendSaleToTax DEPRECATED, use sale() instead");
     // console.log(`01hs#CashDesk START dcmid=${dcmid}`);
     let  err = null, resp = null;
@@ -224,14 +231,19 @@ function sendSaleToTax(db, dcmid, payType, callback){
     }
     callback(err,resp);
 }
+*/
 
 function sale(data, callback) {
     // data.api_token = TOKEN
     // data.num_fiscal = CASH
-    console.warn(`WW: CashDesk.js/sale TAX is blocked !!!`);
-    return;
-    postRequest(String("/check/sale?api_token=%1").arg(TOKEN), data, callback)
-
+    // console.warn(`WW: CashDesk.js/sale TAX is blocked !!!`);
+    // return;
+    if (BAN_SEND) {
+    // debug info
+        console.warn("WW: TAX.z_report send is PROHIBITED (BAN_SEND = true) !!!")
+    } else {
+        postRequest(String("/check/sale?api_token=%1").arg(TOKEN), data, callback)
+    }
 }
 
 function x_report(callback) {
@@ -242,22 +254,26 @@ function x_report(callback) {
 
 function z_report(callback) {
     const req = { "api_token": TOKEN, "num_fiscal": CASH,"no_text_print": true,"no_pdf": true,"include_checks": false }
-    console.warn(`WW: CashDesk.js/z_report TAX is blocked !!!`);
-    return;
-    postRequest("/shift", req, callback)
-
+    // console.warn(`WW: CashDesk.js/z_report TAX is blocked !!!`);
+    // return;
+    if (BAN_SEND) {
+    // debug info
+        console.warn("WW: TAX.z_report send is PROHIBITED (BAN_SEND = true) !!!")
+    } else {
+        postRequest("/shift", req, callback)
+    }
 }
 
 function postRequest(path, req, callback) {
     // console.log("[libTAX] data=" + JSON.stringify(req)); return;
-    console.log(`CashDesk.js/postRequest req=${JSON.stringify(req)}`)
+    // console.log(`CashDesk.js/postRequest req=${JSON.stringify(req)}`)
     // callback(null,`Ok sendToTax ${JSON.stringify(req)}`);
     // return;
 
     let request = new XMLHttpRequest();
     let  err = null, resp = null;
     const url = /*host + API + */path
-    console.log(`CashDesk.js/postRequest url=${url}`)
+    // console.log(`CashDesk.js/postRequest url=${url}`)
     request.onreadystatechange = function() {
         if (request.readyState === XMLHttpRequest.DONE) {
             if (request.status === 200) {
@@ -273,10 +289,11 @@ function postRequest(path, req, callback) {
                         + "\nRequest: "+JSON.stringify(req)
                         + "\nResponse: "+request.response
             }
-            console.log(`CashDesk.js/postRequest request=${JSON.stringify(request)}`)
+            // console.log(`CashDesk.js/postRequest request=${JSON.stringify(request)}`)
             callback(err,resp);
         }
     }
+
     request.open("POST", url);
     request.setRequestHeader("Content-Type","application/json");
     request.setRequestHeader("Accept","application/json");
