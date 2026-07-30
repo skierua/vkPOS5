@@ -481,10 +481,20 @@ Window {
         // Журнал логування (спливає знизу за потребою)
         LogView {
             id: logView
-            width: parent.width
-            height: (count * 25 < parent.height / 4) ? count * 25 : parent.height / 4
-            z: 10
             anchors.bottom: parent.bottom
+            width: parent.width < 400 ? parent.width - 16 : 360
+            height: Math.min(count * 45, parent.height * 0.4)
+            z: 999
+
+            anchors {
+                bottom: parent.bottom
+                right: parent.right
+                bottomMargin: 30
+                rightMargin: 10
+            }
+
+            interactive: false
+            debug: false
         }
 
         // 🏢 ВЕРХНЯ ПАНЕЛЬ: Інтервальний фільтр архіву

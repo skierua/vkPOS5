@@ -199,14 +199,17 @@ ApplicationWindow {
                         //     onTriggered: naviMenu.close()
                         // }
                         MenuItem {
-                            action: changeDBAction // Виклик вашого Popup.open()
+                            action: syncBalanceAction
+                            // icon.source: "qrc:/icon/undo.svg"
+                            onTriggered: naviMenu.close()
+                        }
+                        MenuItem {
+                            action: changeDBAction
                             // icon.source: "qrc:/icon/undo.svg"
                             onTriggered: naviMenu.close()
                         }
                         MenuSeparator { topPadding: 1; bottomPadding: 1 }
 
-                        // Налаштування програми як вкладка у SwipeView
-                        // Переконайтеся, що actionSetting додає вкладку
                         MenuItem {
                             action: actionSetting
                             // icon.source: "qrc:/icon/close.svg"
@@ -660,6 +663,7 @@ ApplicationWindow {
 
         }
     }
+
     Action {
         id: winShiftAction
         text: qsTr("Зміна")
@@ -717,6 +721,12 @@ ApplicationWindow {
         checked: taxServiceLoader.active
         text: "ПРРО/касовий"
         onTriggered: { taxServiceLoader.active = checked; }
+    }
+
+    Action{
+        id: syncBalanceAction
+        text: "Синхронізувати залишки"
+        onTriggered: JS.uploadBalance(Db, "all", logView)
     }
 
     Action {

@@ -129,6 +129,7 @@ function loginRequest(usr, psw, callback) {
 }
 
 function loadRates(req, callback) {
+    // console.info(`II: libREST.js req=${req}`)
     postRequest("/rates", req, (err, resp) => { callback(err, resp); });
 }
 
