@@ -3,21 +3,21 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
+import "js/rate.js" as JS
+
 Window {
     id: root
-    width: 280  // Трохи збільшимо ширину (з 200 до 280) для комфортного відображення довгих курсів валют (напр. 41.5550)
+    width: 280
     height: 420
     minimumWidth: 240
     minimumHeight: 350
 
     property bool online: false
-    // property string uri
-    // property var queryData
     property var dbDriver: null
 
     onDbDriverChanged: {
         if (dbDriver) {
-            ratesDataModel.populate(dbDriver);
+            JS.loadCurrencies(dbDriver, vw.model);
             if (getWebAction.enabled) {
                 getWebAction.trigger();
             }
@@ -27,23 +27,6 @@ Window {
     property real zero: 0.0000001
     property var funcCreateDcm: null // Колбек для швидкого чека
 
-    // --- ОНОВЛЕНИЙ БЛОК МОДЕЛІ ДАНИХ (Перейменовано для безпеки Qt6) ---
-    ModelRates {
-        id: ratesDataModel
-
-        onVkEvent: (id, param) => {
-            // Звертаємось до глобального logView головного вікна Main.qml
-            if (typeof logView !== "undefined") {
-                if (id === 'log') {
-                    logView.append("[Курси] " + param, 2); // Зелений інфо-знак
-                } else if (id === 'err') {
-                    logView.append("[Курси] Помилка: " + param, 0); // Червона картка помилки
-                }
-            } else {
-                console.log(`[Fallback ModelRates] ${id}: ${param}`);
-            }
-        }
-    }
 
     // Спливаюче попередження про перевищення ліміту курсу (Захист від помилок касира)
     Popup {
@@ -285,15 +268,20 @@ Window {
         enabled: root.online
         text: qsTr("Завантажити з сайту")
         onTriggered: {
-            vw.model.loadWebRates()
+            const uiBridge = {
+                online: root.online,
+                setActionEnabled:  (v)=> {saveWebAction.enabled = v;}
+            }
+
+            JS.loadWebRates(vw.model, logView, uiBridge)
         }
     }
 
     Action {
         id: saveWebAction
-        enabled: root.online && root.dbDriver !== null && !ratesDataModel.isWebEmpty
+        enabled: root.online && root.dbDriver !== null
         text: qsTr("Встановити для каси")
-        onTriggered: vw.model.updateLocalRates(root.dbDriver)
+        onTriggered: JS.updateLocalRates(root.dbDriver, vw.model, logView, root.zero)
     }
 
     // --- ГОЛОВНИЙ ЖУРНАЛ КУРСІВ ВАЛЮТ ---
@@ -312,7 +300,7 @@ Window {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 clip: true
-                model: ratesDataModel
+                model: ListModel{}
                 delegate: dlg
 
                 header: Rectangle {
@@ -357,7 +345,7 @@ Window {
                 // Швидке створення чека при подвійному кліку по валюті
                 function newDoc(row) {
                     if (typeof root.funcCreateDcm === "function") {
-                        let itemData = ratesDataModel.get(row);
+                        let itemData = vw.model.get(row);
                         if (itemData && itemData.curid) {
                             root.funcCreateDcm(itemData.curid);
                         }
@@ -365,17 +353,15 @@ Window {
                 }
 
                 function upd(row, amnt, ba = "bid") {
-                    let itemData = ratesDataModel.get(row);
+                    let itemData = vw.model.get(row);
                     if (!itemData) return;
 
                     let amountNum = Number(amnt);
                     let baseBid = Number(itemData.lbid || 0);
-
                     // Якщо курс 0, або в базі немає старого курсу, або відхилення менше 4% — дозволяємо запис
                     if (amountNum === 0 || baseBid === 0 || (Math.abs(amountNum - baseBid) / baseBid < 0.04)) {
-                        ratesDataModel.updateLocalRate(root.dbDriver, row, amnt, ba === "bid" ? "1" : "-1");
+                        JS.updateLocalRate(root.dbDriver, vw.model, logView, row, amnt, ba === "bid" ? "1" : "-1");
                     } else {
-                        // ✅ ВИПРАВЛЕНО: Математичний захист від випадкового введення зайвого нуля
                         rateWarningPopup.str = qsTr("Перевищення ліміту курсу!\nДопустимий діапазон відхилення ±4%:\nвід %1 до %2")
                             .arg((baseBid * 0.96).toFixed(4))
                             .arg((baseBid * 1.04).toFixed(4));
@@ -400,6 +386,23 @@ Window {
                 action: saveWebAction
                 font.bold: true
             }
+        }
+
+        LogView {
+            id: logView
+            width: parent.width < 400 ? parent.width - 16 : 360
+            height: Math.min(count * 45, parent.height * 0.4)
+            z: 999
+
+            anchors {
+                bottom: parent.bottom
+                right: parent.right
+                bottomMargin: 30
+                rightMargin: 10
+            }
+
+            interactive: false
+            debug: false
         }
     }
 }

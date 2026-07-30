@@ -4,8 +4,6 @@
 .import "v147/config.js" as Conf
 .import "v147/sqlAcnt.js" as LibAcnt
 .import "v147/sqlBind.js" as LibBind
-// .import "v147/sqlClient.js" as LibClient
-// .import "v147/sqlItem.js" as LibItem
 .import "v147/sqlPrice.js" as LibPrice
 .import "v147/sqlShift.js" as LibShift
 

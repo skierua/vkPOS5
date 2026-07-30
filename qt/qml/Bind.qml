@@ -570,7 +570,7 @@ Item {
                                     dlgRoot.ListView.view.restart();
                                 }
                                 visible = false;
-                                if (Number(model.jprice?.offer || model.jprice?.price || 0) === 0) {
+                                if (dlgRoot.isTrade && (Number(model.jprice?.offer || model.jprice?.price || 0) === 0)) {
                                     fldPriceEdit.visible = true;
                                     fldPriceEdit.forceActiveFocus();
                                 } else fldMainInput.forceActiveFocus(); // Повертаємо фокус на головний сканер
