@@ -70,24 +70,24 @@ function tranBind(db, jbind) {
             ok &= (cdtid.errid === 0 && Number(cdtid.acid || 0) !== 0);
             if (!ok) break;
             // Проводка 1: Рух самої фізичної валюти (Код кількості)
-            tranSchedule.push({ "amount": dcmItem.amnt, "dbtid": dbtid.acid, "cdtid": cdtid.acid });
+            tranSchedule.push({"rowid": r, "amount": dcmItem.amnt, "dbtid": dbtid.acid, "cdtid": cdtid.acid });
 
             // Проводка 2: Рух фінансового еквівалента в гривні (eqvl.)
             dbtid = acnt_id(db, dcmItem.dbt);
             ok &= (dbtid.errid === 0 && Number(dbtid.acid || 0) !== 0);
             if (!ok) break;
-            tranSchedule.push({ "amount": dcmItem.eq, "dbtid": cdtid.eqid, "cdtid": dbtid.acid });
+            tranSchedule.push({"rowid": r, "amount": dcmItem.eq, "dbtid": cdtid.eqid, "cdtid": dbtid.acid });
 
             // Проводка 3: Персональна знижка клієнта (DISCOUNT)
             if (Number(dcmItem.dsc || 0) !== 0) {
-                tranSchedule.push({ "amount": dcmItem.dsc, "dbtid": cdtid.eqid, "cdtid": dbtid.acid });
+                tranSchedule.push({"rowid": r, "amount": dcmItem.dsc, "dbtid": cdtid.eqid, "cdtid": dbtid.acid });
             }
 
             // Проводка 4: Нарахування або списання бонусів (BONUS)
             if (hasBonus) {
-                tranSchedule.push({ "amount": dcmItem.bns, "dbtid": cdtid.eqid, "cdtid": bnsid.acid });
+                tranSchedule.push({"rowid": r, "amount": dcmItem.bns, "dbtid": cdtid.eqid, "cdtid": bnsid.acid });
                 // if (clntBnsDbtId.errid === 0 && Number(clntBnsDbtId.acid || 0) !== 0 && Number(cdtid.eqid || 0) !== 0) {
-                //     tranSchedule.push({ "amount": dcmItem.bns, "dbtid": cdtid.eqid, "cdtid": clntBnsDbtId.acid });
+                //     tranSchedule.push({"rowid": r, "amount": dcmItem.bns, "dbtid": cdtid.eqid, "cdtid": clntBnsDbtId.acid });
                 // }
             }
 
@@ -118,7 +118,7 @@ function tranBind(db, jbind) {
             cdtid = acnt_id(db, dcmItem.cdt, dcmItem.crn);
             ok &= (cdtid.errid === 0 && Number(cdtid.acid || 0) !== 0);
             if (!ok) break;
-            tranSchedule.push({ "amount": dcmItem.amnt, "dbtid": dbtid.acid, "cdtid": cdtid.acid });
+            tranSchedule.push({"rowid": r, "amount": dcmItem.amnt, "dbtid": dbtid.acid, "cdtid": cdtid.acid });
         }
     }
 // console.log(`sqlTran 33333 ok=[${ok}] \n ${JSON.stringify(tranSchedule)}`);
@@ -126,8 +126,8 @@ function tranBind(db, jbind) {
     const sqlNoteField = (!jbind.note || jbind.note === "") ? "NULL" : `'${jbind.note}'`;
 
     const insertMainDocSql = `
-        INSERT INTO docum (dcmtype, acntdbt, amount, eqamount, discount, bonus, dcmstate, acntcdt, dcmnote, client)
-        VALUES ('${jbind.dcm}', '${jbind.dbt}', ${Number(jbind.amnt || 0)}, ${Number(jbind.eq || 0)}, ${Number(jbind.dsc || 0)}, ${Number(jbind.bns || 0)}, 1, '${jbind.cdt}', ${sqlNoteField}, ${sqlClientField});
+        INSERT INTO docum (dcmtype, acntdbt, amount, eqamount, discount, bonus, dcmstate, acntcdt, dcmnote, client, dcmtime)
+        VALUES ('${jbind.dcm}', '${jbind.dbt}', ${Number(jbind.amnt || 0)}, ${Number(jbind.eq || 0)}, ${Number(jbind.dsc || 0)}, ${Number(jbind.bns || 0)}, 1, '${jbind.cdt}', ${sqlNoteField}, ${sqlClientField}, '${jbind.tm}');
     `;
 
     let pid = db.dbInsert(insertMainDocSql);
@@ -144,25 +144,25 @@ function tranBind(db, jbind) {
             let sqlCshrField = ((shift?.cshr || "") === "") ? "NULL" : `'${shift?.cshr || ""}'`;
 
             const insertSubDocSql = `
-                INSERT INTO docum (dcmtype, acntdbt, amount, eqamount, discount, bonus, dcmstate, acntcdt, dcmnote, item, parentid, retfor, dcmaker)
-                VALUES ('${subDcm.dcm}', '${subDcm.dbt}', ${Number(subDcm.amnt || 0)}, ${Number(subDcm.eq || 0)}, ${Number(subDcm.dsc || 0)}, ${Number(subDcm.bns || 0)}, 1, '${subDcm.cdt}', '${subDcm.note || ""}', ${sqlItemField}, ${pid}, ${sqlRetforField}, ${sqlCshrField});
+                INSERT INTO docum (dcmtype, acntdbt, amount, eqamount, discount, bonus, dcmstate, acntcdt, dcmnote, item, parentid, retfor, dcmaker, dcmtime)
+                VALUES ('${subDcm.dcm}', '${subDcm.dbt}', ${Number(subDcm.amnt || 0)}, ${Number(subDcm.eq || 0)}, ${Number(subDcm.dsc || 0)}, ${Number(subDcm.bns || 0)}, 1, '${subDcm.cdt}', '${subDcm.note || ""}', ${sqlItemField}, ${pid}, ${sqlRetforField}, ${sqlCshrField}, '${jbind.tm}');
             `;
 
             did = db.dbInsert(insertSubDocSql);
             ok &= (did !== 0);
+            for (let j = 0; ok && j < tranSchedule.length; ++j) {
+                if (r !== tranSchedule[j].rowid) continue;
+                const insertTranSql = `
+                    INSERT INTO documtran (dcmid, amount, dbtid, cdtid)
+                    VALUES (${did},
+                            ${Number(tranSchedule[j].amount || 0)},
+                            ${tranSchedule[j].dbtid},
+                            ${tranSchedule[j].cdtid});
+                `;
 
-        }
-        for (let j = 0; ok && j < tranSchedule.length; ++j) {
-            const insertTranSql = `
-                INSERT INTO documtran (dcmid, amount, dbtid, cdtid)
-                VALUES (${did},
-                        ${Number(tranSchedule[j].amount || 0)},
-                        ${tranSchedule[j].dbtid},
-                        ${tranSchedule[j].cdtid});
-            `;
-
-            let tid = db.dbInsert(insertTranSql);
-            ok &= (tid !== 0);
+                let tid = db.dbInsert(insertTranSql);
+                ok &= (tid !== 0);
+            }
         }
     // }
 

@@ -14,10 +14,6 @@ let PSW = "";
 let TOKEN = "";
 let isConnected = false;
 
-// var gl_host = ""
-// var gl_api =  ""
-// var gl_token = ""
-
 function setParam(host, api, user, psw, token){
     HOST = !!host ? String(host) : "";
     API = !!api ? String(api) : "";
@@ -189,6 +185,7 @@ function postRequest(path, req, callback) {
     request.onreadystatechange = () => {
         if (request.readyState === XMLHttpRequest.DONE) {
             // console.log(`libREST request.status=${request.status}`)
+            // console.log(`libREST request.status=${request.response}`)
             if (request.status === 200) {
                 const presp = parse(request.response);
                 if (presp) {

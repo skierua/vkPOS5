@@ -140,6 +140,7 @@ function to_v147(db){
                             "FROM tmpdocum;");
         db.dbSelectRowsJSON("DROP TABLE IF EXISTS tmpdocum;");
 
+        db.dbSelectRowsJSON("INSERT INTO sqlite_sequence (name, seq) VALUES ('docum', (SELECT COALESCE(MAX(dcmid), 0) + 1 FROM strgdocum));");
 
         // -----------------------------------------------------------------------------
         // МОДЕРНІЗАЦІЯ ТАБЛИЦІ ЗНИЖОК ТОВАРІВ (selldsc -> UTC)
@@ -191,7 +192,6 @@ function to_v147(db){
         db.dbSelectRowsJSON("DROP TRIGGER IF EXISTS t_documtran_ai1;");
         db.dbSelectRowsJSON("DROP TRIGGER IF EXISTS t_documtran_ai2;");
 
-        // ✅ Нові тригери створюються атомарними індивідуальними викликами
         db.dbSelectRowsJSON("CREATE TRIGGER t_documtran_ai1 after insert on documtran when new.amount>0 " +
                             "begin " +
                             "  update acnt set turndbt = turndbt + new.amount, dbtupd = strftime('%Y-%m-%dT%H:%M:%S', 'now') where id = new.dbtid; " +
@@ -245,7 +245,6 @@ function to_v147(db){
         // Піднімаємо версію в заголовку SQLite до 147
         db.dbSelectRowsJSON("PRAGMA user_version = 147;");
         console.log("[Migration] Базу даних успішно модернізовано до версії 147! 🎉");
-
     } catch (error) {
         // ✅ ЗАХИСТ: Якщо хоч один SQL-запит зламається, відкочуємо зміни назад, щоб не пошкодити базу касира
         console.error("[Migration] Критична помилка міграції: " + String(error));

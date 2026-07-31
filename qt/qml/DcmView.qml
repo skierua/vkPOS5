@@ -280,8 +280,6 @@ Window {
                     Label {
                         Layout.preferredWidth: 70
                         horizontalAlignment: Text.AlignHCenter
-                        // horizontalAlignment: Text.AlignLeft
-                        // horizontalAlignment: Text.AlignRight
                         verticalAlignment: Text.AlignVCenter
                         font.pixelSize: 14
                         font.bold: true
@@ -332,6 +330,17 @@ Window {
             // Отримуємо посилання на модель через контекст ListView
             readonly property var viewObj: rootSec.ListView.view
             readonly property var infoObj: (viewObj && viewObj.model) ? viewObj.model.bindInfo(section) : null
+            readonly property var dateObj: {
+                if (!rootSec.infoObj) return null;
+
+                let raw = String(rootSec.infoObj.dcmtime).trim();
+                if (raw === "") return null;
+                if (!raw.includes("T")) raw = raw.replace(" ", "T");
+                if (!raw.endsWith("Z") && !raw.includes("+") && !raw.substring(10).includes("-")) raw += "Z";
+                // return raw;
+
+                return new Date(raw);
+            }
 
             RowLayout {
                 anchors.fill: parent
@@ -402,35 +411,20 @@ Window {
                     spacing: 1
                     Layout.alignment: Qt.AlignVCenter
 
-                    // Час чека (HH:MM)
                     Label {
                         Layout.fillWidth: true
                         horizontalAlignment: Text.AlignRight
                         font.pixelSize: 11
                         font.bold: true
                         color: "#37474f"
-                        text: {
-                            if (!rootSec.infoObj || !rootSec.infoObj.dcmtime) return "00:00";
-                            const rawTime = String(rootSec.infoObj.dcmtime);
-                            // ✅ БЕЗПЕЧНО: шукаємо позицію літери 'T' або пробілу для точного відсікання часу
-                            const tIdx = rawTime.indexOf('T');
-                            const start = tIdx !== -1 ? tIdx + 1 : 11;
-                            return rawTime.substring(start, start + 5);
-                        }
+                        text: isNaN(rootSec.dateObj.getTime()) ? "0000-00-00" : rootSec.dateObj.toLocaleTimeString(Qt.locale(), "HH:mm");
                     }
-
-                    // Дата чека (YYYY-MM-DD)
                     Label {
                         Layout.fillWidth: true
                         horizontalAlignment: Text.AlignRight
                         font.pixelSize: 9
                         color: "gray"
-                        text: {
-                            if (!rootSec.infoObj || !rootSec.infoObj.dcmtime) return "0000-00-00";
-                            const rawDate = String(rootSec.infoObj.dcmtime);
-                            // ✅ БЕЗПЕЧНО: Беремо перші 10 символів ISO рядка дати
-                            return rawDate.length >= 10 ? rawDate.substring(0, 10) : rawDate;
-                        }
+                        text: isNaN(rootSec.dateObj.getTime()) ? "0000-00-00" : rootSec.dateObj.toLocaleDateString(Qt.locale(), "yyyy-MM-dd");
                     }
                 }
             }
