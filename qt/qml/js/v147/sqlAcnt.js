@@ -350,7 +350,7 @@ function balanceForUpload(db, updatedOnly) {
     // з системним 'now' за Гринвічем відбувається безпомилково і миттєво!
     const whereCondition = updatedOnly
         ? "datetime(tm) > datetime('now', '-10 minutes')"
-        : "(beginamnt + turndbt - turncdt) != 0";
+        : "abs(beginamnt + turndbt - turncdt) > 0.001";
 
     const sql = `
         SELECT

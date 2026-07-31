@@ -104,6 +104,7 @@ ListModel {
         let ok = true;
         let dcmList = []
         let errstr = "";
+        // const utcTimeStamp = new Date().toISOString();  //.substring(0, 19);
         for (let r = 0; ok && r < count; ++r) {
             let row = get(r);
             // console.log(`ModelBind#s729 ${JSON.stringify(row)}`)
@@ -129,6 +130,7 @@ ListModel {
                 "dsc": (row.moneyDsc || 0).toFixed(2),
                 "bns": (row.moneyBns || 0).toFixed(2),
                 "note": row.dnote || "",
+                // "tm": utcTimeStamp,
                 "retfor": row.retfor || ""
             });
         }

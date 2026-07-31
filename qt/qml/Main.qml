@@ -1299,6 +1299,8 @@ ApplicationWindow {
         //             Loading=${Component.Loading}
         //             Error=${Component.Error}
         //             `);
+        const utcTimeStamp = new Date().toISOString();  //.substring(0, 19);
+        console.log(`II: Main.qml#dsi82 utcTimeStamp=${utcTimeStamp}`);
         // pathToDb = "./data/"
         // pathToDb = applicationDirPath + "/data/"
 //         var dbList = Db.dirEntryList(pathToDb,'*.sqlite', 2,0)

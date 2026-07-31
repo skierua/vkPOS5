@@ -678,7 +678,6 @@ Item {
                             onAccepted: visible = false
                         }
                     }
-                    // ✅ Цей блок стає в самий фінал вашого FocusScope { id: dlgRoot }
 
                     // 5. Кнопка швидкого видалення позиції з чека
                     ToolButton {

@@ -17,9 +17,6 @@ Item {
     property string title: "Налаштування системи"
     property string codeid: "settings"
 
-    readonly property string basicDbKey: "term"
-    readonly property string acntDbKey: "acntlist"
-
     // Список дій контекстного меню (перемикачі вкладок)
     property list<Action> vkContextActions: [
         actBasic,
@@ -47,7 +44,7 @@ Item {
         id: actBasic
         text: "Базові"
         onTriggered: {
-            const val = JS.getVal(dbDriver, root.basicDbKey);
+            const val = JS.getBasic(dbDriver);
 
             editTerm.text = String(val?.id || "TEST");
             editTermName.text = String(val?.name || "");
@@ -204,7 +201,7 @@ Item {
                             ColumnLayout {
                                 Layout.fillWidth: true
                                 spacing: 4
-                                Label { text: "Ідентифікатор (Код терміналу)"; font.pixelSize: 11; font.bold: true; color: "#6b7280" }
+                                Label { text: "Ідентифікатор (Назва терміналу)"; font.pixelSize: 11; font.bold: true; color: "#6b7280" }
                                 Rectangle {
                                     Layout.fillWidth: true; height: 38; color: "#f9fafb"; radius: 6; border.color: editTermName.activeFocus ? "#0288d1" : "#d1d5db"; border.width: editTermName.activeFocus ? 2 : 1
                                     TextField { id: editTermName; anchors.fill: parent; leftPadding: 10; font.pixelSize: 13; selectByMouse: true; background: null; placeholderText: "Введіть назву каси..." }
@@ -250,8 +247,8 @@ Item {
                                 ColumnLayout {
                                     spacing: 2
                                     Layout.fillWidth: true
-                                    Label { text: "Автоматичний друк чека РРО"; font.pixelSize: 13; font.bold: true; color: "#1f2937" }
-                                    Label { text: "Друкувати фіскальний чек одразу після закриття транзакції"; font.pixelSize: 11; color: "#6b7280" }
+                                    Label { text: "Автоматичний друк чека"; font.pixelSize: 13; font.bold: true; color: "#1f2937" }
+                                    Label { text: "Друкувати нефіскальний чек одразу після закриття транзакції"; font.pixelSize: 11; color: "#6b7280" }
                                 }
                                 Switch {
                                     id: switchAutoPrint
@@ -296,7 +293,7 @@ Item {
                                 auto_print: switchAutoPrint.checked ? "1" : "0",
                                 print_dcm: editCheckPrintDcm.text.trim()
                             };
-                            const ok = JS.setVal(dbDriver, root.basicDbKey, val);
+                            const ok = JS.setBasic(dbDriver, val);
                             if (ok) root.vkEvent("info", "Конфігурацію успішно збережено");
                                 else root.vkEvent("error", "Помилка збереження конфігурації")
                         }

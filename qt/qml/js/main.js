@@ -15,12 +15,15 @@ function uploadBalance(db, mode = "upd", msg){
     const currentShop = currentTerm;
     let acntData = [];
     const loadMode = (mode === "all" ? false : true);
-    const reqMode = (mode === "all" ? "del" : "upd");
     if (typeof LibAcnt.balanceForUpload === "function") {
         acntData = LibAcnt.balanceForUpload(db, loadMode);
     }
     if (acntData && acntData.length > 0) {
-        const balanceReq = { "term": currentTerm, "reqid": reqMode, "shop": currentShop, "data": acntData }
+        if (mode === "all"){
+           REST.uploadBalance({ "term": currentTerm, "reqid": "del", "shop": currentShop, "data": [] }, ()=>{} );
+        }
+
+        const balanceReq = { "term": currentTerm, "reqid": "upd", "shop": currentShop, "data": acntData }
         REST.uploadBalance(balanceReq,
            (err)=>{
                if (!!err) {

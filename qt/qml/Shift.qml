@@ -48,12 +48,15 @@ Window {
     // --- ACTIONS BLOCK ---
     Action {
         id: startAction
+        property bool pswOk: false;
         // enabled: cmb.currentIndex === 0 //&& (psw.text !== "" && cmb.model && psw.text === atob(cmb.model[cmb.currentIndex].psw || ""))
-        enabled: !root.isProcessing
-                 && typeof cmb !== "undefined"
-                 && cmb.currentIndex > 0
-                 && typeof psw !== "undefined"
-                 && psw.text !== ""
+        // enabled: false;
+            // !root.isProcessing && (pswOk || !cmb.currentValue)
+        // enabled: !root.isProcessing
+        //          && typeof cmb !== "undefined"
+        //          && cmb.currentIndex > 0
+        //          && typeof psw !== "undefined"
+        //          && psw.text !== ""
         text: qsTr("Відкрити зміну")
         onTriggered: {
             if (typeof JS.startShift === "function") {
@@ -76,7 +79,7 @@ Window {
                     root.close();
                 }
             } else { vkEvent("error", "Системна помилка: Відсутня функція відкриття зміни"); }
-
+            startAction.pswOk = false;
         }
     }
     Action { id: cancelAction; text: qsTr("Скасувати"); onTriggered: root.close() }
@@ -193,11 +196,12 @@ Window {
                                 valueRole: "code"
                                 model:ListModel{}
                                 Layout.fillWidth: true
-                                onCurrentIndexChanged: { psw.text = "";
-                                    if (currentIndex > 0) {
-                                        startAction.enabled = false
-                                        psw.forceActiveFocus();
-                                    } else startAction.enabled = true
+                                onCurrentValueChanged: {
+                                    startAction.enabled = !currentValue
+                                    psw.text = "";
+                                    psw.forceActiveFocus();
+                                    // if (currentIndex > 0) {
+                                    // } else startAction.enabled = true
                                 }
                             }
                         }
@@ -221,10 +225,14 @@ Window {
                                 }
                                 onActiveFocusChanged: if (activeFocus) selectAll()
                                 onAccepted: {
+                                    console.info(`II: Shift.qml cmindex=${cmb.currentIndex} text=${text}`)
                                     if (cmb.model && cmb.currentIndex >= 0) {
-                                        let cshr = cmb.model[cmb.currentIndex];
-                                        if (cshr && (cshr.psw === "" || text === atob(cshr.psw)))
-                                            startAction.trigger();
+                                        const cshr = cmb.model.get(cmb.currentIndex);
+                                        console.info(`II: Shift.qml text=${text} psw=${cshr.psw} atob=${Qt.atob(cshr.psw)}`)
+                                        if (cshr && (text === Qt.atob(cshr.psw))){
+                                            startAction.enabled = !root.isProcessing;
+                                            startButton.forceActiveFocus();
+                                        }
                                     }
                                 }
                             }
@@ -234,11 +242,12 @@ Window {
                             Layout.fillWidth: true
                             spacing: 12
                             Button {
-                            action: cancelAction
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 36
+                                action: cancelAction
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 36
                             }
                             Button {
+                                id: startButton
                                 action: startAction
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 36
