@@ -66,13 +66,13 @@ function to_v147(db){
                             "  clchar text unique, " +
                             "  phone text, " +
                             "  clnote text, " +
-                            "  inptime text not null default ( strftime('%Y-%m-%dT%H:%M:%S', 'now') )" +
+                            "  inptime text not null default ( strftime('%Y-%m-%dT%H:%M:%SZ', 'now') )" +
                             ");");
 
         // Безпечно конвертуємо час у UTC (-3 години), ігноруючи null значення
         db.dbSelectRowsJSON("INSERT INTO client " +
                             "SELECT pkey, clchar, phone, clnote, " +
-                            "CASE WHEN inptime IS NOT NULL THEN strftime('%Y-%m-%dT%H:%M:%S', inptime, '-3 hours') ELSE strftime('%Y-%m-%dT%H:%M:%S', 'now') END " +
+                            "CASE WHEN inptime IS NOT NULL THEN strftime('%Y-%m-%dT%H:%M:%SZ', inptime, '-3 hours') ELSE strftime('%Y-%m-%dT%H:%M:%SZ', 'now') END " +
                             "FROM tmpclient;");
         db.dbSelectRowsJSON("DROP TABLE IF EXISTS tmpclient;");
 
@@ -91,14 +91,14 @@ function to_v147(db){
                             "    prbidask integer check ((prbidask = 1) or (prbidask = -1)), " +
                             "    qtty numeric default 1 check (qtty >=0), " +
                             "    price numeric not null default 0 check (price >= 0), " +
-                            "    pricetime text default ( strftime('%Y-%m-%dT%H:%M:%S', 'now') ), " +
+                            "    pricetime text default ( strftime('%Y-%m-%dT%H:%M:%SZ', 'now') ), " +
                             "    prtype text, " +
                             "    diff numeric default 0" +
                             ");");
 
         db.dbSelectRowsJSON("INSERT INTO price " +
                             "SELECT id, item, prbidask, qtty, price, " +
-                            "CASE WHEN pricetime IS NOT NULL THEN strftime('%Y-%m-%dT%H:%M:%S', pricetime, '-3 hours') ELSE strftime('%Y-%m-%dT%H:%M:%S', 'now') END, " +
+                            "CASE WHEN pricetime IS NOT NULL THEN strftime('%Y-%m-%dT%H:%M:%SZ', pricetime, '-3 hours') ELSE strftime('%Y-%m-%dT%H:%M:%SZ', 'now') END, " +
                             "prtype, diff " +
                             "FROM tmpprice;");
         db.dbSelectRowsJSON("DROP TABLE IF EXISTS tmpprice;");
@@ -126,7 +126,7 @@ function to_v147(db){
                             "  parentid integer, " +
                             "  dcmstate integer not null default 0, " +
                             "  dcmnote text, " +
-                            "  dcmtime text not null default ( strftime('%Y-%m-%dT%H:%M:%S', 'now') ), " +
+                            "  dcmtime text not null default ( strftime('%Y-%m-%dT%H:%M:%SZ', 'now') ), " +
                             "  dcmaker text, " +
                             "  retfor integer" +
                             ");");
@@ -135,11 +135,12 @@ function to_v147(db){
         // Обов'язково зберігаємо первинні ID (для autoincrement) та захищаємо від порожніх дат.
         db.dbSelectRowsJSON("INSERT INTO docum (id, dcmtype, dcmno, item, acntdbt, acntcdt, amount, eqamount, discount, bonus, client, parentid, dcmstate, dcmnote, dcmtime, dcmaker, retfor) " +
                             "SELECT id, dcmtype, dcmno, item, acntdbt, acntcdt, amount, eqamount, discount, bonus, client, parentid, dcmstate, dcmnote, " +
-                            "CASE WHEN dcmtime IS NOT NULL AND dcmtime !== '' THEN strftime('%Y-%m-%dT%H:%M:%S', dcmtime, '-3 hours') ELSE strftime('%Y-%m-%dT%H:%M:%S', 'now') END, " +
+                            "CASE WHEN dcmtime IS NOT NULL AND dcmtime !== '' THEN strftime('%Y-%m-%dT%H:%M:%SZ', dcmtime, '-3 hours') ELSE strftime('%Y-%m-%dT%H:%M:%SZ', 'now') END, " +
                             "dcmaker, retfor " +
                             "FROM tmpdocum;");
         db.dbSelectRowsJSON("DROP TABLE IF EXISTS tmpdocum;");
 
+        db.dbSelectRowsJSON("DELETE FROM sqlite_sequence WHERE name = 'docum';");
         db.dbSelectRowsJSON("INSERT INTO sqlite_sequence (name, seq) VALUES ('docum', (SELECT COALESCE(MAX(dcmid), 0) + 1 FROM strgdocum));");
 
         // -----------------------------------------------------------------------------
@@ -153,12 +154,12 @@ function to_v147(db){
         db.dbSelectRowsJSON("CREATE TABLE selldsc (" +
                             "    article text primary key references item (pkey) on update cascade on delete restrict, " +
                             "    price numeric not null default 0, " +
-                            "    pricetime text default ( strftime('%Y-%m-%dT%H:%M:%S', 'now') )" +
+                            "    pricetime text default ( strftime('%Y-%m-%dT%H:%M:%SZ', 'now') )" +
                             ");");
 
         db.dbSelectRowsJSON("INSERT INTO selldsc " +
                             "SELECT article, price, " +
-                            "CASE WHEN pricetime IS NOT NULL AND pricetime !== '' THEN strftime('%Y-%m-%dT%H:%M:%S', pricetime, '-3 hours') ELSE strftime('%Y-%m-%dT%H:%M:%S', 'now') END " +
+                            "CASE WHEN pricetime IS NOT NULL AND pricetime !== '' THEN strftime('%Y-%m-%dT%H:%M:%SZ', pricetime, '-3 hours') ELSE strftime('%Y-%m-%dT%H:%M:%SZ', 'now') END " +
                             "FROM tmpselldsc;");
         db.dbSelectRowsJSON("DROP TABLE IF EXISTS tmpselldsc;");
 
@@ -175,12 +176,12 @@ function to_v147(db){
                             "    article text primary key references item (pkey) on update cascade on delete restrict, " +
                             "    qtty numeric default 1 check (qtty >=0), " +
                             "    price numeric not null default 0 check (price >=0), " +
-                            "    pricetime text default ( strftime('%Y-%m-%dT%H:%M:%S', 'now') )" +
+                            "    pricetime text default ( strftime('%Y-%m-%dT%H:%M:%SZ', 'now') )" +
                             ");");
 
         db.dbSelectRowsJSON("INSERT INTO selloffer " +
                             "SELECT article, qtty, price, " +
-                            "CASE WHEN pricetime IS NOT NULL AND pricetime !== '' THEN strftime('%Y-%m-%dT%H:%M:%S', pricetime, '-3 hours') ELSE strftime('%Y-%m-%dT%H:%M:%S', 'now') END " +
+                            "CASE WHEN pricetime IS NOT NULL AND pricetime !== '' THEN strftime('%Y-%m-%dT%H:%M:%SZ', pricetime, '-3 hours') ELSE strftime('%Y-%m-%dT%H:%M:%SZ', 'now') END " +
                             "FROM tmpselloffer;");
         db.dbSelectRowsJSON("DROP TABLE IF EXISTS tmpselloffer;");
 
@@ -194,14 +195,14 @@ function to_v147(db){
 
         db.dbSelectRowsJSON("CREATE TRIGGER t_documtran_ai1 after insert on documtran when new.amount>0 " +
                             "begin " +
-                            "  update acnt set turndbt = turndbt + new.amount, dbtupd = strftime('%Y-%m-%dT%H:%M:%S', 'now') where id = new.dbtid; " +
-                            "  update acnt set turncdt = turncdt + new.amount, cdtupd = strftime('%Y-%m-%dT%H:%M:%S', 'now') where id = new.cdtid; " +
+                            "  update acnt set turndbt = turndbt + new.amount, dbtupd = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') where id = new.dbtid; " +
+                            "  update acnt set turncdt = turncdt + new.amount, cdtupd = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') where id = new.cdtid; " +
                             "end;");
 
         db.dbSelectRowsJSON("CREATE TRIGGER t_documtran_ai2 after insert on documtran when new.amount<0 " +
                             "begin " +
-                            "  update acnt set turncdt = turncdt - new.amount, cdtupd = strftime('%Y-%m-%dT%H:%M:%S', 'now') where id = new.dbtid; " +
-                            "  update acnt set turndbt = turndbt - new.amount, dbtupd = strftime('%Y-%m-%dT%H:%M:%S', 'now') where id = new.cdtid; " +
+                            "  update acnt set turncdt = turncdt - new.amount, cdtupd = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') where id = new.dbtid; " +
+                            "  update acnt set turndbt = turndbt - new.amount, dbtupd = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') where id = new.cdtid; " +
                             "end;");
 
 
@@ -246,7 +247,6 @@ function to_v147(db){
         db.dbSelectRowsJSON("PRAGMA user_version = 147;");
         console.log("[Migration] Базу даних успішно модернізовано до версії 147! 🎉");
     } catch (error) {
-        // ✅ ЗАХИСТ: Якщо хоч один SQL-запит зламається, відкочуємо зміни назад, щоб не пошкодити базу касира
         console.error("[Migration] Критична помилка міграції: " + String(error));
         db.dbSelectRowsJSON("ROLLBACK;");
     } finally {

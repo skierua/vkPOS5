@@ -1008,9 +1008,12 @@ Item {
 
         Rectangle {
             id: totalArea
-            Layout.preferredHeight: 64 // Збільшимо висоту для кращого UX на сенсорних екранах
-            Layout.maximumHeight: 64
+            readonly property real threshold: 600;
+            Layout.preferredHeight: width < threshold ? 90 : 60 // Збільшимо висоту для кращого UX на сенсорних екранах
+            // Layout.preferredHeight: width < 600 ? 128 : 64 // Збільшимо висоту для кращого UX на сенсорних екранах
+            // Layout.maximumHeight: 64
             Layout.fillWidth: true
+            Layout.alignment: Qt.AlignVCenter
 
             // ✨ Сучасний м'який фон із контрастною верхньою межею
             color: "#f8f9fa"
@@ -1028,7 +1031,7 @@ Item {
                 anchors.rightMargin: 16
                 spacing: 16
 
-                // 1. ✨ КНОПКА ТРАНЗАКЦІЇ (Велика, акцентна, закруглена)
+                // КНОПКА ТРАНЗАКЦІЇ (Велика, акцентна, закруглена)
                 Button {
                     id: btnTran
                     Layout.preferredWidth: 48
@@ -1055,242 +1058,263 @@ Item {
                     }
                 }
 
-                // 2. ✨ КОНТРАСТНЕ ТАБЛО ДО СПЛАТИ (Стиль електронного чека)
-                Rectangle {
+                GridLayout {
+                    // id: totalAreaLayout
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 48
-                    Layout.alignment: Qt.AlignVCenter
-                    color: root.totalPmnt < 0 ? "#ffebee" : "#e3f2fd" // Ніжно-червоний або ніжно-синій фон
-                    radius: 8
-                    border.color: root.totalPmnt < 0 ? "#ffcdd2" : "#bbdefb"
-                    border.width: 1
+
+                    flow: totalArea.width < totalArea.threshold ? GridLayout.TopToBottom : GridLayout.LeftToRight
+
+                    // Задаємо кількість колонок динамічно
+                    columns: totalArea.width < totalArea.threshold ? 1 : 2
+                    // spacing: 10
 
                     RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: 14
-                        anchors.rightMargin: 14
+                        id: elem1
+                        Layout.fillWidth: true
 
-                        Label {
-                            text: "РАЗОМ:"
-                            font.pixelSize: 12
-                            font.bold: true
-                            color: root.totalPmnt < 0 ? "#c62828" : "#1565c0"
-                            Layout.alignment: Qt.AlignVCenter
-                        }
-
-                        Label {
-                            id: lblTotalSum
+                        // 2. ✨ КОНТРАСТНЕ ТАБЛО ДО СПЛАТИ (Стиль електронного чека)
+                        Rectangle {
                             Layout.fillWidth: true
-                            horizontalAlignment: Text.AlignRight
-                            verticalAlignment: Text.AlignVCenter
-                            color: root.totalPmnt < 0 ? "#b71c1c" : "#0d47a1" // Глибокий фінансовий колір
-                            text: (root.totalPmnt < 0 ? "- " : "")
-                                  + Math.abs(root.totalPmnt / (bindModel?.rate ?? 1)).toLocaleString(Qt.locale(), 'f', 2)
-                                  + (bindModel.rate === 1 ? " грн" : " 💱")
-                            // text: (root.totalPmnt < 0 ? "- " : "") + Math.abs(root.totalPmnt).toLocaleString(Qt.locale(), 'f', 2) + " грн"
-                            font.pixelSize: 24
-                            font.bold: true
+                            Layout.preferredHeight: 48
+                            Layout.alignment: Qt.AlignVCenter
+                            color: root.totalPmnt < 0 ? "#ffebee" : "#e3f2fd" // Ніжно-червоний або ніжно-синій фон
+                            radius: 8
+                            border.color: root.totalPmnt < 0 ? "#ffcdd2" : "#bbdefb"
+                            border.width: 1
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 14
+                                anchors.rightMargin: 14
+
+                                Label {
+                                    text: "РАЗОМ:"
+                                    font.pixelSize: 12
+                                    font.bold: true
+                                    color: root.totalPmnt < 0 ? "#c62828" : "#1565c0"
+                                    Layout.alignment: Qt.AlignVCenter
+                                }
+
+                                Label {
+                                    id: lblTotalSum
+                                    Layout.fillWidth: true
+                                    horizontalAlignment: Text.AlignRight
+                                    verticalAlignment: Text.AlignVCenter
+                                    color: root.totalPmnt < 0 ? "#b71c1c" : "#0d47a1" // Глибокий фінансовий колір
+                                    text: (root.totalPmnt < 0 ? "- " : "")
+                                          + Math.abs(root.totalPmnt / (bindModel?.rate ?? 1)).toLocaleString(Qt.locale(), 'f', 2)
+                                          + (bindModel.rate === 1 ? " грн" : " 💱")
+                                    // text: (root.totalPmnt < 0 ? "- " : "") + Math.abs(root.totalPmnt).toLocaleString(Qt.locale(), 'f', 2) + " грн"
+                                    font.pixelSize: 24
+                                    font.bold: true
+                                }
+                            }
+                        }
+                    }
+
+                    // 3. ✨ БЛОК ЗНИЖОК, БОНУСІВ ТА КУРСІВ (Картковий стиль з іконками)
+                    RowLayout {
+                        id: dbrArea
+                        Layout.fillWidth: true
+                        Layout.alignment: Qt.AlignVCenter
+                        spacing: 12
+
+                        // Стовпчик Знижок та Бонусів
+                        GridLayout {
+                            id: dscbnsColumn
+                            Layout.fillWidth: true
+                            flow: totalArea.width < totalArea.threshold ? GridLayout.LeftToRight : GridLayout.TopToBottom
+                            columns: totalArea.width < totalArea.threshold ? 2 : 1
+                            // spacing: 4
+
+                            // Блок Знижки
+                            Item {
+                                Layout.preferredWidth: 120
+                                Layout.preferredHeight: 22
+
+                                Rectangle {
+                                    id: dscBadge
+                                    anchors.fill: parent
+                                    radius: 4
+                                    color: fldDscEdit.visible ? "#ffffff" : (fldMainInput.activeFocus ? "transparent" : "#f1f3f4")
+                                    border.color: fldDscEdit.visible ? "#0288d1" : "transparent"
+                                    border.width: 1
+
+                                    Label {
+                                        id: fldDsc
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 6
+                                        verticalAlignment: Text.AlignVCenter
+                                        visible: !fldDscEdit.visible
+                                        readonly property string dscMoneyString: root.totalDsc === 0 ? '' : `(-${Math.abs(root.totalDsc).toFixed(2)})`
+                                        text: `🏷 Знижка: ${(100 * bindModel.crntDsc).toFixed(1)}% ${dscMoneyString}`
+                                        font.pixelSize: 11
+                                        color: "#424242"
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            onClicked: {
+                                                fldDscEdit.text = (100 * Math.abs(bindModel.crntDsc)).toFixed(1);
+                                                fldDscEdit.visible = true;
+                                                fldDscEdit.forceActiveFocus();
+                                            }
+                                        }
+                                    }
+
+                                    TextField {
+                                        id: fldDscEdit
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 4
+                                        visible: false
+                                        selectByMouse: true
+                                        font.pixelSize: 11
+                                        font.bold: true
+                                        color: "#0288d1"
+                                        background: null // Прибираємо стандартне біле поле
+                                        validator: DoubleValidator { bottom: 0; top: 100; decimals: 1; notation: "StandardNotation"; locale: "en_US" }
+                                        onActiveFocusChanged: if (activeFocus) selectAll();
+                                        onEditingFinished: {
+                                            bindModel.setBindDsc(Number(text) / 100);
+                                            visible = false;
+                                            newRowAction.trigger();
+                                        }
+                                        onAccepted: visible = false
+                                    }
+                                }
+                            }
+
+                            // Блок Бонусів
+                            Item {
+                                Layout.preferredWidth: 120
+                                Layout.preferredHeight: 22
+
+                                Rectangle {
+                                    id: bnsBadge
+                                    anchors.fill: parent
+                                    radius: 4
+                                    // Якщо клієнта немає — плашка стає напівпрозорою (disabled стиль)
+                                    property bool  hasClient: !!root.crntClient && String(root.crntClient.id ?? "") !== ""
+                                    color: fldBnsEdit.visible ? "#ffffff" : (hasClient ? "#fff8e1" : "#f1f3f4")
+                                    border.color: fldBnsEdit.visible ? "#ffb300" : "transparent"
+                                    border.width: 1
+                                    opacity: hasClient ? 1.0 : 0.5
+
+                                    Label {
+                                        id: fldBns
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 6
+                                        verticalAlignment: Text.AlignVCenter
+                                        visible: !fldBnsEdit.visible
+                                        readonly property string bnsMoneyString: root.totalBns === 0 ? '' : `(${Math.abs(root.totalBns).toFixed(2)})`
+                                        text: `⭐ Бонуси: ${(100 * bindModel.crntBns).toFixed(1)}% ${bnsMoneyString}`
+                                        font.pixelSize: 11
+                                        color: "#5d4037"
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            enabled: !!root.crntClient && String(root.crntClient.id ?? "") !== ""
+                                            onClicked: {
+                                                fldBnsEdit.text = (100 * Math.abs(bindModel.crntBns)).toFixed(1);
+                                                fldBnsEdit.visible = true;
+                                                fldBnsEdit.forceActiveFocus();
+                                            }
+                                        }
+                                    }
+
+                                    TextField {
+                                        id: fldBnsEdit
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 4
+                                        visible: false
+                                        selectByMouse: true
+                                        font.pixelSize: 11
+                                        font.bold: true
+                                        color: "#ff8f00"
+                                        background: null
+                                        validator: DoubleValidator { bottom: 0; top: 100; decimals: 1; notation: "StandardNotation"; locale: "en_US" }
+                                        onActiveFocusChanged: if (activeFocus) selectAll();
+                                        onEditingFinished: {
+                                            bindModel.setBindBns(Number(text) / 100);
+                                            visible = false;
+                                            newRowAction.trigger();
+                                        }
+                                        onAccepted: visible = false
+                                    }
+                                }
+                            }
+                        }
+                        // Блок Курсу
+                        ColumnLayout {
+                            id: rateColumn
+                            visible: false
+                            spacing: 4
+                            Item {
+                                Layout.preferredWidth: 120
+                                Layout.preferredHeight: 22
+                                Rectangle {
+                                    id: fldRate
+                                    anchors.fill: parent
+                                    radius: 4
+                                    color: fldRateEdit.visible ? "#ffffff" : "#efebe9"
+                                    border.color: fldRateEdit.visible ? "#7e57c2" : "transparent"
+                                    border.width: 1
+                                    Label {
+                                        id: fldRateLabel
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 6
+                                        verticalAlignment: Text.AlignVCenter
+                                        visible: !fldRateEdit.visible
+                                        text: `💱 Курс: ${Number(bindModel.rate).toFixed(2)}`
+                                        font.pixelSize: 11
+                                        color: "#4e342e"
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            onClicked: {
+                                                fldRateEdit.text = String(bindModel.rate);
+                                                fldRateEdit.visible = true;
+                                                fldRateEdit.forceActiveFocus();
+                                            }
+                                        }
+                                    }
+                                    TextField {
+                                        id: fldRateEdit
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 4
+                                        visible: false
+                                        selectByMouse: true
+                                        font.pixelSize: 11
+                                        font.bold: true
+                                        color: "#5e35b1"
+                                        background: null
+                                        validator: DoubleValidator { bottom: 0; decimals: 4; notation: "StandardNotation"; locale: "en_US" }
+                                        onActiveFocusChanged: if (activeFocus) selectAll();
+                                        onEditingFinished: {
+                                            bindModel.setRate(text);
+                                            visible = false;
+                                            newRowAction.trigger();
+                                        }
+                                        onAccepted: visible = false
+                                    }
+                                }
+                            }
+                            // Еквівалент у валюті
+                            Label {
+                                Layout.preferredWidth: 120
+                                Layout.preferredHeight: 22
+                                verticalAlignment: Text.AlignVCenter
+                                horizontalAlignment: Text.AlignRight
+                                anchors.rightMargin: 4
+                                color: "#78909c"
+                                font.pixelSize: 11
+                                font.bold: true
+                                text: bindModel.rate === 1 ? '' : `₴ ${((root.totalEq + root.totalDsc)/* / bindModel.rate*/).toFixed(2)}`
+                            }
                         }
                     }
                 }
 
-                // 3. ✨ БЛОК ЗНИЖОК, БОНУСІВ ТА КУРСІВ (Картковий стиль з іконками)
-                RowLayout {
-                    id: dbrArea
-                    Layout.alignment: Qt.AlignVCenter
-                    spacing: 12
-
-                    // Стовпчик Знижок та Бонусів
-                    ColumnLayout {
-                        id: dscbnsColumn
-                        spacing: 4
-
-                        // Блок Знижки
-                        Item {
-                            Layout.preferredWidth: 120
-                            Layout.preferredHeight: 22
-
-                            Rectangle {
-                                id: dscBadge
-                                anchors.fill: parent
-                                radius: 4
-                                color: fldDscEdit.visible ? "#ffffff" : (fldMainInput.activeFocus ? "transparent" : "#f1f3f4")
-                                border.color: fldDscEdit.visible ? "#0288d1" : "transparent"
-                                border.width: 1
-
-                                Label {
-                                    id: fldDsc
-                                    anchors.fill: parent
-                                    anchors.leftMargin: 6
-                                    verticalAlignment: Text.AlignVCenter
-                                    visible: !fldDscEdit.visible
-                                    readonly property string dscMoneyString: root.totalDsc === 0 ? '' : `(-${Math.abs(root.totalDsc).toFixed(2)})`
-                                    text: `🏷 Знижка: ${(100 * bindModel.crntDsc).toFixed(1)}% ${dscMoneyString}`
-                                    font.pixelSize: 11
-                                    color: "#424242"
-
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        onClicked: {
-                                            fldDscEdit.text = (100 * Math.abs(bindModel.crntDsc)).toFixed(1);
-                                            fldDscEdit.visible = true;
-                                            fldDscEdit.forceActiveFocus();
-                                        }
-                                    }
-                                }
-
-                                TextField {
-                                    id: fldDscEdit
-                                    anchors.fill: parent
-                                    anchors.leftMargin: 4
-                                    visible: false
-                                    selectByMouse: true
-                                    font.pixelSize: 11
-                                    font.bold: true
-                                    color: "#0288d1"
-                                    background: null // Прибираємо стандартне біле поле
-                                    validator: DoubleValidator { bottom: 0; top: 100; decimals: 1; notation: "StandardNotation"; locale: "en_US" }
-                                    onActiveFocusChanged: if (activeFocus) selectAll();
-                                    onEditingFinished: {
-                                        bindModel.setBindDsc(Number(text) / 100);
-                                        visible = false;
-                                        newRowAction.trigger();
-                                    }
-                                    onAccepted: visible = false
-                                }
-                            }
-                        }
-
-                        // Блок Бонусів
-                        Item {
-                            Layout.preferredWidth: 120
-                            Layout.preferredHeight: 22
-
-                            Rectangle {
-                                id: bnsBadge
-                                anchors.fill: parent
-                                radius: 4
-                                // Якщо клієнта немає — плашка стає напівпрозорою (disabled стиль)
-                                property bool  hasClient: !!root.crntClient && String(root.crntClient.id ?? "") !== ""
-                                color: fldBnsEdit.visible ? "#ffffff" : (hasClient ? "#fff8e1" : "#f1f3f4")
-                                border.color: fldBnsEdit.visible ? "#ffb300" : "transparent"
-                                border.width: 1
-                                opacity: hasClient ? 1.0 : 0.5
-
-                                Label {
-                                    id: fldBns
-                                    anchors.fill: parent
-                                    anchors.leftMargin: 6
-                                    verticalAlignment: Text.AlignVCenter
-                                    visible: !fldBnsEdit.visible
-                                    readonly property string bnsMoneyString: root.totalBns === 0 ? '' : `(${Math.abs(root.totalBns).toFixed(2)})`
-                                    text: `⭐ Бонуси: ${(100 * bindModel.crntBns).toFixed(1)}% ${bnsMoneyString}`
-                                    font.pixelSize: 11
-                                    color: "#5d4037"
-
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        enabled: !!root.crntClient && String(root.crntClient.id ?? "") !== ""
-                                        onClicked: {
-                                            fldBnsEdit.text = (100 * Math.abs(bindModel.crntBns)).toFixed(1);
-                                            fldBnsEdit.visible = true;
-                                            fldBnsEdit.forceActiveFocus();
-                                        }
-                                    }
-                                }
-
-                                TextField {
-                                    id: fldBnsEdit
-                                    anchors.fill: parent
-                                    anchors.leftMargin: 4
-                                    visible: false
-                                    selectByMouse: true
-                                    font.pixelSize: 11
-                                    font.bold: true
-                                    color: "#ff8f00"
-                                    background: null
-                                    validator: DoubleValidator { bottom: 0; top: 100; decimals: 1; notation: "StandardNotation"; locale: "en_US" }
-                                    onActiveFocusChanged: if (activeFocus) selectAll();
-                                    onEditingFinished: {
-                                        bindModel.setBindBns(Number(text) / 100);
-                                        visible = false;
-                                        newRowAction.trigger();
-                                    }
-                                    onAccepted: visible = false
-                                }
-                            }
-                        }
-                    }
-                    // Блок Курсу
-                    ColumnLayout {
-                        id: rateColumn
-                        visible: false
-                        spacing: 4
-                        Item {
-                            Layout.preferredWidth: 120
-                            Layout.preferredHeight: 22
-                            Rectangle {
-                                id: fldRate
-                                anchors.fill: parent
-                                radius: 4
-                                color: fldRateEdit.visible ? "#ffffff" : "#efebe9"
-                                border.color: fldRateEdit.visible ? "#7e57c2" : "transparent"
-                                border.width: 1
-                                Label {
-                                    id: fldRateLabel
-                                    anchors.fill: parent
-                                    anchors.leftMargin: 6
-                                    verticalAlignment: Text.AlignVCenter
-                                    visible: !fldRateEdit.visible
-                                    text: `💱 Курс: ${Number(bindModel.rate).toFixed(2)}`
-                                    font.pixelSize: 11
-                                    color: "#4e342e"
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        onClicked: {
-                                            fldRateEdit.text = String(bindModel.rate);
-                                            fldRateEdit.visible = true;
-                                            fldRateEdit.forceActiveFocus();
-                                        }
-                                    }
-                                }
-                                TextField {
-                                    id: fldRateEdit
-                                    anchors.fill: parent
-                                    anchors.leftMargin: 4
-                                    visible: false
-                                    selectByMouse: true
-                                    font.pixelSize: 11
-                                    font.bold: true
-                                    color: "#5e35b1"
-                                    background: null
-                                    validator: DoubleValidator { bottom: 0; decimals: 4; notation: "StandardNotation"; locale: "en_US" }
-                                    onActiveFocusChanged: if (activeFocus) selectAll();
-                                    onEditingFinished: {
-                                        bindModel.setRate(text);
-                                        visible = false;
-                                        newRowAction.trigger();
-                                    }
-                                    onAccepted: visible = false
-                                }
-                            }
-                        }
-                        // Еквівалент у валюті
-                        Label {
-                            Layout.preferredWidth: 120
-                            Layout.preferredHeight: 22
-                            verticalAlignment: Text.AlignVCenter
-                            horizontalAlignment: Text.AlignRight
-                            anchors.rightMargin: 4
-                            color: "#78909c"
-                            font.pixelSize: 11
-                            font.bold: true
-                            text: bindModel.rate === 1 ? '' : `₴ ${((root.totalEq + root.totalDsc)/* / bindModel.rate*/).toFixed(2)}`
-                        }
-                    }
-                }
-                // 4. ✨ КНОПКА ГРОШОВОЇ СКРИНЬКИ (Стильна, сіра)
+                // КНОПКА ГРОШОВОЇ СКРИНЬКИ (Стильна, сіра)
                 Button {
                     id: btnDrawer
                     Layout.preferredWidth: 48
@@ -1312,6 +1336,7 @@ Item {
                     }
                 }
             }
+
         }
     }
 

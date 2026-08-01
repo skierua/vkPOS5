@@ -21,7 +21,49 @@ QString Print::getAbsoluteReportPath(const QString &subPath) const {
 int Print::paintCheck(const QJsonObject &bind, int mode, int isCopy)
 {
     QPrinter printer;
+/*
+    qDebug() << "II: print.cpp/paintCheck bind=" << bind;
+    // qDebug() << "II: print.cpp/paintCheck prn=" <<  m_checkPrinter << " mode=" <<  mode << " isCopy=" << isCopy;
 
+    const QJsonArray test_dcmsArray = bind.value(QStringLiteral("dcms")).toArray();
+    for (const QJsonValue &v_dcm_val : test_dcmsArray) {
+        QJsonObject v_dcm = v_dcm_val.toObject();
+        QJsonValue v_item = v_dcm[QStringLiteral("jitem")];
+
+        double am = v_dcm[QStringLiteral("amnt")].toString().toDouble();
+        double eq = v_dcm[QStringLiteral("eq")].toString().toDouble();
+        double ds = v_dcm[QStringLiteral("dsc")].toString().toDouble();
+        double qty = v_item[QStringLiteral("qty")].toDouble();
+
+        QString noteStr = v_dcm[QStringLiteral("note")].toString().trimmed();
+        QString inoteStr = noteStr.indexOf(QStringLiteral("#")) < 0 ? QString() : noteStr.right(noteStr.indexOf(QStringLiteral("#")));
+        QString dcmType = v_dcm[QStringLiteral("dcm")].toString();
+        int mask = v_item[QStringLiteral("mask")].toInt();
+        int prec = v_item[QStringLiteral("unitprec")].toInt();
+
+        QString isTrade = dcmType.startsWith("trade:") ? "YES" : "NO";
+        QString cleanNote = noteStr.left(noteStr.indexOf(QStringLiteral("#")));
+        QString iidStr = (mask == 2) ? (QStringLiteral(" #") + v_dcm[QStringLiteral("crn")].toString()) : QString();
+        QString priceStr = QStringLiteral("0.00");
+        if (am != 0.0) {
+            priceStr = QString::number(qty * (eq + ds) / am, 'f', 2);
+        }
+
+        QString qtySuffix = (qty == 1.0) ? QString() : QStringLiteral("/%1").arg(qty);
+        QString icharStr = v_item[QStringLiteral("itemchar")].toString();
+        // qDebug() << "v_item: " << v_item ;
+        qDebug() << am << eq << ds << qty << noteStr << inoteStr << dcmType << mask << prec
+                 << isTrade << cleanNote << iidStr << priceStr << qtySuffix << icharStr;
+    }
+    double _totalEq = bind.value(QStringLiteral("eq")).toString().toDouble();
+    double _totalDsc = bind.value(QStringLiteral("dsc")).toString().toDouble();
+    double _totalAmount = bind.value(QStringLiteral("amnt")).toString().toDouble();
+    qDebug() << _totalEq << _totalDsc << _totalAmount ;
+    qDebug() << "II: print.cpp/paintCheck FINISH";
+
+
+    return 1;
+*/
     if (mode) {
         // Друк на фізичний термопринтер каси
         printer.setPrinterName(m_checkPrinter);
@@ -80,21 +122,22 @@ int Print::paintCheck(const QJsonObject &bind, int mode, int isCopy)
 
     for (const QJsonValue &v_dcm_val : dcmsArray) {
         QJsonObject v_dcm = v_dcm_val.toObject();
+        QJsonValue v_item = v_dcm[QStringLiteral("jitem")];
 
-        double am = v_dcm[QStringLiteral("amount")].toString().toDouble();
+        double am = v_dcm[QStringLiteral("amnt")].toString().toDouble();
         double eq = v_dcm[QStringLiteral("eq")].toString().toDouble();
         double ds = v_dcm[QStringLiteral("dsc")].toString().toDouble();
-        double qty = v_dcm[QStringLiteral("qty")].toString().toDouble();
+        double qty = v_item[QStringLiteral("qty")].toDouble();
 
-        QString noteStr = v_dcm[QStringLiteral("note")].toString();
-        QString inoteStr = v_dcm[QStringLiteral("inote")].toString();
-        QString dcmType = v_dcm[QStringLiteral("dcmtype")].toString();
-        int mask = v_dcm[QStringLiteral("mask")].toString().toInt();
-        int prec = v_dcm[QStringLiteral("prec")].toString().toInt();
+        QString noteStr = v_dcm[QStringLiteral("note")].toString().trimmed();
+        QString inoteStr = noteStr.indexOf(QStringLiteral("#")) < 0 ? QString() : noteStr.right(noteStr.indexOf(QStringLiteral("#")));
+        QString dcmType = v_dcm[QStringLiteral("dcm")].toString();
+        int mask = v_item[QStringLiteral("mask")].toInt();
+        int prec = v_item[QStringLiteral("unitprec")].toInt();
 
-        if (dcmType == QStringLiteral("trade:sell") || dcmType == QStringLiteral("trade:buy")) {
+        if (dcmType.startsWith("trade:")) {
             QString cleanNote = noteStr.left(noteStr.indexOf(QStringLiteral("#")));
-            QString iidStr = (mask == 2) ? (QStringLiteral(" #") + v_dcm[QStringLiteral("iid")].toString()) : QString();
+            QString iidStr = (mask == 2) ? (QStringLiteral(" #") + v_dcm[QStringLiteral("crn")].toString()) : QString();
 
             painter.drawText(QRect(0, yoffset, 160, 14), (am > 0 ? QStringLiteral("+ ") : QStringLiteral("- ")) + cleanNote + iidStr);
             yoffset += 14;
@@ -104,7 +147,8 @@ int Print::paintCheck(const QJsonObject &bind, int mode, int isCopy)
             // ЗАХИСТ ВІД ДІЛЕННЯ НА НУЛЬ: Якщо am == 0, ставимо ціну 0.00
             QString priceStr = QStringLiteral("0.00");
             if (am != 0.0) {
-                priceStr = QString::number(qty * (eq + ds) / am, 'f', 2);
+                priceStr = QString::number(qty * (eq) / am, 'f', 2);
+                // priceStr = QString::number(qty * (eq + ds) / am, 'f', 2);
             }
 
             QString qtySuffix = (qty == 1.0) ? QString() : QStringLiteral("/%1").arg(qty);
@@ -118,8 +162,8 @@ int Print::paintCheck(const QJsonObject &bind, int mode, int isCopy)
             }
         } else {
             // Касові ордери (Внесення / Вилучення)
-            QString icharStr = v_dcm[QStringLiteral("ichar")].toString();
-            QString iidStr = (mask == 2) ? (QStringLiteral(" #") + v_dcm[QStringLiteral("iid")].toString()) : QString();
+            QString icharStr = v_item[QStringLiteral("itemchar")].toString();
+            QString iidStr = (mask == 2) ? (QStringLiteral(" #") + v_dcm[QStringLiteral("crn")].toString()) : QString();
 
             painter.drawText(QRect(0, yoffset, 160, 14), (am > 0 ? QStringLiteral("+Отр ") : QStringLiteral("-Вид ")) + icharStr + inoteStr + iidStr);
             yoffset += 14;
@@ -135,9 +179,9 @@ int Print::paintCheck(const QJsonObject &bind, int mode, int isCopy)
     painter.drawText(QRect(0, yoffset, 170, 12), QStringLiteral("--------------------------------------------------------------------------"));
     painter.drawText(QRect(0, yoffset += 14, 60, 14), tr("Всього:"));
 
-    double totalEq = bind.value(QStringLiteral("eq")).toDouble();
-    double totalDsc = bind.value(QStringLiteral("dsc")).toDouble();
-    double totalAmount = bind.value(QStringLiteral("amount")).toDouble();
+    double totalEq = bind.value(QStringLiteral("eq")).toString().toDouble();
+    double totalDsc = bind.value(QStringLiteral("dsc")).toString().toDouble();
+    double totalAmount = bind.value(QStringLiteral("amnt")).toString().toDouble();
 
     painter.drawText(QRect(55, yoffset, 80, 14), Qt::AlignRight, QLocale::system().toString(qAbs(totalEq), 'f', 2));
     painter.drawText(QRect(135, yoffset, 35, 14), Qt::AlignRight, QLocale::system().toString(qAbs(totalEq), 'f', 2));
