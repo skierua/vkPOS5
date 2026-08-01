@@ -29,7 +29,7 @@ function uploadBalance(db, mode = "upd", msg){
                if (!!err) {
                    msg.error("[uploadBalance] Помилка: " + err);
                } else {
-                   msg.info("[uploadBalance] Баланс успішно синхронізовано з вебом");
+                   // msg.info("[uploadBalance] Баланс успішно синхронізовано з вебом");
                }
            })
     } else  msg.info("[uploadBalance] Nothing to do");
@@ -50,7 +50,7 @@ function uploadBind(bind, msg){
          if (!!err) {
              msg.error("[uploadBind] Помилка: " + err);
          } else {
-             msg.info("[uploadBind] Документ успішно синхронізовано з вебом");
+             // msg.info("[uploadBind] Документ успішно синхронізовано з вебом");
          }
     })
 
@@ -228,6 +228,7 @@ function handleAddBindTab(db, prn, comp, msg, container, ui){
            uploadBalance(db, "upd", msg);
            // print dcm
            const pMode = Number(param?.prnMode ?? 2);
+                                   console.info(`II: main.js/handleAddBindTab pMode=${pMode} auto=${(basicConf?.auto_print || 0)}`)
            if (pMode !== 0 && (pMode === 1 || (basicConf?.auto_print || 0) !== 0)) {
               prn.saveCheck(param?.bind || null);
               prn.printCheck(param?.bind || null);

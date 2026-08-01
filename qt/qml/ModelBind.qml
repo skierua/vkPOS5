@@ -107,7 +107,7 @@ ListModel {
         // const utcTimeStamp = new Date().toISOString();  //.substring(0, 19);
         for (let r = 0; ok && r < count; ++r) {
             let row = get(r);
-            // console.log(`ModelBind#s729 ${JSON.stringify(row)}`)
+            // console.log(`ModelBind#s729 ${JSON.stringify(row)}`); return;
             // console.log(`ModelBind#s729 1=[${!!(row.dcode || "")}] 2=[${Number(row.amnt || 0) !== 0}]`)
             let precision = Number(row.darticle?.prec || 2);
 
@@ -120,6 +120,10 @@ ListModel {
             //     ok &= (row.moneyEq !== 0)
             // }
             errstr += (row.err || "");
+            // const rowPrice = {
+            //     "price": row.jprice?.offer || row.jprice?.price || 0,
+            //     "qty": row.jprice?.qty || 1
+            // }
             dcmList.push({
                 "dcm": row.dcode,
                 "dbt": targetAcntNo,
@@ -130,6 +134,9 @@ ListModel {
                 "dsc": (row.moneyDsc || 0).toFixed(2),
                 "bns": (row.moneyBns || 0).toFixed(2),
                 "note": row.dnote || "",
+
+                // "jprice": row.jprice,
+                "jitem": row.darticle,
                 // "tm": utcTimeStamp,
                 "retfor": row.retfor || ""
             });

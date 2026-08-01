@@ -106,7 +106,102 @@ ApplicationWindow {
                 icon.name: "format-list-bulleted"
                 icon.width: 18
                 icon.height: 18
-                onClicked: naviMenu.popup()
+                onClicked: naviMenu_dynamic.popup()
+
+                Menu {
+                    id: naviMenu_dynamic
+
+                    // Декларативна карта нашого меню (включаючи екшени та маркер роздільника)
+                    readonly property var menuStructure: [
+                        bindCheckAction,
+                        bindInnerAction,
+                        bindTaxAction,         // 💡 Наш екшен, який може бути enabled: false
+                        bindFactureAction,
+                        { isSeparator: true },  // ✂️ Перший роздільник
+                        winDcmsAction,
+                        winBalanceAction,
+                        winClientAction,
+                        winRateAction,
+                        { isSeparator: true },  // ✂️ Другий роздільник
+                        winCashWizardAction,
+                        syncBalanceAction,
+                        actionSetting,
+                        changeDBAction,
+                        { isSeparator: true },  // ✂️ Другий роздільник
+                        testAction,
+                        winShiftAction,
+                        { isSeparator: true },  // ✂️ Другий роздільник
+                        quitAction
+                    ]
+
+                    // 2. ✨ Інстанціатор, який фільтрує та створює контент «на льоту»
+                    Instantiator {
+                        model: naviMenu_dynamic.menuStructure
+
+                        // Головна логіка: створюємо MenuItem або MenuSeparator
+                        onObjectAdded: (index, object) => naviMenu_dynamic.insertItem(index, object)
+                        onObjectRemoved: (index, object) => naviMenu_dynamic.removeItem(object)
+
+                        delegate: Loader {
+                            // Визначаємо, який саме QML-компонент завантажити
+                            sourceComponent: {
+                                if (modelData.isSeparator === true) {
+                                    // Перевіряємо, чи є сенс малювати цей роздільник
+                                    return naviMenu_dynamic.shouldShowSeparator(index) ? separatorComponent : null
+                                }
+                                // Якщо це звичайний Action — перевіряємо, чи він увімкнений
+                                return modelData.enabled ? menuItemComponent : null
+                            }
+
+                            // Прокидаємо дані екшена всередину завантаженого компонента
+                            property var actionObj: modelData
+                        }
+                    }
+
+                    // КОМПОНЕНТ: Пункт меню
+                    Component {
+                        id: menuItemComponent
+                        MenuItem {
+                            // Зчитуємо прокинутий з Loader екшен
+                            action: parent.actionObj
+                            icon.source: action.icon.source || "qrc:/icon/add.svg"
+                            icon.width: 14
+                            icon.height: 14
+                            onTriggered: naviMenu_dynamic.close()
+                        }
+                    }
+
+                    // КОМПОНЕНТ: Роздільна лінія
+                    Component {
+                        id: separatorComponent
+                        MenuSeparator {
+                            padding: 4
+                        }
+                    }
+
+                    // АЛГОРИТМ: Чи потрібно малювати поточний роздільник?
+                    function shouldShowSeparator(sepIndex) {
+                        let hasActiveBefore = false;
+                        let hasActiveAfter = false;
+
+                        // Шукаємо, чи є ХОЧ ОДИН активний пункт ДО цього роздільника
+                        for (let i = sepIndex - 1; i >= 0; i--) {
+                            let item = menuStructure[i];
+                            if (item.isSeparator) break; // Зупиняємось, якщо вперлися в інший роздільник
+                            if (item.enabled) { hasActiveBefore = true; break; }
+                        }
+
+                        // Шукаємо, чи є ХОЧ ОДИН активний пункт ПІСЛЯ цього роздільника
+                        for (let j = sepIndex + 1; j < menuStructure.length; j++) {
+                            let item = menuStructure[j];
+                            if (item.isSeparator) break;
+                            if (item.enabled) { hasActiveAfter = true; break; }
+                        }
+
+                        // Роздільник потрібен, тільки якщо і до, і після нього є реальні увімкнені кнопки!
+                        return hasActiveBefore && hasActiveAfter;
+                    }
+                }
 
                 Menu {
                     id: naviMenu
@@ -216,10 +311,10 @@ ApplicationWindow {
                             onTriggered: naviMenu.close()
                         }
                     }
-                    // MenuItem {
-                    //     action: testAction
-                    //     onTriggered: naviMenu.close()
-                    // }
+                    MenuItem {
+                        action: testAction
+                        onTriggered: naviMenu.close()
+                    }
 
                     MenuSeparator { topPadding: 2; bottomPadding: 2 }
 
@@ -502,16 +597,22 @@ ApplicationWindow {
     Action {
         id: testAction
         text: "TEST"
-        // checkable: true
-        // checked: testLoader.active
-//        icon.name: "edit-copy"
-//        shortcut: StandardKey.Copy
+        enabled: false
         onTriggered: {
-            popupCloseShift.open()
+            // JS.feya_feature_fix(Db, logView);
+            // popupCloseShift.open()
             // testLoader.active = checked;
             // const a = LibItem.getItemById(Db, "200023")
             // const a = LibItem.getItemById(Db, "")
             // LibItem.fillFolderCache(Db)
+        }
+    }
+
+    Action {
+        id: quitAction
+        text: qsTr("Вийти")
+        onTriggered: {
+            quitTimer.start();
         }
     }
 
@@ -529,6 +630,9 @@ ApplicationWindow {
     Action {
         id: bindCheckAction
         text: "Новий Чек"        //qsTr("Check")
+        icon.source: "qrc:/icon/add.svg"
+        icon.width: 14
+        icon.height: 14
         onTriggered: {
             const uiBridge = {
                 drawer: () => { drawer2Right.open(); },
@@ -548,6 +652,10 @@ ApplicationWindow {
     Action {
         id: bindFactureAction
         text: "Нова Фактура"
+        icon.source: "qrc:/icon/add.svg"
+        icon.width: 14
+        icon.height: 14
+        enabled: false
         onTriggered: {
             const uiBridge = {
                 drawer: () => { drawer2Right.open(); },
@@ -565,6 +673,9 @@ ApplicationWindow {
     Action {
         id: bindTaxAction
         text: "Новий ФІСК.Чек"
+        icon.source: "qrc:/icon/add.svg"
+        icon.width: 14
+        icon.height: 14
         enabled: false
         onTriggered: {
             const uiBridge = {
@@ -583,6 +694,9 @@ ApplicationWindow {
     Action {
         id: bindInnerAction
         text: "Новий ВНУТРІШНІ"
+        icon.source: "qrc:/icon/add.svg"
+        icon.width: 14
+        icon.height: 14
         onTriggered: {
             const uiBridge = {
                 drawer: () => { drawer2Right.open(); },
@@ -1299,8 +1413,8 @@ ApplicationWindow {
         //             Loading=${Component.Loading}
         //             Error=${Component.Error}
         //             `);
-        const utcTimeStamp = new Date().toISOString();  //.substring(0, 19);
-        console.log(`II: Main.qml#dsi82 utcTimeStamp=${utcTimeStamp}`);
+        // const utcTimeStamp = new Date().toISOString();  //.substring(0, 19);
+        // console.log(`II: Main.qml#dsi82 utcTimeStamp=${utcTimeStamp}`);
         // pathToDb = "./data/"
         // pathToDb = applicationDirPath + "/data/"
 //         var dbList = Db.dirEntryList(pathToDb,'*.sqlite', 2,0)
