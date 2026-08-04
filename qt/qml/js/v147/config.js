@@ -1,13 +1,15 @@
 .pragma library
 
+const TRADE_RESULT_PREFIX = "rslt";
+
 const glCashPrefix = "30";
 const glTradePrefix = "35";
 const glDepoPrefix = "36";      // deposits
 const glInitPrefix = "42";      // init capital
 const glTradeEquivalentPrefix = "eqvl";
-const glTradeResultPrefix = "rslt";
-const TRADE_RESULT_PREFIX = "rslt";
+const glTradeResultPrefix = "rslt"; // DEPRECATED, use TRADE_RESULT_PREFIX instead
 const glBonusPrefix = "38";
+
 
 const glDomesticCrn = "980";    // DEPRECATED, get fron conf.domestic instead
 const zero = 0.0000001          // DEPRECATED

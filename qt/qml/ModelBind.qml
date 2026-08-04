@@ -134,7 +134,7 @@ ListModel {
                 "dsc": (row.moneyDsc || 0).toFixed(2),
                 "bns": (row.moneyBns || 0).toFixed(2),
                 "note": row.dnote || "",
-                "jitem": row.darticle,
+                // "jitem": row.darticle,
                 // "tm": utcTimeStamp,
                 "retfor": row.retfor || ""
             });

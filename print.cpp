@@ -22,7 +22,7 @@ int Print::paintCheck(const QVariantMap &bind, int mode, int isCopy)
     QLocale locale = QLocale::system();
     QPrinter printer;
     QString reportPath = getAbsoluteReportPath(m_checkSubPath);
-
+    // qDebug() << "II: print.cpp/paintCheck printerName=" << m_checkPrinter;
     if (mode) {
         // Друк на фізичний термопринтер каси
         printer.setPrinterName(m_checkPrinter);
@@ -33,8 +33,13 @@ int Print::paintCheck(const QVariantMap &bind, int mode, int isCopy)
     QPainter painter;
 
     if (!painter.begin(&printer)) {
-        m_lastError = QString("Не вдалося відкрити QPainter для запису накладної. Перевірте права доступу папки: %1")
-                          .arg(getAbsoluteReportPath(m_orderSubPath));
+        if (mode) {
+            m_lastError = QString("Помилка QPainter для друку чеку. Принтер: %1")
+                              .arg(printer.printerName());
+        } else {
+            m_lastError = QString("Помилка QPainter для запису чеку. Каталог: %1")
+                              .arg(printer.outputFileName());
+        }
         // const QString strErr = "Не вдалося відкрити QPainter. Перевірте права доступу або підключення принтера.";
         qWarning() << m_lastError;
 
@@ -104,7 +109,7 @@ int Print::paintCheck(const QVariantMap &bind, int mode, int isCopy)
             painter.drawText(QRect(0, yoffset, 160, 14), (am > 0 ? QStringLiteral("+ ") : QStringLiteral("- ")) + cleanNote + iidStr);
             yoffset += 14;
 
-            painter.drawText(QRect(0, yoffset, 35, 14), Qt::AlignRight, QLocale::system().toString(qAbs(am), 'f', prec));
+            painter.drawText(QRect(0, yoffset, 35, 14), Qt::AlignRight, locale.toString(qAbs(am), 'f', prec));
 
             // ЗАХИСТ ВІД ДІЛЕННЯ НА НУЛЬ: Якщо am == 0, ставимо ціну 0.00
             QString priceStr = QStringLiteral("0.00");
@@ -116,8 +121,8 @@ int Print::paintCheck(const QVariantMap &bind, int mode, int isCopy)
             QString qtySuffix = (qty == 1.0) ? QString() : QStringLiteral("/%1").arg(qty);
             painter.drawText(QRect(35, yoffset, 45, 14), Qt::AlignRight, priceStr + qtySuffix);
 
-            painter.drawText(QRect(80, yoffset, 55, 14), Qt::AlignRight, QLocale::system().toString(qAbs(eq), 'f', 2));
-            painter.drawText(QRect(135, yoffset, 35, 14), Qt::AlignRight, QLocale::system().toString(qAbs(ds), 'f', 2));
+            painter.drawText(QRect(80, yoffset, 55, 14), Qt::AlignRight, locale.toString(qAbs(eq), 'f', 2));
+            painter.drawText(QRect(135, yoffset, 35, 14), Qt::AlignRight, locale.toString(qAbs(ds), 'f', 2));
 
             if (noteStr.contains(QStringLiteral("#"))) {
                 painter.drawText(QRect(0, yoffset += 14, 150, 14), inoteStr.mid(inoteStr.indexOf(QStringLiteral("#")) + 1));
@@ -130,7 +135,7 @@ int Print::paintCheck(const QVariantMap &bind, int mode, int isCopy)
             painter.drawText(QRect(0, yoffset, 160, 14), (am > 0 ? QStringLiteral("+Отр ") : QStringLiteral("-Вид ")) + icharStr + inoteStr + iidStr);
             yoffset += 14;
 
-            painter.drawText(QRect(0, yoffset, 55, 14), Qt::AlignRight, QLocale::system().toString(qAbs(am), 'f', prec));
+            painter.drawText(QRect(0, yoffset, 55, 14), Qt::AlignRight, locale.toString(qAbs(am), 'f', prec));
             painter.drawText(QRect(60, yoffset, 110, 14), noteStr);
         }
 
@@ -145,8 +150,8 @@ int Print::paintCheck(const QVariantMap &bind, int mode, int isCopy)
     double totalDsc = bind.value(QStringLiteral("dsc")).toString().toDouble();
     double totalAmount = bind.value(QStringLiteral("amnt")).toString().toDouble();
 
-    painter.drawText(QRect(55, yoffset, 80, 14), Qt::AlignRight, QLocale::system().toString(qAbs(totalEq), 'f', 2));
-    painter.drawText(QRect(135, yoffset, 35, 14), Qt::AlignRight, QLocale::system().toString(qAbs(totalEq), 'f', 2));
+    painter.drawText(QRect(55, yoffset, 80, 14), Qt::AlignRight, locale.toString(qAbs(totalEq), 'f', 2));
+    painter.drawText(QRect(135, yoffset, 35, 14), Qt::AlignRight, locale.toString(qAbs(totalEq), 'f', 2));
 
     painter.drawText(QRect(0, yoffset += 8, 170, 12), QStringLiteral("--------------------------------------------------------------------------"));
 
@@ -160,7 +165,7 @@ int Print::paintCheck(const QVariantMap &bind, int mode, int isCopy)
     f.setPointSize((qAbs(totalEq + totalDsc) < 1000000.0) ? 14 : 13);
     painter.setFont(f);
 
-    painter.drawText(QRect(50, yoffset, 120, 30), Qt::AlignRight | Qt::AlignVCenter, QLocale::system().toString(qAbs(totalEq + totalDsc), 'f', 2));
+    painter.drawText(QRect(50, yoffset, 120, 30), Qt::AlignRight | Qt::AlignVCenter, locale.toString(qAbs(totalEq + totalDsc), 'f', 2));
 
     f.setBold(false);
     f.setStretch(fontStretch);
@@ -168,7 +173,7 @@ int Print::paintCheck(const QVariantMap &bind, int mode, int isCopy)
     painter.setFont(f);
 
     painter.drawText(QRect(0, yoffset += 25, 75, 14), (totalAmount >= 0 ? QStringLiteral("+") : QStringLiteral("-")) + tr(" Готівка:"));
-    painter.drawText(QRect(80, yoffset, 90, 14), Qt::AlignRight, QLocale::system().toString(qAbs(totalAmount), 'f', 2));
+    painter.drawText(QRect(80, yoffset, 90, 14), Qt::AlignRight, locale.toString(qAbs(totalAmount), 'f', 2));
 
     // Підвал чека (Метадані)
     painter.drawText(QRect(0, yoffset += 25, 100, 14), tr("Id:") + bind.value(QStringLiteral("id")).toString().rightJustified(6, '0'));
