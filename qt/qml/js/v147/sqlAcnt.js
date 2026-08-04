@@ -129,7 +129,6 @@ function balBalance(db, bal) {
 
     const reverse = (String(bal).startsWith("30"));
 
-    // ✅ ВИПРАВЛЕНО: Замість видаленого String().arg використовуємо стабільну збірку рядка
     const flt = "substr(acntno, 1, " + bal.length + ") = '" + bal + "' AND abs(beginamnt + turndbt - turncdt) > 0.0009";
 
     return dbBalance(db, flt, "id", reverse);
@@ -143,7 +142,7 @@ function balBalance2(db, bal, condition) {
 
     const flt = `substr(acntno, 1, ${bal.length}) = '${bal}' AND abs(beginamnt + turndbt - turncdt) > 0.0009`
         + (!condition ? "" : ` AND ${condition}`);
-
+// console.log(`II: sqlAcnt.js/balBalance2 flt = ${flt}`)
     return dbBalance(db, flt);
 }
 
@@ -181,8 +180,8 @@ function dbBalance(db, flt = "", order = "", reverse = false) {
             ${amount}
             coalesce(client, '') clid,
             coalesce(acntbal.acntnote,'') note,
-            coalesce(acntbal.mask,'') mask,
-            coalesce(acntbal.trade,'') trade,
+            coalesce(acntbal.mask,1) mask,
+            coalesce(acntbal.trade,0) trade,
             balname
         FROM acnt
             LEFT JOIN acntbal using(acntno)
@@ -360,8 +359,8 @@ function balanceForUpload(db, updatedOnly) {
             turndbt,
             turncdt,
             CASE
-                WHEN coalesce(dbtupd, '') > coalesce(cdtupd, '') THEN substr(dbtupd, 1, 16)
-                ELSE substr(cdtupd, 1, 16)
+                WHEN coalesce(dbtupd, '') > coalesce(cdtupd, '') THEN dbtupd
+                ELSE cdtupd
             END AS tm
         FROM acnt
         WHERE ${whereCondition};

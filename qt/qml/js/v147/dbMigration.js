@@ -221,7 +221,7 @@ function to_v147(db){
                             "    'key' TEXT PRIMARY KEY NOT NULL, " +
                             "    'val' TEXT" +
                             ") WITHOUT ROWID;");
-        console.log("[Migration] Table conf created! 🎉");
+        console.log("[Migration] Table conf created!");
 
         // Наповнюємо базовими JSON-конфігами для терміналу, гривні, REST та TAX шлюзів
         db.dbSelectRowsJSON("INSERT OR IGNORE INTO 'conf' ('key', 'val') VALUES " +
@@ -229,7 +229,7 @@ function to_v147(db){
                             "('domestic', '{\"id\": \"980\", \"chid\": \"UAH\", \"name\": \"українська гривня\"}'), " +
                             "('rest', '{\"host\": \"http://test.kantorfk.com\", \"api\": \"/api/v5\", \"user\": \"\", \"psw\": \"\"}'), " +
                             "('tax', '{\"host\": \"*https://test.cashdesk.com.ua\", \"api\": \"/api/v2\", \"cash\":\"\", \"token\":\"\"}');");
-        console.log("[Migration] Table conf updated! 🎉");
+        console.log("[Migration] Table conf updated!");
 
         // Мігруємо старі рахунки (acnts) із застарілої таблиці settings
         // Перевіряємо, чи існує стара таблиця settings в базі перед вичитуванням
@@ -245,7 +245,7 @@ function to_v147(db){
 
         // Піднімаємо версію в заголовку SQLite до 147
         db.dbSelectRowsJSON("PRAGMA user_version = 147;");
-        console.log("[Migration] Базу даних успішно модернізовано до версії 147! 🎉");
+        console.log("[Migration] Базу даних успішно модернізовано до версії 147");
     } catch (error) {
         console.error("[Migration] Критична помилка міграції: " + String(error));
         db.dbSelectRowsJSON("ROLLBACK;");

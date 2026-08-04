@@ -6,6 +6,7 @@ const glDepoPrefix = "36";      // deposits
 const glInitPrefix = "42";      // init capital
 const glTradeEquivalentPrefix = "eqvl";
 const glTradeResultPrefix = "rslt";
+const TRADE_RESULT_PREFIX = "rslt";
 const glBonusPrefix = "38";
 
 const glDomesticCrn = "980";    // DEPRECATED, get fron conf.domestic instead

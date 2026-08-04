@@ -2,6 +2,8 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
+import "js/drawer.js" as JS
+
 Item {
     id: root
     width: 320
@@ -15,23 +17,24 @@ Item {
         if (visible) {
             viewCashAction.trigger();
         } else {
-            if (typeof drawerModel.clear === "function") drawerModel.clear();
+            // if (typeof drawerModel.clear === "function")
+            vw.model.clear();
             dataFilter.text = "";
         }
     }
 
-    ModelDrawer {
-        id: drawerModel
-    }
+    // ModelDrawer {
+    //     id: drawerModel
+    // }
 
     // --- Блок логічних дій (Actions) з виправленим очищенням потрібного ID поля ---
     Action {
         id: viewCashAction
         text: "Каса"
         onTriggered: {
-            dataFilter.text = ""; // ✅ ВИПРАВЛЕНО ID
+            dataFilter.text = "";
             vw.section.property = "bind";
-            drawerModel.load(dbDriver, ["30"], 3);
+            JS.load(dbDriver, vw.model, ["30"], 3);
         }
     }
 
@@ -41,7 +44,7 @@ Item {
         onTriggered: {
             dataFilter.text = "";
             vw.section.property = "";
-            drawerModel.load(dbDriver, ["36", "38", "42"], 3, true);
+            JS.load(dbDriver, vw.model, ["36", "38", "42"], 3, true);
         }
     }
 
@@ -51,7 +54,7 @@ Item {
         onTriggered: {
             dataFilter.text = "";
             vw.section.property = "bind";
-            drawerModel.load(dbDriver, ["35"], 3, true);
+            JS.load(dbDriver, vw.model, ["35"], 3, true);
         }
     }
 
@@ -61,7 +64,7 @@ Item {
         onTriggered: {
             dataFilter.text = "";
             vw.section.property = "";
-            drawerModel.load(dbDriver, ["3000"], 4, false);
+            JS.load(dbDriver, vw.model, ["3000"], 4, false);
         }
     }
 
@@ -71,7 +74,17 @@ Item {
         onTriggered: {
             dataFilter.text = "";
             vw.section.property = "";
-            drawerModel.load(dbDriver, ["3020"], 4, false);
+            JS.load(dbDriver, ["3020"], 4, false);
+        }
+    }
+
+    Action {
+        id: viewProfitAction
+        text: "Profit"
+        onTriggered: {
+            dataFilter.text = "";
+            vw.section.property = "bind";
+            JS.loadProfit(dbDriver, vw.model);
         }
     }
 
@@ -182,6 +195,28 @@ Item {
                     verticalAlignment: Text.AlignVCenter
                 }
             }
+            Button {
+                id: btnViewProfit
+                Layout.preferredWidth: 48
+                Layout.preferredHeight: 48
+                Layout.alignment: Qt.AlignVCenter
+                action: viewProfitAction
+
+                background: Rectangle {
+                    color: btnViewProfit.pressed ? "#cfd8dc" : (btnViewProfit.hovered ? "#e2e8f0" : "#eceff1")
+                    radius: 8
+                    border.color: "#b0bec5"
+                    border.width: 1
+                }
+                contentItem: Text {
+                    text: "Prf"
+                    font.pixelSize: 20
+                    font.bold: true
+                    color: "#455a64"
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+            }
 
         }
 
@@ -191,9 +226,9 @@ Item {
             Layout.fillWidth: true
             spacing: 4
             clip: true
-            model: drawerModel
+            model: ListModel{}
+            // model: drawerModel
 
-            // ✨ Кастомний скроллбар
             ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
             delegate: Rectangle {
@@ -228,7 +263,7 @@ Item {
                             elide: Text.ElideRight
                         }
                         Text {
-                            text: `[${model.acntno || ""}] ${model.subname || ""}`
+                            text: subname
                             font.pixelSize: 10
                             color: '#7f8c8d'
                             Layout.fillWidth: true
@@ -282,29 +317,42 @@ Item {
             section.criteria: ViewSection.FullString
             section.delegate: Rectangle {
                 width: vw.width
-                // ✅ ВИПРАВЛЕНО: Якщо секція пуста, схлопуємо її висоту в 0
                 height: section !== "" ? 26 : 0
                 color: "transparent"
                 visible: section !== ""
+                readonly property var infoObj: JS.sectInfo(section)
 
                 Rectangle {
                     anchors.bottom: parent.bottom
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.leftMargin: 4
-                    height: 18
+                    height: 24
                     radius: 4
                     color: "#cfd8dc" // Ніжний сіро-блакитний роздільник
 
-                    Label {
-                        anchors.left: parent.left
-                        anchors.leftMargin: 8
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: section.toUpperCase()
-                        font.pixelSize: 10
-                        font.bold: true
-                        color: "#455a64"
+                    RowLayout{
+                        anchors{fill: parent; leftMargin: 8; rightMargin: 8;verticalCenter: parent.verticalCenter}
+                        // anchors.left: parent.left
+                        // anchors.leftMargin: 8
+                        // anchors.verticalCenter: parent.verticalCenter
+                        Label {
+                            Layout.fillWidth: true
+                            text: !!infoObj ? infoObj.name : ""
+                            // text: section.toUpperCase()
+                            font.pixelSize: 14
+                            font.bold: true
+                            color: "#455a64"
+                        }
+                        Label {
+                            text: !!infoObj && infoObj.total ? infoObj?.total.toLocaleString(Qt.locale(), 'f', 0) : ""
+                            font.pixelSize: 14
+                            font.bold: true
+                            color: "#455a64"
+                        }
+
                     }
+
                 }
             }
         }
@@ -339,8 +387,8 @@ Item {
                     selectByMouse: true
                     background: null
                     // Жива ES6 фільтрація при введенні символів
-                    onTextChanged: drawerModel.filterData(text.trim())
-                    onAccepted: drawerModel.filterData(text.trim())
+                    onTextChanged: JS.filterData(vw.model, text.trim())
+                    onAccepted: JS.filterData(vw.model, text.trim())
                 }
                 ToolButton {
                     text: "✕"
@@ -349,7 +397,7 @@ Item {
                     Layout.preferredHeight: 26
                     onClicked: {
                         dataFilter.text = "";
-                        drawerModel.filterData("");
+                        JS.filterData(vw.model);
                     }
                     background: Rectangle { color: "transparent" }
                 }

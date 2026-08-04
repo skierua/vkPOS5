@@ -19,7 +19,7 @@ function uploadBalance(db, mode = "upd", msg){
         acntData = LibAcnt.balanceForUpload(db, loadMode);
     }
     if (acntData && acntData.length > 0) {
-        if (mode === "all"){
+        if (mode === "all"){    // just delete old data
            REST.uploadBalance({ "term": currentTerm, "reqid": "del", "shop": currentShop, "data": [] }, ()=>{} );
         }
 
@@ -230,8 +230,10 @@ function handleAddBindTab(db, prn, comp, msg, container, ui){
            const pMode = Number(param?.prnMode ?? 2);
                                    console.info(`II: main.js/handleAddBindTab pMode=${pMode} auto=${(basicConf?.auto_print || 0)}`)
            if (pMode !== 0 && (pMode === 1 || (basicConf?.auto_print || 0) !== 0)) {
-              prn.saveCheck(param?.bind || null);
-              prn.printCheck(param?.bind || null);
+                prn.saveCheck(param?.bind || null);
+                const printOk = prn.printCheck(param?.bind || null);
+                if (!!printOk)
+                    if (!!msg && typeof msg.error === "function") msg.error(prn.lastError());
            }
            if (!!(param?.sendToTax || false )){
                sendTaxSale(Db,(param?.bindForTax || null), msg);
@@ -293,6 +295,32 @@ function handleXReport(msg){
                     }
                 }
             )
+}
+
+function fix_acnt_item_980(db, msg){
+    let ok = false;
+    try {
+        db.dbSelectRowsJSON("PRAGMA foreign_keys = OFF;");
+
+        db.dbSelectRowsJSON("BEGIN TRANSACTION;");
+
+        db.dbSelectRowsJSON("DELETE FROM acnt WHERE item = '980';");
+
+        db.dbSelectRowsJSON("COMMIT;");
+
+        ok = true;
+        const strOk = "Проблему 980 УСУНУТО!"
+        if (!!msg && typeof msg.info === "function") msg.info(strOk);
+
+    } catch (error) {
+        const strErr = `Критична помилка: ${String(error)}`
+        db.dbSelectRowsJSON("ROLLBACK;");
+        console.error(strErr);
+        if (!!msg && typeof msg.error === "function") msg.error(strErr);
+    } finally {
+        db.dbSelectRowsJSON("PRAGMA foreign_keys = ON;");
+    }
+    return ok;
 }
 
 // NOT USED

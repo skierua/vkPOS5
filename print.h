@@ -4,7 +4,6 @@
 #include <QObject>
 #include <QCoreApplication>
 #include <QQmlEngine>
-#include <QJsonObject>
 
 class Print : public QObject
 {
@@ -23,12 +22,14 @@ public:
     Print(Print&&) = delete;
     Print& operator=(Print&&) = delete;
 
-    Q_INVOKABLE int printCheck(const QJsonObject &bind) { return paintCheck(bind, 1, 0);}
-    Q_INVOKABLE int saveCheck(const QJsonObject &bind) { return paintCheck(bind, 0, 0);}
-    Q_INVOKABLE int printCheckCopy(const QJsonObject &bind) { return paintCheck(bind, 1, 1);}
-    Q_INVOKABLE int saveCheckCopy(const QJsonObject &bind) { return paintCheck(bind, 0, 1);}
+    Q_INVOKABLE QString lastError() const { return m_lastError; }
 
-    Q_INVOKABLE int saveOrder(const QJsonObject &bind);
+    Q_INVOKABLE int printCheck(const QVariantMap &bind) { return paintCheck(bind, 1, 0);}
+    Q_INVOKABLE int saveCheck(const QVariantMap &bind) { return paintCheck(bind, 0, 0);}
+    Q_INVOKABLE int printCheckCopy(const QVariantMap &bind) { return paintCheck(bind, 1, 1);}
+    Q_INVOKABLE int saveCheckCopy(const QVariantMap &bind) { return paintCheck(bind, 0, 1);}
+
+    Q_INVOKABLE int saveOrder(const QVariantMap &bind);
 
     Q_INVOKABLE void setTerm(const QString &v) { m_termCode = v; }
     Q_INVOKABLE void setAddress(const QString & v) { m_termAddress = v; }
@@ -36,7 +37,13 @@ public:
     Q_INVOKABLE void setCheck(const QString & v) { m_check = v; }
     Q_INVOKABLE void setPrinterName(const QString &v) { m_checkPrinter = v; } // Додано сетер для зміни принтера з налаштувань QML
 
+signals:
+    void vkEvent(QString eventId, QVariant eventParam);
+    void error(QString message);
+
 private:
+    QString m_lastError;
+
     QString m_termCode{"TEST"};
 
     QString m_termAddress{""};
@@ -55,11 +62,8 @@ private:
     const QString m_checkSubPath{"report/lastcheck.pdf"};
     const QString m_orderSubPath{"report/order.pdf"};
 
-    int saveOrder_old(const QJsonObject &bind);
-
     // Головна функція рендеру (макетування) чека
-    int paintCheck(const QJsonObject &bind, int mode = 1, int copy = 0);
-    int paintCheck_old(const QJsonObject &bind, int mode = 1, int copy = 0);
+    int paintCheck(const QVariantMap &bind, int mode = 1, int copy = 0);
 
     // Повертає абсолютний безпечний шлях до файлу звіту у папці додатку
     QString getAbsoluteReportPath(const QString &subPath) const;

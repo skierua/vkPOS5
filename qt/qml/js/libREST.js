@@ -133,6 +133,7 @@ function uploadBind(req, callback) {
     if (BAN_SEND) {
     // debug info
         console.warn("WW: REST.uploadBind is PROHIBITED (BAN_SEND = true) !!!")
+        console.warn(`WW: REST.uploadBind req=${JSON.stringify(req)}`)
     } else {
         postRequest("/dcms", req, (err, resp) => { callback(err); });
     }
@@ -143,6 +144,7 @@ function uploadBalance(req, callback) {
     if (BAN_SEND) {
     // debug info
         console.warn("WW: REST.uploadBalance is PROHIBITED (BAN_SEND = true) !!!")
+        // console.warn(`WW: REST.uploadBalance req=${JSON.stringify(req)}`)
     } else {
         postRequest("/accounts", req, (err, resp) => { callback(err); });
     }
