@@ -133,7 +133,7 @@ function uploadBind(req, callback) {
     if (BAN_SEND) {
     // debug info
         console.warn("WW: REST.uploadBind is PROHIBITED (BAN_SEND = true) !!!")
-        console.warn(`WW: REST.uploadBind req=${JSON.stringify(req)}`)
+        // console.warn(`WW: REST.uploadBind req=${JSON.stringify(req)}`)
     } else {
         postRequest("/dcms", req, (err, resp) => { callback(err); });
     }

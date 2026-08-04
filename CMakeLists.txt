@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 
 project(vkPOS5
-    VERSION 3.5
+    VERSION 3.6
     LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17) # Суворий стандарт C++ для Qt6

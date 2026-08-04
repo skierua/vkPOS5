@@ -1,5 +1,5 @@
-#include <QGuiApplication>
-// #include <QApplication>
+// #include <QGuiApplication>
+#include <QApplication>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
 #include <QQmlContext>
@@ -13,8 +13,8 @@
 
 int main(int argc, char *argv[])
 {
-    QGuiApplication app(argc, argv);
-    // QApplication app(argc, argv);
+    // QGuiApplication app(argc, argv);
+    QApplication app(argc, argv);
 
     // QQuickStyle::setStyle("Basic");
     QQuickStyle::setStyle("Fusion");

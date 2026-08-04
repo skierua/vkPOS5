@@ -4,6 +4,7 @@
 .import "v147/config.js" as Conf
 .import "v147/sqlAcnt.js" as LibAcnt
 .import "v147/sqlBind.js" as LibBind
+.import "v147/sqlItem.js" as LibItem
 .import "v147/sqlPrice.js" as LibPrice
 .import "v147/sqlShift.js" as LibShift
 
@@ -14,16 +15,18 @@ function uploadBalance(db, mode = "upd", msg){
     const currentTerm = String(Conf.TERM || "TEST");
     const currentShop = currentTerm;
     let acntData = [];
-    const loadMode = (mode === "all" ? false : true);
+    // const loadMode = (mode === "upd" ? true : false);
     if (typeof LibAcnt.balanceForUpload === "function") {
-        acntData = LibAcnt.balanceForUpload(db, loadMode);
+        acntData = LibAcnt.balanceForUpload(db, (mode === "upd" ? true : false));
     }
     if (acntData && acntData.length > 0) {
-        if (mode === "all"){    // just delete old data
-           REST.uploadBalance({ "term": currentTerm, "reqid": "del", "shop": currentShop, "data": [] }, ()=>{} );
-        }
+        // if (mode === "all"){    // just delete old data
+        //    REST.uploadBalance({ "term": currentTerm, "reqid": "del", "shop": currentShop, "data": [] }, ()=>{} );
+        // }
 
-        const balanceReq = { "term": currentTerm, "reqid": "upd", "shop": currentShop, "data": acntData }
+        const balanceReq = { "term": currentTerm, "reqid": "upd", "del": (mode === "upd" ? "0" : "1"), "shop": currentShop, "data": acntData }
+        // console.info(`main.js/uploadBalance ${JSON.stringify(balanceReq)}`);
+        // return;
         REST.uploadBalance(balanceReq,
            (err)=>{
                if (!!err) {
@@ -45,6 +48,7 @@ function uploadBind(bind, msg){
     const currentTerm = String(Conf.TERM || "TEST");
     const currentShop = currentTerm;
     const bindReq = { "term": currentTerm, "reqid": "upd", "shop": currentShop, "data": bind }
+    // console.info(`main.js/uploadBind ${JSON.stringify(bindReq)}`);
     REST.uploadBind(bindReq,
         (err)=>{
          if (!!err) {
@@ -121,6 +125,7 @@ function handleDbNameChanged(db, prn, container, msg, ui){
     prn.setTerm(basicConf?.id || "TEST")
     prn.setUser(shft?.cshrname || "")
     prn.setCheck(basicConf?.print_dcm || "")
+    prn.setPrinterName(basicConf?.pos_printer || "")
 
     if (typeof REST !== "undefined") {
         REST.reset(db);
@@ -224,20 +229,27 @@ function handleAddBindTab(db, prn, comp, msg, container, ui){
             if (ui && typeof ui.setClientFromBind === "function")
                 ui.setClientFromBind(param || null);
         } else if (id === 'tranOk') {
-           uploadBind(param?.bind || null, msg);
-           uploadBalance(db, "upd", msg);
-           // print dcm
-           const pMode = Number(param?.prnMode ?? 2);
-                                   console.info(`II: main.js/handleAddBindTab pMode=${pMode} auto=${(basicConf?.auto_print || 0)}`)
-           if (pMode !== 0 && (pMode === 1 || (basicConf?.auto_print || 0) !== 0)) {
-                prn.saveCheck(param?.bind || null);
-                const printOk = prn.printCheck(param?.bind || null);
-                if (!!printOk)
-                    if (!!msg && typeof msg.error === "function") msg.error(prn.lastError());
-           }
-           if (!!(param?.sendToTax || false )){
-               sendTaxSale(Db,(param?.bindForTax || null), msg);
-           }
+                                   if (!!param && !!param.bind){
+                                       uploadBind(param?.bind || null, msg);
+                                       uploadBalance(db, "upd", msg);
+                                       // print dcm
+                                       const pMode = Number(param?.prnMode ?? 2);
+                                       // console.info(`II: main.js/handleAddBindTab pMode=${pMode} auto=${(basicConf?.auto_print || 0)}`)
+                                       if (pMode !== 0 && (pMode === 1 || (basicConf?.auto_print || 0) !== 0)) {
+                                            const prnBind = JSON.parse(JSON.stringify(param.bind));
+                                           const item = LibItem.getItemById(db, prnBind.crn)
+                                           prnBind.jitem = item;
+                                            prn.saveCheck(prnBind || null);
+                                            const printOk = prn.printCheck(prnBind || null);
+                                            if (!!printOk)
+                                                if (!!msg && typeof msg.error === "function") msg.error(prn.lastError());
+                                       }
+                                       if (!!(param?.sendToTax || false )){
+                                           sendTaxSale(Db,(param?.bindForTax || null), msg);
+                                       }
+
+                                   }
+
         } else if (id === 'info') {
            if (msg && typeof msg.info === "function")
                 msg.info(`${param ?? "Unknown info"}`);
