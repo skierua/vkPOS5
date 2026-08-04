@@ -174,6 +174,7 @@ ListModel {
                  "eq": (v.eqamount || 0).toFixed(2),
                  "dsc": (v.discount || 0).toFixed(2),
                  "bns": (v.bonus || 0).toFixed(2),
+                "jitem": v.jarticle,
                  "note": v.dcmnote || "",
                  "retfor": v.retfor || ""
              }; });

@@ -3,6 +3,7 @@
 .import "v147/sqlBind.js" as LibBind
 .import "v147/sqlItem.js" as LibItem
 .import "v147/sqlPrice.js" as LibPrice
+.import "v147/sqlShift.js" as LibShift
 .import "v147/sqlTran.js" as LibTran
 
 function crnTotalList(model) {
@@ -173,6 +174,7 @@ function handleTranAction(db, model, prnMode, ui) {
             ui.vkEvent("error", model.lastError || "Serialization error");
         return;
     }
+    const shft = LibShift.crntShift(db)
     const total = model.total();
     const utcTimeStamp = new Date().toISOString();  //.substring(0, 19);
     const jbind = {
@@ -186,6 +188,7 @@ function handleTranAction(db, model, prnMode, ui) {
         "bns": (total?.bns || 0).toFixed(2),
         "note": "",
         "clnt": ui.clid || "",
+        "cshr": shft?.cshr || "",
         "tm": utcTimeStamp,
         "dcms": dcmList
     }

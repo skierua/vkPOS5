@@ -65,13 +65,15 @@ public:
     Q_INVOKABLE QVariantMap dbSelectRow(const QString &sql, const QVariantList &params);
     Q_INVOKABLE QVariantMap getJSONRowFromSQL(const QString &sql) { return dbSelectRow(sql); } // Транзитний fallback
 
-    // ✅ ОПТИМІЗАЦІЯ QT6: Замість повернення важкого рядка JSON (QString),
+    // Замість повернення важкого рядка JSON (QString),
     // ми повертаємо QVariantList. Рушій QML бачить його відразу як готовий масив JS-об'єктів [].
     // Це прискорить роботу таблиць каси у десятки разів і зменшить навантаження на процесор!
+    Q_INVOKABLE QVariantList dbSelectRowsJSON(const QString &sql, const QString &filter = QString());
+
+    // DEPRECATED
     Q_INVOKABLE QString dbSelectRows(const QString &sql, const QString &filter = QString());
     Q_INVOKABLE QString getJSONRowsFromSQL_2(const QString &sql, const QString &filter = QString())
          { return dbSelectRows(sql, filter); }
-    Q_INVOKABLE QVariantList dbSelectRowsJSON(const QString &sql, const QString &filter = QString());
 
 signals:
     void vkEvent(QString eventId, QVariant eventParam);

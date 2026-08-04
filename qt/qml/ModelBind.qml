@@ -134,8 +134,6 @@ ListModel {
                 "dsc": (row.moneyDsc || 0).toFixed(2),
                 "bns": (row.moneyBns || 0).toFixed(2),
                 "note": row.dnote || "",
-
-                // "jprice": row.jprice,
                 "jitem": row.darticle,
                 // "tm": utcTimeStamp,
                 "retfor": row.retfor || ""
@@ -296,6 +294,7 @@ ListModel {
             "bns":v_bns};
         return res;
     }
+
 // deprecated
     function isTrade(idx){
         console.warn("ModelBind/isTrade DEPRECATED !!!"); return false;

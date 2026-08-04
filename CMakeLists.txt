@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 
 project(vkPOS5
-    VERSION 3.4
+    VERSION 3.5
     LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17) # Суворий стандарт C++ для Qt6
@@ -61,6 +61,7 @@ set(JS_FILES
     qt/qml/js/v147/sqlShift.js
     qt/qml/js/v147/sqlTran.js
     qt/qml/js/bind.js
+    qt/qml/js/drawer.js
     qt/qml/js/shift.js
     qt/qml/js/rate.js
 )
@@ -107,8 +108,6 @@ qt_add_qml_module(appvkPOS5
         qt/qml/LogView.qml
         qt/qml/ModelBind.qml
         qt/qml/ModelDbDcms.qml
-        qt/qml/ModelDrawer.qml
-
         qt/qml/Rate.qml
         qt/qml/Shift.qml
         qt/qml/Stat.qml
