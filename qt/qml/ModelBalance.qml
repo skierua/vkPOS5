@@ -7,7 +7,6 @@ import "js/v147/sqlPrice.js" as LibPrice
 ListModel {
     id: root
 
-    // ✅ ВИПРАВЛЕНО КРИТИЧНИЙ БАГ QT6: Перейменовано 'data' на 'rawData',
     // щоб уникнути конфлікту із зарезервованим системним словом C++ у ListModel
     property var rawData: []
     property int pageCapacity: 40
@@ -26,7 +25,6 @@ ListModel {
 
         const filterLower = flt.toLowerCase();
 
-        // ✅ ОПТИМІЗАЦІЯ: Нативний метод .includes() та оператор ?. захищають від падіння додатка
         const scancodeStr = String(item.scancode || "").toLowerCase();
         const charStr = String(item.itemchar || "").toLowerCase();
         const nameStr = String(item.itemname || "").toLowerCase();
@@ -68,7 +66,6 @@ ListModel {
 
             row.price = prval;
 
-            // ✅ ВИПРАВЛЕНО БАГ СОРТУВАННЯ "COST": Розраховуємо та зберігаємо точний фінансовий еквівалент!
             row.eq = prval * Number(acntBalance[r].total || 0);
 
             tmp.push(row);
@@ -84,7 +81,6 @@ ListModel {
                 return String(a.item?.itemchar || "").localeCompare(String(b.item?.itemchar || ""));
             });
         } else if (order === "cost") {
-            // ✅ ТЕПЕР ПРАЦЮЄ НАДІЙНО: Сортування за вартістю еквівалента (від більшого до меншого)
             tmp.sort((a, b) => {
                 const pathComp = String(a.item?.pathname || "").localeCompare(String(b.item?.pathname || ""));
                 if (pathComp !== 0) return pathComp;

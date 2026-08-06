@@ -174,6 +174,100 @@ function finishShift(db, bind) {
       return res;
    }
 
+   // TEST AREA START --------------------------
+
+   // tmp_reval(db, bind, cashAcntNo, shift?.cshr || "");
+   // return;
+
+   const atcl = LibItem.getItemById(db);
+   const t_source = LibShift.dbRevalList(db) || [];
+  // console.info(`II: shift.js/tmp_reval#5i5 t_source=${JSON.stringify(t_source)}`)
+   const revalSet = new Set(
+       t_source
+           .filter(v => v && v.eno) // 1. Спочатку відсікаємо записи без eno
+           .map(v => {
+               const parts = v.eno.split(/\.|\//);
+               return parts[1] || "";
+           })
+           .filter(code => code !== "") // 3. Прибираємо порожні результати з Set
+   );
+  // revalSet.forEach(k => { console.info(`II: shift.js/tmp_reval#732 k=${k}`); });
+  const bindList = [];
+
+  const revalSource = t_source.filter(v => v && (v.amnt !== 0 || v.eqamnt !== 0));
+  // console.info(`II: shift.js/tmp_reval#203 revalSource=${JSON.stringify(revalSource)}`)
+   for (const crntAcntNo of revalSet) {
+      bind.flush();
+       // console.info(`II: shift.js/tmp_reval crntAcntNo=${crntAcntNo}`);
+      let ok = true;
+      const revalAcntSource = revalSource.filter(v => {
+                                              const parts = v.eno.split(/\.|\//);
+                                              return crntAcntNo === (parts[1] || "");
+                                           });
+      // console.info(`II: shift.js/tmp_reval#8dj revalAcntSource=${JSON.stringify(revalAcntSource)}`)
+      for (const reval of revalAcntSource){
+         const priceVal = Number(reval.bscprice || 0);
+         const amntVal = Number(reval.amnt || 0);
+         if (!priceVal && !!amntVal) continue;
+         const eqVal = Number(reval.eqamnt || 0);
+         const profitVal = amntVal * priceVal + eqVal;
+         if (Math.abs(100 * profitVal) < 1) continue;
+         const acntEq = LibAcnt.acntbal(db, String(reval.eno || ""));
+         const acntRslt = LibAcnt.acntbal(db, String(reval.rno || ""));
+         const noteVal = `${(profitVal < 0 ? "+++" : "---")} reval(${reval.item}) ${reval.amnt} * ${reval.bscprice}`;
+         ok &= bind.addDcm( atcl, acntEq, "memo", profitVal, null, noteVal);
+         ok &= bind.addDcm( atcl, acntRslt, "memo", 0 - profitVal, null, noteVal);
+         // console.info(`II: shift.js/tmp_reval#i24 noteVal=${noteVal} bind.count=${bind.count}`)
+      }
+      if (ok && !!bind.count){
+         const dcmList = bind.dcmsToTran(cashAcntNo);
+         if (!dcmList){
+             if (ui && typeof ui.vkEvent === "function")
+                 ui.vkEvent("error", bind.lastError || "Unknown error");
+             return {
+                "status": -1,
+                "errstr": "Помилка формування ордерів інкасації"
+             };
+         }
+         // const total = bind.total();
+         const utcTimeStamp = new Date().toISOString();
+         const jbind = {
+             "id": "dcmbind",
+             "dcm": "folder",
+             "dbt": crntAcntNo,
+             "cdt": "rslt",
+            "amnt": "0.00",
+            "eq": "0.00",
+            "dsc": "0.00",
+            "bns": "0.00",
+             "note": "reval",
+             "clnt": shift?.cshr || "",
+            "cshr": shift?.cshr || "",
+             "tm": utcTimeStamp,
+             "dcms": dcmList
+         }
+         const bid = LibTran.tranBind(db, jbind);
+         ok &= (bid > 0);
+         if (!ok){
+            return {
+               "status": -1,
+               "errstr": "Помилка проведення ордерів інкасації"
+            };
+         }
+         bindList.push(jbind)
+
+      }
+   }
+
+//    console.info(`II: shift.js/finishShift#256y bindList=${JSON.stringify(bindList)}`)
+// return null;
+
+
+
+
+   // TEST AREA FINISH --------------------------
+
+/*
    const acntList = LibAcnt.dbAcntbal(db, `substr(acntno,1,${Conf.glTradePrefix.length}) = '${Conf.glTradePrefix}'`)
    if (!cashAcntNo || !acntList || typeof bind === "undefined") {
       res.errstr = "Критична помилка: Не налаштовано конфігурацію рахунків каси!";
@@ -189,7 +283,7 @@ function finishShift(db, bind) {
          const source = LibShift.dbRevalList(db, acntList[r].acntno) || [];
          const fltSource = source.filter(v => (v.amnt || 0) === 0 && ((v.eqamnt || 0) !== 0));
          // console.log(`7y3n#shift.js fltSource=${JSON.stringify(fltSource)}`)
-         let eqTotal =0;
+         // let eqTotal =0;
          for (let i =0; ok && i < fltSource.length; ++i){
             const totalVal = Number(fltSource[i].eqamnt || 0);
             if (Math.abs(100 * totalVal ) < 1) continue;
@@ -204,7 +298,7 @@ function finishShift(db, bind) {
 
             // ok &= bind.addMemo(db, {"dcm":"memo", "amnt": fltSource[i].eqamnt, "cdt": String(fltSource[i].eno || ""), "crn":"", "note": note})
             // ok &= bind.addMemo(db, {"dcm":"memo", "amnt": 0 - fltSource[i].eqamnt, "cdt": String(fltSource[i].rno || ""), "crn":"", "note": note})
-            eqTotal -= fltSource[i].eqamnt;
+            // eqTotal -= fltSource[i].eqamnt;
          }
          if (ok && fltSource.length > 0) {
 
@@ -226,8 +320,8 @@ function finishShift(db, bind) {
                 "cdt": "rslt",
                "amnt": (total?.pmnt || 0).toFixed(2),
                "eq": (total?.eq || 0).toFixed(2),
-               "dsc": (total?.dsc || 0).toFixed(2),
-               "bns": (total?.bns || 0).toFixed(2),
+               "dsc": "0.00",
+               "bns": "0.00",
                 "note": "reval",
                 "clnt": shift?.cshr || "",
                "cshr": shift?.cshr || "",
@@ -250,7 +344,7 @@ function finishShift(db, bind) {
          }
       }
 
-   }
+   } */
    // console.log(`w87y#shift.js bind=${JSON.stringify(bindList)}`)
    ok &= db.closeShift(shift.id);
    res.status = (ok ? 1 : -1);
@@ -270,6 +364,7 @@ function populateIncas(db, model, ui) {
       return;
    }
    const tradeAcntNo = LibAcnt.DfltAcnt.tradeAcntNo(db);
+
    const source = LibShift.dbRevalList(db, tradeAcntNo) || [];
    // let vam = 0;
    const modelData = source
@@ -387,6 +482,92 @@ function isIncas(db){
    return !!bulkAcntNo;
 }
 
+
+function tmp_reval(db, bind, cashAcntNo, cshr){
+    // const t_acntList = LibAcnt.dbAcntbal(db, `substr(acntno,1,${Conf.glTradePrefix.length}) = '${Conf.glTradePrefix}'`)
+    // console.info(`II: shift.js/tmp_reval t_acntList=${JSON.stringify(t_acntList)}`)
+    const atcl = LibItem.getItemById(db);
+    const t_source = LibShift.dbRevalList(db) || [];
+   // console.info(`II: shift.js/tmp_reval#5i5 t_source=${JSON.stringify(t_source)}`)
+    const revalSet = new Set(
+        t_source
+            .filter(v => v && v.eno) // 1. Спочатку відсікаємо записи без eno
+            .map(v => {
+                const parts = v.eno.split(/\.|\//);
+                return parts[1] || "";
+            })
+            .filter(code => code !== "") // 3. Прибираємо порожні результати з Set
+    );
+   // revalSet.forEach(k => { console.info(`II: shift.js/tmp_reval#732 k=${k}`); });
+   const bindList = [];
+
+   const revalSource = t_source.filter(v => v && (v.amnt !== 0 || v.eqamnt !== 0));
+   // console.info(`II: shift.js/tmp_reval#203 revalSource=${JSON.stringify(revalSource)}`)
+    for (const crntAcntNo of revalSet) {
+       bind.flush();
+        console.info(`II: shift.js/tmp_reval crntAcntNo=${crntAcntNo}`);
+       let ok = true;
+       const revalAcntSource = revalSource.filter(v => {
+                                               const parts = v.eno.split(/\.|\//);
+                                               return crntAcntNo === (parts[1] || "");
+                                            });
+       console.info(`II: shift.js/tmp_reval#8dj revalAcntSource=${JSON.stringify(revalAcntSource)}`)
+       for (const reval of revalAcntSource){
+          const priceVal = Number(reval.bscprice || 0);
+          const amntVal = Number(reval.amnt || 0);
+          if (!priceVal && !!amntVal) continue;
+          const eqVal = Number(reval.eqamnt || 0);
+          const profitVal = 0 - amntVal * priceVal - eqVal; // TODO
+          if (Math.abs(100 * profitVal) < 1) continue;
+          const acntEq = LibAcnt.acntbal(db, String(reval.eno || ""));
+          const acntRslt = LibAcnt.acntbal(db, String(reval.rno || ""));
+          const noteVal = `${(profitVal < 0 ? "+++" : "---")} reval(${reval.item}) ${reval.amnt} * ${reval.bscprice}`;
+          ok &= bind.addDcm( atcl, acntEq, "memo", profitVal, null, noteVal);
+          ok &= bind.addDcm( atcl, acntRslt, "memo", 0 - profitVal, null, noteVal);
+          console.info(`II: shift.js/tmp_reval#i24 noteVal=${noteVal} bind.count=${bind.count}`)
+       }
+       if (ok && !!bind.count){
+          const dcmList = bind.dcmsToTran(cashAcntNo);
+          if (!dcmList){
+              if (ui && typeof ui.vkEvent === "function")
+                  ui.vkEvent("error", bind.lastError || "Unknown error");
+              return {
+                 "status": -1,
+                 "errstr": "Помилка формування ордерів інкасації"
+              };
+          }
+          // const total = bind.total();
+          const utcTimeStamp = new Date().toISOString();
+          const jbind = {
+              "id": "dcmbind",
+              "dcm": "folder",
+              "dbt": crntAcntNo,
+              "cdt": "rslt",
+             "amnt": "0.00",
+             "eq": "0.00",
+             "dsc": "0.00",
+             "bns": "0.00",
+              "note": "reval",
+              "clnt": cshr || "",
+             "cshr": cshr || "",
+              "tm": utcTimeStamp,
+              "dcms": dcmList
+          }
+          const bid = LibTran.tranBind(db, jbind);
+          ok &= (bid > 0);
+          if (!ok){
+             return {
+                "status": -1,
+                "errstr": "Помилка проведення ордерів інкасації"
+             };
+          }
+          bindList.push(jbind)
+
+       }
+    }
+    console.info(`II: shift.js/tmp_reval#938n bindList=${JSON.stringify(bindList)}`)
+    return bindList;
+}
 
 
 
