@@ -229,26 +229,26 @@ function handleAddBindTab(db, prn, comp, msg, container, ui){
             if (ui && typeof ui.setClientFromBind === "function")
                 ui.setClientFromBind(param || null);
         } else if (id === 'tranOk') {
-                                   if (!!param && !!param.bind){
-                                       uploadBind(param?.bind || null, msg);
-                                       uploadBalance(db, "upd", msg);
-                                       // print dcm
-                                       const pMode = Number(param?.prnMode ?? 2);
-                                       // console.info(`II: main.js/handleAddBindTab pMode=${pMode} auto=${(basicConf?.auto_print || 0)}`)
-                                       if (pMode !== 0 && (pMode === 1 || (basicConf?.auto_print || 0) !== 0)) {
-                                            const prnBind = JSON.parse(JSON.stringify(param.bind));
-                                           const item = LibItem.getItemById(db, prnBind.crn)
-                                           prnBind.jitem = item;
-                                            prn.saveCheck(prnBind || null);
-                                            const printOk = prn.printCheck(prnBind || null);
-                                            if (!!printOk)
-                                                if (!!msg && typeof msg.error === "function") msg.error(prn.lastError());
-                                       }
-                                       if (!!(param?.sendToTax || false )){
-                                           sendTaxSale(Db,(param?.bindForTax || null), msg);
-                                       }
+           if (!!param && !!param.bind){
+               uploadBind(param?.bind || null, msg);
+               uploadBalance(db, "upd", msg);
+               // print dcm
+               const pMode = Number(param?.prnMode ?? 2);
+               // console.info(`II: main.js/handleAddBindTab pMode=${pMode} auto=${(basicConf?.auto_print || 0)}`)
+               if (pMode !== 0 && (pMode === 1 || (basicConf?.auto_print || 0) !== 0)) {
+                    const prnBind = JSON.parse(JSON.stringify(param.bind));
+                   const item = LibItem.getItemById(db, prnBind.crn)
+                   prnBind.jitem = item;
+                    prn.saveCheck(prnBind || null);
+                    const printOk = prn.printCheck(prnBind || null);
+                    if (!!printOk)
+                        if (!!msg && typeof msg.error === "function") msg.error(prn.lastError());
+               }
+               if (!!(param?.sendToTax || false )){
+                   sendTaxSale(Db,(param?.bindForTax || null), msg);
+               }
 
-                                   }
+           }
 
         } else if (id === 'info') {
            if (msg && typeof msg.info === "function")

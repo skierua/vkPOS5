@@ -13,7 +13,7 @@ import "js/main.js" as JS
 ApplicationWindow {
     id: root
     visible: true
-    title: qsTr("vkPOS5 #%1-BETA").arg(applicationVersion)
+    title: qsTr("vkPOS5 #%1").arg(applicationVersion)
     width: 640
     height: 480
 

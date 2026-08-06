@@ -25,8 +25,6 @@ function tranBind(db, jbind) {
     let cdtid = {};
     let bnsid = { "errid": 1, "errname": "invalid" }; // Дефолтний бонусний рахунок
 
-    // ✅ ЗАХИСТ ДИСКА ТА БАЛАНСУ: Відкриваємо єдину транзакцію через C++
-    // Усі запити виконаються в RAM миттєво, а SSD-диск зафіксує чек одним махом!
     db.dbTransaction();
 
     let ok = true;
@@ -200,7 +198,6 @@ function acntTrade_id(db, acnt, article = "") {
 
     res = db.dbSelectRow(vsql);
 
-    // ✅ ВИПРАВЛЕНО БАГ АВТОІНКРЕМЕНТУ: Наповнюємо тільки таблицю acntrade.
     // Ваші С++ тригери SQLite t_acntrade_ai самі згенерують супутні eqvl та rslt рахунки!
     if (!res || res.errid !== 0 || Number(res.acid || 0) === 0) {
     // if (res?.acid) {
@@ -243,7 +240,6 @@ function acnt_id(db, acnt, article = "") {
 
     // Якщо рахунок не знайдено (або виникла сервісна помилка) — автоматично створюємо його в SQLite
     if (!res || res.errid !== 0 || Number(res.acid || 0) === 0) {
-        // ✅ ВИПРАВЛЕНО СИНТАКСИС NULL: Замість тексту "null" підставляємо суворий системний NULL
         const sqlItemField = (article === "") ? "NULL" : `'${article}'`;
         const insertSql = `INSERT INTO acnt (acntno, item) VALUES ('${acnt}', ${sqlItemField});`;
 
