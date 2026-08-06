@@ -129,6 +129,19 @@ function loadRates(req, callback) {
     postRequest("/rates", req, (err, resp) => { callback(err, resp); });
 }
 
+function uploadBind2(bind, callback) {
+    const currentTerm = String(Conf.TERM || "TEST");
+    const currentShop = currentTerm;
+    const bindReq = { "reqid": "upd", "term": currentTerm, "shop": currentShop, "data": bind }
+    if (BAN_SEND) {
+    // debug info
+        console.warn("WW: REST.uploadBind is PROHIBITED (BAN_SEND = true) !!!")
+        // console.warn(`WW: REST.uploadBind req=${JSON.stringify(req)}`)
+    } else {
+        postRequest("/dcms", req, (err, resp) => { callback(err); });
+    }
+}
+
 function uploadBind(req, callback) {
     if (BAN_SEND) {
     // debug info
@@ -137,8 +150,27 @@ function uploadBind(req, callback) {
     } else {
         postRequest("/dcms", req, (err, resp) => { callback(err); });
     }
-
 }
+
+function uploadMonRepo(repo, period, reqid, callback) {
+    if (!repo || !repo.length) return;
+    const currentTerm = String(Conf.TERM || "TEST");
+    const currentShop = currentTerm;
+    const repoReq = { "reqid": reqid || "updprofit",
+        "term": currentTerm,
+        "shop": currentShop,
+        "period": period,
+        "data": repo }
+    if (BAN_SEND) {
+    // debug info
+        console.warn("WW: REST.uploadMonRepo is PROHIBITED (BAN_SEND = true) !!!")
+        console.warn(`WW: REST.uploadMonRepo req=${JSON.stringify(repoReq)}`)
+    } else {
+        console.warn(`WW: REST.uploadMonRepo req=${JSON.stringify(repoReq)}`)
+        postRequest("/reports", repoReq, (err, resp) => { callback(err); });
+    }
+}
+
 function uploadBalance(req, callback) {
     // console.warn(`WW: libREST.js/uploadBalance BLOKKED !!!`); return;
     if (BAN_SEND) {
@@ -187,7 +219,7 @@ function postRequest(path, req, callback) {
     request.onreadystatechange = () => {
         if (request.readyState === XMLHttpRequest.DONE) {
             // console.log(`libREST request.status=${request.status}`)
-            // console.log(`libREST request.status=${request.response}`)
+            console.log(`libREST request.status=${request.response}`)
             if (request.status === 200) {
                 const presp = parse(request.response);
                 if (presp) {

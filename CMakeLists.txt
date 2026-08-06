@@ -58,6 +58,7 @@ set(JS_FILES
     qt/qml/js/v147/sqlItem.js
     qt/qml/js/v147/dbMigration.js
     qt/qml/js/v147/sqlPrice.js
+    qt/qml/js/v147/sqlRepo.js
     qt/qml/js/v147/sqlShift.js
     qt/qml/js/v147/sqlTran.js
     qt/qml/js/bind.js

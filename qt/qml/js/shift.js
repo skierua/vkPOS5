@@ -1,7 +1,9 @@
+.import "libREST.js" as REST
 .import "v147/config.js" as Conf
 .import "v147/sqlAcnt.js" as LibAcnt
 .import "v147/sqlItem.js" as LibItem
 .import "v147/sqlPrice.js" as LibPrice
+.import "v147/sqlRepo.js" as LibRepo
 .import "v147/sqlShift.js" as LibShift
 .import "v147/sqlTran.js" as LibTran
 
@@ -111,12 +113,22 @@ function startShift(db, bind, ui) {
     ui.setShiftData(newShift);
 
     const currentYearMonth = new Date().toISOString().substring(0, 7);
-    const isNewMonth = (shift && shift.shftdate.substring(0, 7) !== currentYearMonth);
+    const lastShiftMonth = shift.shftdate.substring(0, 7)
+    const isNewMonth = (lastShiftMonth !== currentYearMonth);
     const profitAcntNo = LibAcnt.DfltAcnt.profitAcntNo(db);
     // console.log(`10j#shift.js/ profit=${profitAcntNo}`)
    let ok = true;
    if(isNewMonth && !!profitAcntNo){
    // if(1){
+      // send reports to REST API
+      const repo = monProfitForUpload(db, lastShiftMonth);
+      if (!!repo) {
+         console.info(`II: shift.js/populateIncas#i93e repo=${JSON.stringify(repo)}`);
+         REST.uploadMonRepo(repo, lastShiftMonth, "updprofit", (err) =>{
+                            // TODO error log
+                         });
+      }
+
       // const acntList = LibAcnt.dbBalance(db, `substr(acntno,1,4)='rslt' AND ABS(beginamnt+turndbt-turncdt) > ${Conf.zero}`);
       const jbind = rsltToProfit(db, bind, shift?.cshr || "")
       if (!jbind) return {
@@ -266,90 +278,22 @@ function finishShift(db, bind) {
 
 
    // TEST AREA FINISH --------------------------
-
-/*
-   const acntList = LibAcnt.dbAcntbal(db, `substr(acntno,1,${Conf.glTradePrefix.length}) = '${Conf.glTradePrefix}'`)
-   if (!cashAcntNo || !acntList || typeof bind === "undefined") {
-      res.errstr = "Критична помилка: Не налаштовано конфігурацію рахунків каси!";
-      return res;
-   }
-   let bindList = [];
-   ok = true;
-   if (acntList.length > 0) {
-      // console.log(`e001#shift.js bind=${JSON.stringify(acntList)}`)
-      const atcl = LibItem.getItemById(db);
-      for (r =0; r < acntList.length; ++r){
-         bind.flush();
-         const source = LibShift.dbRevalList(db, acntList[r].acntno) || [];
-         const fltSource = source.filter(v => (v.amnt || 0) === 0 && ((v.eqamnt || 0) !== 0));
-         // console.log(`7y3n#shift.js fltSource=${JSON.stringify(fltSource)}`)
-         // let eqTotal =0;
-         for (let i =0; ok && i < fltSource.length; ++i){
-            const totalVal = Number(fltSource[i].eqamnt || 0);
-            if (Math.abs(100 * totalVal ) < 1) continue;
-            const acntEq = LibAcnt.acntbal(db, String(fltSource[i].eno || ""));
-            const acntRslt = LibAcnt.acntbal(db, String(fltSource[i].rno || ""));
-            const noteVal = `${(totalVal < 0 ? "+++" : "---")} reval(${fltSource[i].item}) ${fltSource[i].amnt} * ${fltSource[i].bscprice}`;
-            // console.log(`ye7#shift.js totalVal=${totalVal}`)
-            ok &= bind.addDcm( atcl, acntEq, "memo", totalVal, null, noteVal);
-            ok &= bind.addDcm( atcl, acntRslt, "memo", 0 - totalVal, null, noteVal);
-
-
-
-            // ok &= bind.addMemo(db, {"dcm":"memo", "amnt": fltSource[i].eqamnt, "cdt": String(fltSource[i].eno || ""), "crn":"", "note": note})
-            // ok &= bind.addMemo(db, {"dcm":"memo", "amnt": 0 - fltSource[i].eqamnt, "cdt": String(fltSource[i].rno || ""), "crn":"", "note": note})
-            // eqTotal -= fltSource[i].eqamnt;
-         }
-         if (ok && fltSource.length > 0) {
-
-            const dcmList = bind.dcmsToTran(cashAcntNo);
-            if (!dcmList){
-                if (ui && typeof ui.vkEvent === "function")
-                    ui.vkEvent("error", bind.lastError || "Unknown error");
-                return {
-                   "status": -1,
-                   "errstr": "Помилка формування ордерів інкасації"
-                };
-            }
-            const total = bind.total();
-            const utcTimeStamp = new Date().toISOString();
-            const jbind = {
-                "id": "dcmbind",
-                "dcm": "folder",
-                "dbt": String(acntList[r].acntno || ""),
-                "cdt": "rslt",
-               "amnt": (total?.pmnt || 0).toFixed(2),
-               "eq": (total?.eq || 0).toFixed(2),
-               "dsc": "0.00",
-               "bns": "0.00",
-                "note": "reval",
-                "clnt": shift?.cshr || "",
-               "cshr": shift?.cshr || "",
-                "tm": utcTimeStamp,
-                "dcms": dcmList
-            }
-            const bid = LibTran.tranBind(db, jbind);
-            ok &= (bid > 0);
-            if (!ok){
-               return {
-                  "status": -1,
-                  "errstr": "Помилка проведення ордерів інкасації"
-               };
-            }
-            bindList.push(jbind)
-
-         } else if (!ok) {
-            // console.log(`17h#shift.js ERROR`)
-            return res;
-         }
-      }
-
-   } */
    // console.log(`w87y#shift.js bind=${JSON.stringify(bindList)}`)
    ok &= db.closeShift(shift.id);
    res.status = (ok ? 1 : -1);
    res.errstr = ok ? null : (db.dbLastError() || "Помилка фіналізації зміни в C++");
    res.bindList = bindList;
+
+   // send reports to REST API
+   const period = new Date().toISOString().substring(0, 7);
+   const repo = monProfitForUpload(db);
+   if (!!repo) {
+      // console.info(`II: shift.js/finishShift#376t repo=${JSON.stringify(repo)}`);
+      REST.uploadMonRepo(repo, period, "updprofit", (err) =>{
+                         // TODO error log
+                      });
+   }
+
    return res;
 }
 
@@ -569,5 +513,22 @@ function tmp_reval(db, bind, cashAcntNo, cshr){
     return bindList;
 }
 
-
+function monProfitForUpload(db, flt){
+   if (!db) return [];
+   const period =  (!flt || flt.length < 7)
+                ? new Date().toISOString().substring(0, 7)
+                : flt.substring(0, 7);
+   const source = LibRepo.monProfit(db, period);
+   const res = source.map(v => {
+                                  const parts = v.acnt.split(/\.|\//);
+                                  if (!parts[1] || !parts[2] ) return null;
+                                  return {
+                                     "itemid": parts[2] || "",
+                                     "acnt": parts[1] || "",
+                                     "amnt": Math.round(v.amnt),
+                                     "cshr": v.cshr || ""}
+                               });
+   if (!res || !res.length) return null;
+   return res;
+}
 
