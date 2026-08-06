@@ -3,7 +3,8 @@ import QtQuick.Window
 import QtQuick.Layouts
 import QtQuick.Controls
 
-import "../lib.js" as Lib
+import "js/v147/sqlClient.js" as JS
+// import "../lib.js" as Lib
 
 Window {
     id: root
@@ -11,7 +12,7 @@ Window {
     height: 480
 //    title: qsTr('Clients')
     property var db                 // DataBase driver
-    onDbChanged: vw.model.load(db)
+    onDbChanged: vw.model.load()
 
     // signal vkEvent(string id, var param)
 
@@ -115,18 +116,27 @@ Window {
         id: dataModel
         property var data
 
-        function load(dbDriver){
+        function load(){
             clear()
-            data = Lib.getClientList(dbDriver).sort((a,b) => { return  a.name < b.name ? -1 : 1; })
+            const source = JS.dbClient(root.db)
+            // console.log(`Client.qml#9wi4 source=${JSON.stringify(source)}`)
+            if (!source) return;
+            source.sort((a,b) => { return  (a.name || "").localeCompare(b.name || "") })
+            // data = Lib.getClientList(dbDriver).sort((a,b) => { return  a.name < b.name ? -1 : 1; })
             // console.log('[client] data ='+ JSON.stringify(data))
+            data = source;
             populate()
         }
 
         function isAllowed(row, flt){
-            return (~(data[row].id.indexOf(flt))
-                    || ~(data[row].name.toLowerCase()).indexOf(flt.toLowerCase())
-                    || ~(data[row].clnote.toLowerCase()).indexOf(flt.toLowerCase())
-                    || ~(data[row].phone.toLowerCase()).indexOf(flt.toLowerCase()));
+            const filterLower = flt.trim().toLowerCase();
+            const nameStr = String(data[row].name || "").toLowerCase();
+            const noteStr = String(data[row].clnote || "").toLowerCase();
+            const phoneStr = String(data[row].phone || "").toLowerCase();
+            return (data[row].id === filterLower)
+                    || nameStr.includes(filterLower)
+                    || noteStr.includes(filterLower)
+                    || phoneStr.includes(filterLower);
         }
 
         function populate( flt =""){
@@ -147,14 +157,14 @@ Window {
 
         function addNew(dbDriver, name, phone ="", note =""){        // submit
             // console.log("#8943j subm() currentIndex="+currentIndex+" name="+model.get(currentIndex).phone)
-            const res = Lib.updClient(dbDriver, "", name, phone, note)
-            load(dbDriver)
+            // const res = Lib.updClient(dbDriver, "", name, phone, note)
+            load()
         }
 
         function update(dbDriver, row){        // submit
             // console.log("#8943j subm() currentIndex="+currentIndex+" name="+model.get(currentIndex).phone)
-            const res = Lib.updClient(dbDriver, get(row).id, get(row).name, get(row).phone, get(row).clnote)
-            load(dbDriver)
+            // const res = Lib.updClient(dbDriver, get(row).id, get(row).name, get(row).phone, get(row).clnote)
+            load()
         }
     }
 

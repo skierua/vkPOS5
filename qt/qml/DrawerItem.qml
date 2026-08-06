@@ -312,7 +312,6 @@ Item {
                 }
             }
 
-            // ✨ СУЧАСНИЙ СТИЛЬ РОЗДІЛЬНИКІВ СЕКЦІЙ
             section.property: "bind"
             section.criteria: ViewSection.FullString
             section.delegate: Rectangle {
@@ -357,7 +356,6 @@ Item {
             }
         }
 
-        // 3. ПОЛЕ ПОШУКУ / ФІЛЬТРАЦІЇ (У єдиному стилі з нашою системою)
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 38

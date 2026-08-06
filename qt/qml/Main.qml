@@ -13,10 +13,11 @@ import "js/main.js" as JS
 ApplicationWindow {
     id: root
     visible: true
-    title: qsTr("vkPOS5 #%1").arg(applicationVersion)
+    title: qsTr("vkPOS5 #%1-BETA").arg(applicationVersion)
     width: 640
     height: 480
 
+    property int modeid: 2    // 2 kantor, 1 shop
     property string dbname: ''
 
     onDbnameChanged: {
@@ -652,11 +653,12 @@ ApplicationWindow {
 
     Action {
         id: bindFactureAction
+        property int allowed: 1
         text: "Нова Фактура"
         icon.source: "qrc:/icon/add.svg"
         icon.width: 14
         icon.height: 14
-        enabled: false
+        enabled: (root.modeid & bindFactureAction.allowed)
         onTriggered: {
             const uiBridge = {
                 drawer: () => { drawer2Right.open(); },
@@ -673,11 +675,12 @@ ApplicationWindow {
 
     Action {
         id: bindTaxAction
+        property int allowed: 1
         text: "Новий ФІСК.Чек"
         icon.source: "qrc:/icon/add.svg"
         icon.width: 14
         icon.height: 14
-        enabled: false
+        enabled: (root.modeid & bindTaxAction.allowed)
         onTriggered: {
             const uiBridge = {
                 drawer: () => { drawer2Right.open(); },
@@ -694,10 +697,12 @@ ApplicationWindow {
 
     Action {
         id: bindInnerAction
+        property int allowed: 2
         text: "Новий ВНУТРІШНІ"
         icon.source: "qrc:/icon/add.svg"
         icon.width: 14
         icon.height: 14
+        enabled: (root.modeid & bindInnerAction.allowed)
         onTriggered: {
             const uiBridge = {
                 drawer: () => { drawer2Right.open(); },
@@ -724,7 +729,9 @@ ApplicationWindow {
 
     Action {
         id: winBalanceAction
-        text: qsTr("Залишки")
+        property int allowed: 1
+        text: qsTr("Залишки товарів")
+        enabled: (root.modeid & winBalanceAction.allowed)
         onTriggered: {
             // Якщо вікно вже відкрите — фокусуємо його, якщо ні — завантажуємо в пам'ять
             if (balanceLoader.active) {

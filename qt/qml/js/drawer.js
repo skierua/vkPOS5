@@ -75,7 +75,12 @@ function loadProfit(db, model, balList) {
             const mapAcnt = SECTION_CACHE.get(code);
             mapAcnt.total -= Number(acnt.total || 0);
             SECTION_CACHE.set(code, mapAcnt);
-        } else SECTION_CACHE.set(code, {"name":acnt?.note || acnt?.balname || "", "total": 0 - Number(acnt.total || 0)});
+        } else {
+            const balAcnt = LibAcnt.acntbal(db, code);
+            // console.info(`II: drawer.js/loadProfit#823 ${JSON.stringify(balAcnt)}`);
+            SECTION_CACHE.set(code, {"name":balAcnt?.note || balAcnt?.name || "", "total": 0 - Number(acnt.total || 0)});
+            // SECTION_CACHE.set(code, {"name":code, "total": 0 - Number(acnt.total || 0)});
+        }
 
         const item = LibItem.getItemById(db, (suffix || ""));
         const total = (reverse ? -1 : 1) * Number(acnt?.total || 0.0);

@@ -147,12 +147,13 @@ function makeBind_reval(db, cshrid ){
     return res;
 }
 
-function dbRevalList(db, tradeAcntno) {
-    // console.log(`sqlClient.js#14rc tradeAcntno=${tradeAcntno}`)
+function dbRevalList(db, tradeAcntNo) {
+    // console.log(`sqlClient.js#14rc tradeAcntNo=${tradeAcntNo}`)
     if (!db) return null;
-    if (!tradeAcntno) return null;
-    // const whereCondition = `WHERE acntrade.acntno ='${tradeAcntno}' AND (acnt.beginamnt+acnt.turndbt-acnt.turncdt) != 0 `;
-    const whereCondition = `WHERE acntrade.acntno ='${tradeAcntno}'`;
+    // if (!tradeAcntNo) return null;
+    // const whereCondition = `WHERE acntrade.acntno ='${tradeAcntNo}' AND (acnt.beginamnt+acnt.turndbt-acnt.turncdt) != 0 `;
+    // const whereCondition = `WHERE substr(acntrade.acntno, 1, ${tradeAcntNo.length}) ='${tradeAcntNo}'`;
+    const whereCondition = !!tradeAcntNo ? `WHERE acntrade.acntno ='${tradeAcntNo}'` : "";
     const vsql = `
         SELECT
             acnt.id tid,
