@@ -4,6 +4,7 @@ project(vkPOS5
     VERSION 3.7
     LANGUAGES CXX)
 
+
 set(CMAKE_CXX_STANDARD 17) # Суворий стандарт C++ для Qt6
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
