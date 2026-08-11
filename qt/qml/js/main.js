@@ -8,58 +8,6 @@
 .import "v147/sqlPrice.js" as LibPrice
 .import "v147/sqlShift.js" as LibShift
 
-// mode all | updated account
-function uploadBalance(db, mode = "upd", msg){
-    if (!(REST.isConnected ?? false)) return;
-    // const basicConf = Conf.getBasic(db);
-    const currentTerm = String(Conf.TERM || "TEST");
-    const currentShop = currentTerm;
-    let acntData = [];
-    // const loadMode = (mode === "upd" ? true : false);
-    if (typeof LibAcnt.balanceForUpload === "function") {
-        acntData = LibAcnt.balanceForUpload(db, (mode === "upd" ? true : false));
-    }
-    if (acntData && acntData.length > 0) {
-        // if (mode === "all"){    // just delete old data
-        //    REST.uploadBalance({ "term": currentTerm, "reqid": "del", "shop": currentShop, "data": [] }, ()=>{} );
-        // }
-
-        const balanceReq = { "term": currentTerm, "reqid": "upd", "del": (mode === "upd" ? "0" : "1"), "shop": currentShop, "data": acntData }
-        // console.info(`main.js/uploadBalance ${JSON.stringify(balanceReq)}`);
-        // return;
-        REST.uploadBalance(balanceReq,
-           (err)=>{
-               if (!!err) {
-                   msg.error("[uploadBalance] Помилка: " + err);
-               } else {
-                   // msg.info("[uploadBalance] Баланс успішно синхронізовано з вебом");
-               }
-           })
-    } else  msg.info("[uploadBalance] Nothing to do");
-}
-
-function uploadBind(bind, msg){
-    if (!(REST.isConnected ?? false)) return;
-    if (!bind) {
-        msg.error("[uploadBind] Bind is missing");
-        return;
-    }
-    // const basicConf = Conf.getBasic(db);
-    const currentTerm = String(Conf.TERM || "TEST");
-    const currentShop = currentTerm;
-    const bindReq = { "term": currentTerm, "reqid": "upd", "shop": currentShop, "data": bind }
-    // console.info(`main.js/uploadBind ${JSON.stringify(bindReq)}`);
-    REST.uploadBind(bindReq,
-        (err)=>{
-         if (!!err) {
-             msg.error("[uploadBind] Помилка: " + err);
-         } else {
-             // msg.info("[uploadBind] Документ успішно синхронізовано з вебом");
-         }
-    })
-
-}
-
 function handleDbNameChanged(db, prn, container, msg, ui){
     if (!db) return false;
     const len = container.count;
@@ -188,7 +136,7 @@ function handleCloseTab(idx, container) {
     }
 }
 
-function sendTaxSale(db, taxbind, msg){
+/*function sendTaxSale(db, taxbind, msg){
     if (!(TAX.isConnected ?? false)) return;
     if (!!taxbind && taxbind.products.length > 0) {
         if (typeof TAX.sendSaleToTax === "function") {
@@ -210,15 +158,19 @@ function sendTaxSale(db, taxbind, msg){
         msg.error("TAX bind is empty or serialization error");
     }
 }
+*/
 
 function handleAddBindTab(db, prn, comp, msg, container, ui){
     const basicConf = Conf.getBasic(db);
     const dfltAmnt = (ui.state === "facture")
                    ? 1
                    : Number(basicConf?.amnt_sign || -1);
+
 // console.info(`main.js/handleAddBindTab container ${container.count}`);
     const newObj = comp.createObject(container, {
         dbDriver: db,
+        prnDriver: prn,
+        autoPrint: Number(basicConf?.auto_print || 0),
         dfltAmnt: Number(dfltAmnt),
         state: String(ui?.state || "")
     });
@@ -228,42 +180,39 @@ function handleAddBindTab(db, prn, comp, msg, container, ui){
         } else if (id === 'clientChanged') {
             if (ui && typeof ui.setClientFromBind === "function")
                 ui.setClientFromBind(param || null);
-        } else if (id === 'tranOk') {
-           if (!!param && !!param.bind){
-               uploadBind(param?.bind || null, msg);
-               uploadBalance(db, "upd", msg);
-               // print dcm
-               const pMode = Number(param?.prnMode ?? 2);
-               // console.info(`II: main.js/handleAddBindTab pMode=${pMode} auto=${(basicConf?.auto_print || 0)}`)
-               if (pMode !== 0 && (pMode === 1 || (basicConf?.auto_print || 0) !== 0)) {
-                    const prnBind = JSON.parse(JSON.stringify(param.bind));
-                   const item = LibItem.getItemById(db, prnBind.crn)
-                   prnBind.jitem = item;
-                    prn.saveCheck(prnBind || null);
-                    const printOk = prn.printCheck(prnBind || null);
-                    if (!!printOk)
-                        if (!!msg && typeof msg.error === "function") msg.error(prn.lastError());
-               }
-               if (!!(param?.sendToTax || false )){
-                   sendTaxSale(Db,(param?.bindForTax || null), msg);
-               }
+        // } else if (id === 'tranOk') {
+        //    if (!!param && !!param.bind){
+        //        // print dcm
+        //        const pMode = Number(param?.prnMode ?? 2);
+        //        // console.info(`II: main.js/handleAddBindTab pMode=${pMode} auto=${(basicConf?.auto_print || 0)}`)
+        //        if (pMode !== 0 && (pMode === 1 || (basicConf?.auto_print || 0) !== 0)) {
+        //             const prnBind = JSON.parse(JSON.stringify(param.bind));
+        //             const item = LibItem.getItemById(db, prnBind.crn)
+        //             prnBind.jitem = item;
+        //             prn.saveCheck(prnBind || null);
+        //             const printOk = prn.printCheck(prnBind || null);
+        //             if (!!printOk)
+        //                 if (!!msg && typeof msg.error === "function") msg.error(prn.lastError());
+        //        }
+        //        if (!!(param?.sendToTax || false )){
+        //            sendTaxSale(db,(param?.bindForTax || null), msg);
+        //        }
 
-           }
-
+        //    }
         } else if (id === 'info') {
-           if (msg && typeof msg.info === "function")
-                msg.info(`${param ?? "Unknown info"}`);
-        } else if (id === 'warning') {
-           if (msg && typeof msg.warn === "function")
-                msg.warn(`${param ?? "Unknown info"}`);
+           // if (msg && typeof msg.info === "function")
+                msg?.info?.(`${param ?? "Unknown info"}`);
+        } else if (id === 'warn') {
+           // if (msg && typeof msg.warn === "function")
+                msg?.warn?.(`${param ?? "Unknown warn"}`);
         } else if (id === 'error') {
-           if (msg && typeof msg.error === "function")
-                msg.error(`${param ?? "Unknown info"}`);
+           // if (msg && typeof msg.error === "function")
+                msg?.error?.(`${param ?? "Unknown error"}`);
         } else if (id === 'close' || id === 'destroy') {
            container.pop();
            newObj.destroy();
         } else {
-           msg.warn("[Bind] Невідома подія від компонента Bind");
+           msg?.warn?.("[Bind] Невідома подія");
         }
     });
     container.currentIndex = container.count - 1;

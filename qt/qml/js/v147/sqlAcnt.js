@@ -160,6 +160,7 @@ function tradeBalance(db, bal = "3500") {
 /**
  * ГЕНЕРАТОР ЗАПИТІВ БАЛАНСУ (Головна функція, повністю оптимізована)
  */
+// DEPRECATED, moved to sqlBalance.js
 function dbBalance(db, flt = "", order = "", reverse = false) {
     // console.log(`26#sqlAcnt.js db=[${db}]`)
     if (!db) return [];
@@ -200,6 +201,7 @@ function dbBalance(db, flt = "", order = "", reverse = false) {
  * Отримання комерційних цін та залишків для торгівлі (35)
  * acnt should start with 35
  */
+// DEPRECATED, moved to sqlBalance.js
 function dbTradeBalance(db, condition = "", order = "") {
     if (!db) return [];
     const whereCondition = (condition === "" ? "" : `WHERE ${condition}`)
@@ -341,33 +343,6 @@ function dbAcntbal(db, condition, filter) {
     return db.dbSelectRowsJSON(vsql, filter);
 }
 
-
-function balanceForUpload(db, updatedOnly) {
-    if (!db) return [];
-
-    // Прибрано 'localtime'. Тепер порівняння часу транзакцій
-    // з системним 'now' за Гринвічем відбувається безпомилково і миттєво!
-    const whereCondition = updatedOnly
-        ? "datetime(tm) > datetime('now', '-10 minutes')"
-        : "abs(beginamnt + turndbt - turncdt) > 0.001";
-
-    const sql = `
-        SELECT
-            acntno,
-            coalesce(item, '') AS articleid,
-            (beginamnt + turndbt - turncdt) AS amnt,
-            turndbt,
-            turncdt,
-            CASE
-                WHEN coalesce(dbtupd, '') > coalesce(cdtupd, '') THEN dbtupd
-                ELSE cdtupd
-            END AS tm
-        FROM acnt
-        WHERE ${whereCondition};
-    `;
-
-    return db.dbSelectRowsJSON(sql) || [];
-}
 
 
 

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 
 project(vkPOS5
-    VERSION 3.7
+    VERSION 3.8
     LANGUAGES CXX)
 
 
@@ -119,6 +119,7 @@ qt_add_qml_module(appvkPOS5
         ${JS_FILES}
     SOURCES
         ${CPP_FILES}
+        QML_FILES qt/qml/js/v147/sqlBalance.js
 )
 
 qt_add_resources(appvkPOS5 "app_res"

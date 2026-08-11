@@ -112,26 +112,25 @@ ApplicationWindow {
                 Menu {
                     id: naviMenu_dynamic
 
-                    // Декларативна карта нашого меню (включаючи екшени та маркер роздільника)
                     readonly property var menuStructure: [
                         bindCheckAction,
                         bindInnerAction,
-                        bindTaxAction,         // 💡 Наш екшен, який може бути enabled: false
+                        bindTaxAction,
                         bindFactureAction,
-                        { isSeparator: true },  // ✂️ Перший роздільник
+                        { isSeparator: true },  // ✂️ роздільник
                         winDcmsAction,
                         winBalanceAction,
                         winClientAction,
                         winRateAction,
-                        { isSeparator: true },  // ✂️ Другий роздільник
+                        { isSeparator: true },  // ✂️ роздільник
                         winCashWizardAction,
-                        syncBalanceAction,
                         actionSetting,
+                        syncBalanceAction,
                         changeDBAction,
-                        { isSeparator: true },  // ✂️ Другий роздільник
+                        { isSeparator: true },  // ✂️ роздільник
                         testAction,
                         winShiftAction,
-                        { isSeparator: true },  // ✂️ Другий роздільник
+                        { isSeparator: true },  // ✂️ роздільник
                         quitAction
                     ]
 
@@ -903,34 +902,9 @@ ApplicationWindow {
             }
 
             function onVkEvent(id, param) {
-                if (id === "shiftStarted"){
-                    const startBind = param?.bind || null;
-                    if (!!startBind) JS.uploadBind(startBind, logView);
-                    JS.uploadBalance(Db, "all", logView);
-                    logView.info("Зміну успішно ВІДКРИТО");
-                } else if (id === "shiftFinished"){
-                    // console.log("Main.qml/winShiftLoader#36y onVkEvent/shiftClosed")
-                    logView.info("Зміну ЗАКРИТО");
-                    const bindList = param?.bindList || []
-                    for (let bind of bindList){
-                        JS.uploadBind(bind, logView);
-                    }
-                    JS.uploadBalance(Db, "upd", logView);
-                    if (bindTaxAction.enabled || false) {
-                        // console.log(`Main.qml/onVkEvent popupCloseShift.open()`)
-                        popupCloseShift.open()
-                    } else {
-                        if (typeof quitTimer !== "undefined")  quitTimer.start();
-                    }
-
-                } else if (id === "incasFinished"){
-                    const incasBind = param?.bind || null;
-                    if (!!incasBind) JS.uploadBind(incasBind, logView);
-                    JS.uploadBalance(Db, "upd", logView);
-                    logView.info("Валюти успішно ІНКАСОВАНО");
-                } else if (id === "info"){
+                if (id === "info"){
                     logView.info(`[Shift] ${param ?? "Unknown info"}`);
-                } else if (id === "warning"){
+                } else if (id === "warn"){
                     logView.warn(`[Shift] ${param ?? "Unknown warning"}`);
                 } else if (id === "error"){
                     logView.error(`[Shift] ${param ?? "Unknown error"}`);
@@ -1068,7 +1042,7 @@ ApplicationWindow {
         source: 'Client.qml'
         onLoaded: {
             item.title = String("%1(%2)").arg(root.title).arg("clients")
-            item.db = Db
+            item.dbDriver = Db
             item.show();
             item.raise();
             item.requestActivate();

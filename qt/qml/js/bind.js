@@ -1,3 +1,5 @@
+.import "libREST.js" as REST
+.import "CashDesk.js" as TAX
 .import "v147/sqlAcnt.js" as LibAcnt
 .import "v147/sqlClient.js" as LibClient
 .import "v147/sqlBind.js" as LibBind
@@ -70,7 +72,7 @@ function handleCrnToAcnt(db, crnTotal, model, acnt){
  * Балансування торгових результатів та перенесення залишків на рахунок прибутку
  * @param {Object} db - Драйвер бази даних C++
  * @param {Object} model - Екземпляр bindModel (передаємо явно)
- * @param {Object} ui - Контекст для виклику логів/подій { vkEvent }
+ * @param {Object} ui - Контекст для виклику логів/подій
  */
 function handleRsltToProfit(db, model, ui) {
     const cashAcntNo = LibAcnt.DfltAcnt.cashAcntNo(db);
@@ -78,19 +80,19 @@ function handleRsltToProfit(db, model, ui) {
     const profitAcnt = LibAcnt.acntbal(db, (profitAcntNo || ""));
 
     if (!profitAcnt) {
-        if (ui && typeof ui.vkEvent === "function") ui.vkEvent("error", "[profit] account is undefined");
+        ui?.error?.("[profit] account is undefined")
         return;
     }
 
     const acntList = LibAcnt.dbBalance(db, `substr(acntno,1,4)='rslt' AND ABS(beginamnt+turndbt-turncdt) > 0.009`);
 
     if (!acntList || acntList.length === 0) {
-        if (ui && typeof ui.vkEvent === "function") ui.vkEvent("info", "data list is empty");
+        ui?.info?.("data list is empty")
         return;
     }
 
     if (!model || typeof model.flush !== "function") {
-        if (ui && typeof ui.vkEvent === "function") ui.vkEvent("error", "bindModel missing");
+        ui?.error?.("bindModel missing")
         return;
     }
 
@@ -127,19 +129,13 @@ function handleRsltToProfit(db, model, ui) {
     // for (let r =0; r < model.count; ++r) console.log(`iw3w#bind/handleBalancingTrade ${JSON.stringify(model.get(r))}`)
 
     if (!ok) {
-        if (ui && typeof ui.vkEvent === "function") ui.vkEvent("error", "Помилка при додаванні memo");
+        ui?.error?.("Помилка при додаванні memo")
     }
 }
 
-function handleTranAction(db, model, prnMode, ui) {
-    if (!model.count) {
-        // funcLog("Відсутні документи." , 2)
-        if (ui && typeof ui.vkEvent === "function")
-            ui.vkEvent("info", "Відсутні документи.");
-        if (ui && typeof ui.startNewRow === "function")
-            ui.startNewRow();
-        return
-    }
+function handleTranAction(db, prn, model, ui) {
+    if (!model.count) return -1;
+
     const l_isTaxCorrect = () => {
         let ok = true;
         for (let i = 0; ok && i < model.count; ++i){
@@ -154,11 +150,11 @@ function handleTranAction(db, model, prnMode, ui) {
 
     let sendToTax = false;
     let bindForTax = null;
-    if (ui && ui.state === "taxcheck") {
+    if (!!ui && ui.state === "taxcheck") {
         // Якщо перевірка фіскального блоку НЕ пройшла успішно
         if (!l_isTaxCorrect()) {
-            ui.vkEvent("log", "Помилка фіскалізації. Некоректний фіскальний документ");
-            return;
+            ui?.error?.("Помилка фіскалізації. Некоректний фіскальний документ");
+            return -2;
         }
 
         // Якщо все коректно — дозволяємо відправку на сервер ДПС
@@ -170,9 +166,8 @@ function handleTranAction(db, model, prnMode, ui) {
 
     const dcmList = model.dcmsToTran(cashAcntNo);
     if (!dcmList){
-        if (ui && typeof ui.vkEvent === "function")
-            ui.vkEvent("error", model.lastError || "Serialization error");
-        return;
+        ui?.error?.(model.lastError || "Serialization error");
+        return -2;
     }
     const shft = LibShift.crntShift(db)
     const total = model.total();
@@ -193,25 +188,37 @@ function handleTranAction(db, model, prnMode, ui) {
         "dcms": dcmList
     }
     const bid = LibTran.tranBind(db, jbind);
-    if (!bid && ui && typeof ui.vkEvent === "function") {
-        ui.vkEvent("error", "Критична помилка: Фінансовий документ не проведено базою даних!");
-        return;
+    if (!bid) {
+        ui?.error?.("Критична помилка: Фінансовий документ не проведено базою даних!");
+        return -2;
+    } else {
+        sendBindToREST(db, jbind, ui);
     }
 
-    if (sendToTax) bindForTax = createBindForTax_cd(db, bid, "cash");
+    if (sendToTax && TAX.isConnected)
+        TAX.sale(db, bid, 0, (err, resp) => {
+                      if (!!err)  ui?.error?.(err || "TAX sending error");
+                  });
 
-    // console.log(`II: bind.js/handleTranAction#7wh2 ${JSON.stringify(jbind)}`)
-    if (ui && typeof ui.vkEvent === "function")
-        ui.vkEvent("tranOk",
-                   {"bindid": bid,
-                   "bind": jbind,
-                   "prnMode": prnMode,
-                   "sendToTax": sendToTax,
-                "bindForTax": bindForTax
-                   })
-    if (ui && typeof ui.startBind === "function")
-        ui.startBind();
-    return;
+    const pMode = Number(ui?.printMode || 0)
+    const pCode = Number(ui?.printCode || 0)
+    if (pCode !== 0 && (pCode === 1 || pMode !== 0)) {
+        const bindforPrint = LibBind.dbBind(db, bid);
+        if (bindforPrint){
+            const printer = prn
+                          ? prn
+                          : (typeof Prn !== "undefined" ? Prn : null);
+            if (printer) {
+                printer.saveCheckCopy(bindforPrint);
+                const prnOk = printer.printCheckCopy(bindforPrint);
+                if (prnOk) ui?.error?.( printer.lastError() || "Printer error");
+            } else {
+                ui?.error?.("Драйвер принтера чеків не ініціалізовано!");
+            }
+        }
+
+    }
+    return 0;
 }
 
 
@@ -442,7 +449,7 @@ function handleFind(db, str, popup, ui) {
             } else if (res[0].code==="article") {
                 ui.createDocum(res[0].id)
             } else {
-                ui.vkEvent("[Bind] bad code, nothing to do", 1)
+                ui.vkEvent("warn", "[Bind] bad code, nothing to do")
             }
         }
     } else ui.vkEvent("info", "Нічого не знайдено") // nothing has found
@@ -507,7 +514,7 @@ function handleNewRefuse(db, model, dcm){
 
 }
 
-// for CashDesk
+/* // for CashDesk
 function createBindForTax_cd(db, dcmid, payType) {
     let  err = null, resp = null;
     let archive = false;
@@ -602,5 +609,26 @@ function createBindForTax_cd(db, dcmid, payType) {
     };
 
     return taxbind;
+}
+*/
+
+function sendBindToREST(db, jbind, ui){
+   if (REST.isConnected){
+      REST.uploadBind2(jbind,
+                 (err)=>{
+                    if (!err){
+                       if (typeof REST.uploadBalance2 === "function") {
+                           REST.uploadBalance2(db, 10,
+                             (e)=>{
+                                if (!!e) ui?.warn?.(e || "REST sync error");
+                             });
+                       }
+                    } else {
+                        ui?.warn?.(err || "REST sending error");
+                    }
+
+            });
+   }
+
 }
 

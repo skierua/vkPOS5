@@ -11,6 +11,8 @@ Item {
     property string title: "ЧЕК"
     property string codeid: "bind"
     property var dbDriver                 // DataBase driver
+    property var prnDriver                 // printer manager
+    property int autoPrint: 0
 
     property alias bindModel: bindView.model
     property alias selectClientAction: selectClientAction
@@ -103,13 +105,16 @@ Item {
 
     function executeTransaction(printCode) {
         const uiBridge = {
-            vkEvent: (type, msg) => { root.vkEvent(type, msg); },
-            startNewRow: () => { newRowAction.trigger(); },
-            startBind: () => { startBindAction.trigger(); },
+            error: (v) => { vkEvent("error", `${v || "???"}`); },
+            warn: (v) => { vkEvent("warn", `${v || "???"}`); },
             state: root.state,
             clid: root.crntClient?.id || "",
+            printMode: root.autoPrint || 0,
+            printCode: Number(printCode || 0),
         };
-        JS.handleTranAction(dbDriver, bindModel, printCode, uiBridge);
+        const res = JS.handleTranAction(dbDriver, prnDriver, bindModel, uiBridge);
+        if (!res) startBindAction.trigger();
+        else if (Number(res) === -1) newRowAction.trigger();
     }
 
     Action {
@@ -139,7 +144,7 @@ Item {
     Action {
         id: drawerAction
         icon.source: "qrc:/icon/drawer.svg"
-        onTriggered: {vkEvent("openDrawer", "")}
+        onTriggered: {vkEvent("openDrawer", null)}
         // onTriggered: drawer2Right.open()
     }
 
@@ -205,7 +210,8 @@ Item {
         text: "Збалансувати TRADE"
         onTriggered: {
             const uiBridge = {
-                vkEvent: function(type, msg) { root.vkEvent(type, msg); }
+                error: (v) => { vkEvent("error", `${v || "???"}`); },
+                info: (v) => { vkEvent("info", `${v || "???"}`); },
             };
             JS.handleRsltToProfit(dbDriver, bindModel, uiBridge);
         }
@@ -827,7 +833,7 @@ Item {
                                 };
                                 JS.handleFind(dbDriver, cleanText, selectPopup, uiBridge);
                             } else {
-                                root.vkEvent("warning", "Недоступна операція або відсутній код");
+                                root.vkEvent("warn", "Недоступна операція або відсутній код");
                             }
                         }
                     }
@@ -1495,7 +1501,7 @@ Item {
                                 } else if (entityCode==="article") {        // acntno
                                     newDcm(entityId);
                                 } else {
-                                    vkEvent("warning", "[Bind] selectPopup bad code, nothing to do")
+                                    vkEvent("warn", "[Bind] selectPopup bad code, nothing to do")
                                 }
                                 selectPopup.close()
                             }

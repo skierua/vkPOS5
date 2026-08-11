@@ -98,10 +98,13 @@ Window {
         text: "Друкувати чек"
         onTriggered: {
             if (vw.currentIndex === -1 || !vw.model) return;
-            const jbind = vw.model.bindForPrint(vw.currentIndex)
+            const jbind = vw.model.bindForPrint(dcmViewRootWindow.dbDriver, vw.currentIndex)
             // console.log(`DcmView#d7hf res=${JSON.stringify(jbind)}`); return;
+
             if (jbind){
-                const printer = prnDriver ? prnDriver : (typeof Prn !== "undefined" ? Prn : null);
+                const printer = dcmViewRootWindow.prnDriver
+                              ? dcmViewRootWindow.prnDriver
+                              : (typeof Prn !== "undefined" ? Prn : null);
                 if (printer) {
                     printer.saveCheckCopy(jbind);
                     printer.printCheckCopy(jbind);
@@ -118,9 +121,11 @@ Window {
         text: "Зберегти накладну"
         onTriggered: {
             if (vw.currentIndex === -1 || !vw.model) return;
-            const jbind = vw.model.bindForPrint(vw.currentIndex);
+            const jbind = vw.model.bindForPrint(dcmViewRootWindow.dbDriver, vw.currentIndex)
             if (jbind) {
-                const printer = prnDriver ? prnDriver : (typeof Prn !== "undefined" ? Prn : null);
+                const printer = dcmViewRootWindow.prnDriver
+                              ? dcmViewRootWindow.prnDriver
+                              : (typeof Prn !== "undefined" ? Prn : null);
                 if (printer) {
                     printer.saveOrder(jbind);
                     logView.info("Накладну успішно експортовано", 1);
