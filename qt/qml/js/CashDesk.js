@@ -232,17 +232,122 @@ function ping(callback) {
     callback(err,resp);
 }
 */
+function bindToSale(db, dcmid, payType) {
+    let archive = false;
+    let bind = LibBind.selDcmById(db, dcmid);
+    if (!bind || bind?.errid || null) {
+        archive = true;
+        bind = LibBind.selDcmById(db, dcmid, archive);
+    }
+    // console.log(`id82#CashDesk ${JSON.stringify(bind)}`);
+    if (!bind || bind?.errid || null) {
+        return null;
+    }
+    const dcmSource = LibBind.selDcmsByPid(db, dcmid, archive);
+    if (!dcmSource || dcmSource?.errid || null) {
+        return null;
+    }
+    let ok = (bind?.dcmtype || "") === "check";
+    let articles = [];
+    let total_eq = 0;
+    for (let r = 0; ok && r < dcmSource.length; ++r) {
+        const dcm = dcmSource[r];
+        // console.log(`id82#CashDesk ${JSON.stringify(dcm)}`);
+        const price = dcm.amount !== 0 ? Math.abs(Number(dcm.eqamount || 0)/Number(dcm.amount)) : 0;
+        total_eq += Number(dcm.amount || 0);
+        ok &= (dcm.dcmtype === "trade:sell");
+        // ok &= (Number(dcm.mask || 0) === 4); // Маска 4 — роздрібні товари (Goodies)
+        ok &= Number(dcm.amount || 0) < 0;
+        ok &= (Number(dcm.eqamount || 0) < 0);
 
-function sale(data, callback) {
+        articles.push({
+            "unit_code": dcm.unitcode ?? "",
+            "unit_name": dcm.unitchar ?? "",
+            "name": dcm.itemchar ?? "",
+            "amount": Math.abs(dcm.amount).toFixed(dcm.unitprec || 2),
+            "price": price.toFixed(3),
+            "cost": Math.abs(dcm.eqamount || 0).toFixed(2),
+            "sum_discount": Math.abs(dcm.discount || 0).toFixed(2)
+        });
+    }
+
+    if (!ok){
+        return null;
+    }
+
+    // CashDesk.js (додаємо параметр payType, наприклад: "cash" або "card")
+    // payType може приходити з інтерфейсу вибору оплати
+    const isCash = (payType === "cash" || Number(payType || 0) === 0);
+
+    // 1. Чиста сума товарів у копійках без жодних округлень
+    const totalEqCents = Math.round(Math.abs(total_eq) * 100);
+    const pure_total_val = totalEqCents / 100;
+
+    // 2. Розраховуємо копійки з урахуванням типу оплати (НБУ тільки для готівки!)
+    const totalSumCents = isCash ? (Math.round(totalEqCents / 10) * 10) : totalEqCents;
+
+    const total_sum_val = totalSumCents / 100;
+    const round_sum_val = (totalSumCents - totalEqCents) / 100;
+
+    // 3. Динамічно формуємо масив платежів під ПРРО
+    let paymentsArray = [];
+    if (isCash) {
+        paymentsArray.push({
+            "code": 0,
+            "name": "ГОТIВКА",
+            "sum": pure_total_val.toFixed(2), // Сума товарів до округлення
+            "sum_provided": total_sum_val.toFixed(2), // Фактично отримано
+            "sum_remains": "0.00"
+        });
+    } else {
+        paymentsArray.push({
+            "code": 1, // Код 1 або 2 залежно від налаштувань вашого ПРРО шлюзу для безготівки
+            "name": "КАРТКА",
+            "sum": total_sum_val.toFixed(2), // Для картки сума платежу = сумі товарів
+            "sum_provided": total_sum_val.toFixed(2),
+            "sum_remains": "0.00"
+        });
+    }
+
+    const taxbind = {
+        "action_type": "Z_SALE",
+        "local_number": dcmid,
+        "total_sum": total_sum_val.toFixed(2),  // Для готівки — округлена, для картки — точна
+        "round_sum": round_sum_val.toFixed(2),  // Для картки тут автоматично вийде "0.00"
+        "products": articles,
+        "payments": paymentsArray,
+        "no_text_print": true,
+        "no_pdf": true,
+        "no_qr": true,
+        "open_shift": true,
+        "print_width": 32,
+        "pdf_width": 48
+    };
+
+    return taxbind;
+}
+
+
+function sale(db, dcmid, payType, callback) {
     // data.api_token = TOKEN
     // data.num_fiscal = CASH
     // console.warn(`WW: CashDesk.js/sale TAX is blocked !!!`);
     // return;
+    if (!dcmid || Number(dcmid || -1) < 0) {
+        callback("Id for document is missing", null);
+        return;
+    }
+    const bind = bindToSale(db, dcmid, String(payType || 0));   // cash default
+    if (!bind) {
+        callback("Bind serialization error", null);
+        return;
+    }
+
     if (BAN_SEND) {
     // debug info
-        console.warn("WW: TAX.z_report send is PROHIBITED (BAN_SEND = true) !!!")
+        console.warn("TAX.send is PROHIBITED (BAN_SEND = true) !!!")
     } else {
-        postRequest(String("/check/sale?api_token=%1").arg(TOKEN), data, callback)
+        postRequest(String("/check/sale?api_token=%1").arg(TOKEN), bind, callback)
     }
 }
 

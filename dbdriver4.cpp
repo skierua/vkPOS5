@@ -8,6 +8,8 @@
 #include <QJsonObject>
 #include <QJsonArray>
 
+// #include <QVariantList>
+
 #include <QDebug>
 
 DbDriver4::DbDriver4(QObject *parent)
@@ -124,8 +126,6 @@ bool DbDriver4::closeShift(const QString &shftid)
     bool commitstatus = true;
     QString qerror;
 
-    // ✅ ЗАХИСТ: Вмикаємо транзакцію в самому початку.
-    // Тепер, якщо хоча б один крок закриття зміни впаде — база повернеться до початкового стану без втрати чеків!
     m_db.transaction();
 
     // 1. Очищаємо незавершені («зомбі») або скасовані документи
@@ -487,13 +487,10 @@ bool DbDriver4::dbUpdate(const QString &sql)
     if (openConnection()) {
         QSqlQuery q(sql, m_db);
 
-        // ✅ ВИПРАВЛЕНО: Сувора перевірка надійності фінансових транзакцій Qt6
-        // замість поверхневого та небезпечного q.isActive()
         // qDebug()<< "8eq6#dbdriver4/dbUpdate sql="<< sql;
         if (!q.lastError().isValid()) {
             res = true;
         } else {
-            // ✅ ВИПРАВЛЕНО: Назву класу актуалізовано до версії 4, прибрано мікро-витоки RAM
             m_lastError = QStringLiteral("EE:DbDriver4::dbUpdate query ERROR\n%1\n%2")
                               .arg(q.lastError().text(), q.lastQuery());
 
@@ -515,7 +512,6 @@ bool DbDriver4::dbUpdate(const QString &sql, const QVariantMap &params){
     if (!openConnection()) return false;
     bool ok = false;
     QSqlQuery q(m_db);
-    // q.prepare(sql);
     if (!q.prepare(sql)) {
         m_lastError = QStringLiteral("EE:DbDriver4::dbInsert prepare ERROR\n%1\n%2")
         .arg(sql, q.lastError().text());
@@ -528,6 +524,7 @@ bool DbDriver4::dbUpdate(const QString &sql, const QVariantMap &params){
 
     // Автоматично прив'язуємо всі параметри з JS-об'єкта
     for (const QVariant &param : params) {
+        // qDebug()<< "r343#dbdriver4/dbUpdate param="<< param;
         q.addBindValue(param);
     }
     // QVariantMap::const_iterator i = params.constBegin();
@@ -545,8 +542,14 @@ bool DbDriver4::dbUpdate(const QString &sql, const QVariantMap &params){
     }
 
     closeConnection();
+    // const QVariantList list = q.boundValues();
+    // for (qsizetype i = 0; i < list.size(); ++i)
+    //     qDebug() << i << ":" << list.at(i).toString();
+    // qDebug()<< "499#dbdriver4/dbUpdate ok="<< ok;
+    // qDebug()<< "r343#dbdriver4/dbUpdate sql="<< q.lastQuery();
     return ok;
 }
+
 bool DbDriver4::dbUpdateParams(const QString &sql, const QVariantMap &params){
     qDebug() << "WW: DEPRECATED dbdriver4/dbUpdateParams";
     return dbUpdate(sql, params);

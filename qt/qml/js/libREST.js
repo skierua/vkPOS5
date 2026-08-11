@@ -1,5 +1,6 @@
 .pragma library
 .import "v147/config.js" as Conf
+.import "v147/sqlBalance.js" as LibBal
 
 // sending is prohibited for debugging purposes
 // sending uploadBind, uploadBalance is prohibited
@@ -135,21 +136,54 @@ function uploadBind2(bind, callback) {
     const bindReq = { "reqid": "upd", "term": currentTerm, "shop": currentShop, "data": bind }
     if (BAN_SEND) {
     // debug info
-        console.warn("WW: REST.uploadBind is PROHIBITED (BAN_SEND = true) !!!")
-        // console.warn(`WW: REST.uploadBind req=${JSON.stringify(req)}`)
+        console.warn("WW: REST.uploadBind2 is PROHIBITED (BAN_SEND = true) !!!")
+        // console.warn(`WW: REST.uploadBind2 req=${JSON.stringify(req)}`)
+        callback(null);
     } else {
         postRequest("/dcms", req, (err, resp) => { callback(err); });
     }
 }
 
-function uploadBind(req, callback) {
+// function uploadBalance2(acntData, deleteOld, callback) {
+function uploadBalance2(db, tm, callback) {
+    // console.warn(`WW: libREST.js/uploadBalance BLOKKED !!!`); return;
+    const currentTerm = String(Conf.TERM || "TEST");
+    const currentShop = currentTerm;
+    const tmVal = Number(tm ?? 0);
+    const flt = tmVal > 0 ?
+                  `(datetime(dbtupd) > datetime('now', '-${tmVal} minutes') OR datetime(cdtupd) > datetime('now', '-${tmVal} minutes'))`
+                : "abs(beginamnt + turndbt - turncdt) > 0.0001"
+    const source = LibBal.dbBalance(db, flt);
+    const round4 = (num) => Math.round((Number(num) || 0) * 10000) / 10000;
+    const cleanData = source.map(v => {
+        // Створюємо копію об'єкта, сумісну навіть зі старим QML
+        const cleanItem = {
+                         "acntno": v.acntno,
+                         "amnt": round4(v.total),
+                         "articleid": v.itemid,
+                         "tm": v.intm < v.outm ? v.outm : v.intm,
+                         "turncdt":  round4(v.outcome),
+                         "turndbt": round4(v.income),
+                     }
+
+        return cleanItem;
+    });
+
+    const req = { "reqid": "upd",
+        "term": currentTerm,
+        "shop": currentShop,
+        "del": tmVal > 0 ? "0" : "1",
+        "data": cleanData }
     if (BAN_SEND) {
     // debug info
-        console.warn("WW: REST.uploadBind is PROHIBITED (BAN_SEND = true) !!!")
-        // console.warn(`WW: REST.uploadBind req=${JSON.stringify(req)}`)
+        console.warn("WW: REST.uploadBalance2 is PROHIBITED (BAN_SEND = true) !!!")
+        console.warn(`WW: REST.uploadBalance2 req=${JSON.stringify(req)}`)
     } else {
-        postRequest("/dcms", req, (err, resp) => { callback(err); });
+        postRequest("/accounts", req, (err, resp) => {
+                        if (typeof callback === "function") callback(err, null);
+                    });
     }
+
 }
 
 function uploadMonRepo(repo, period, reqid, callback) {
@@ -168,6 +202,16 @@ function uploadMonRepo(repo, period, reqid, callback) {
     } else {
         console.warn(`WW: REST.uploadMonRepo req=${JSON.stringify(repoReq)}`)
         postRequest("/reports", repoReq, (err, resp) => { callback(err); });
+    }
+}
+
+function uploadBind(req, callback) {
+    if (BAN_SEND) {
+    // debug info
+        console.warn("WW: REST.uploadBind is PROHIBITED (BAN_SEND = true) !!!")
+        // console.warn(`WW: REST.uploadBind req=${JSON.stringify(req)}`)
+    } else {
+        postRequest("/dcms", req, (err, resp) => { callback(err); });
     }
 }
 

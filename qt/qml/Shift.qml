@@ -27,9 +27,9 @@ Window {
         };
         JS.handleDriverChanged(dbDriver, cmb.model, uiBridge);
         cmb.currentIndex = 0;
-        if (shftStack.currentIndex === 1){
-            populateIncasAction.trigger();
-        }
+        // if (shftStack.currentIndex === 1){
+        //     populateIncasAction.trigger();
+        // }
     }
     property var crntShiftData: null
     property bool isProcessing: false
@@ -40,72 +40,38 @@ Window {
         console.log(`[Shift.qml]#${code} ${str}`);
     }
 
+
     ModelBind{
         id: bindModel
         // code: "folder"
     }
 
-    // --- ACTIONS BLOCK ---
     Action {
         id: startAction
         property bool pswOk: false;
-        // enabled: cmb.currentIndex === 0 //&& (psw.text !== "" && cmb.model && psw.text === atob(cmb.model[cmb.currentIndex].psw || ""))
-        // enabled: false;
-            // !root.isProcessing && (pswOk || !cmb.currentValue)
-        // enabled: !root.isProcessing
-        //          && typeof cmb !== "undefined"
-        //          && cmb.currentIndex > 0
-        //          && typeof psw !== "undefined"
-        //          && psw.text !== ""
         text: qsTr("Відкрити зміну")
         onTriggered: {
             if (typeof JS.startShift === "function") {
-                root.isProcessing = true;
                 const uiBridge = {
                     setShiftData: (v) => { root.crntShiftData = v; },
-                    cmb: cmb,
+                    cshr: cmb.currentValue || "",
+                    error: (v) => { logView.error(`${v || "???"}`); },
+                    warn: (v) => { logView.warn(`${v || "???"}`); },
+                    info: (v) => { logView.info(`${v || "???"}`); }
                 };
-                const res = JS.startShift(root.dbDriver, bindModel, uiBridge);
+                root.isProcessing = true;
+                const ok = JS.startShift(root.dbDriver, bindModel, uiBridge);
                 root.isProcessing = false;
-                // console.log(`237#Shift.qml status=${(res?.status ?? -1)}`)
-                if((res?.status ?? -1) > 0) {
-                    vkEvent("shiftStarted", res);
-                    // vkEvent("info", "Зміну успішно ВІДКРИТО");
+                if (!ok) {
+                    vkEvent("info", "Зміну успішно ВІДКРИТО");
                     root.close();
-                } else if((res?.status ?? -1) < 0){
-                    vkEvent("error", `Не вдалося відкрити зміну: ${bindModel.lastError || "???"}`);
-                } else {
-                    vkEvent("warning", res?.errstr || bindModel.lastError || "Unknown status returned");
-                    root.close();
-                }
-            } else { vkEvent("error", "Системна помилка: Відсутня функція відкриття зміни"); }
+                } else logView.error("Помилка відкриття зміни");
+            } else { logView.error("Системна помилка: Відсутня функція відкриття зміни"); }
             startAction.pswOk = false;
         }
     }
+
     Action { id: cancelAction; text: qsTr("Скасувати"); onTriggered: root.close() }
-    Action {
-        id: incasAction;
-        text: qsTr("Зарахувати на ГУРТ 📥");
-        enabled: !root.isProcessing
-                 && typeof vw !== "undefined"
-                 && vw.hasIncas
-                 && JS.isIncas(dbDriver)
-        onTriggered: {
-            if (typeof JS.handleIncasAction === "function") {
-                root.isProcessing = true;
-                const res = JS.handleIncasAction(dbDriver, vw.model, bindModel);
-                root.isProcessing = false;
-                if((res?.status ?? -1) > 0) {
-                    vkEvent("incasFinished", res);
-                    populateIncasAction.trigger();
-                } else if((res?.status ?? -1) < 0){
-                    vkEvent("error", `Помилка інкасації: ${res?.errstr || bindModel.lastError || "???"}`);
-                } else vkEvent("warning", res?.errstr || bindModel.lastError || "???");
-            } else {
-                vkEvent("error", "Системна помилка: Відсутня функція інкасації");
-            }
-        }
-    }
 
     Action {
         id: closeAction
@@ -115,29 +81,65 @@ Window {
                  && (!vw.hasIncas || !JS.isIncas(dbDriver))
         onTriggered: {
             if (typeof JS.finishShift === "function") {
+                const uiBridge = {
+                    error: (v) => { logView.error(`${v || "???"}`); },
+                    warn: (v) => { logView.warn(`${v || "???"}`); },
+                    info: (v) => { logView.info(`${v || "???"}`); }
+                }
                 root.isProcessing = true;
-                const res = JS.finishShift(dbDriver, bindModel);
+                const ok = JS.finishShift(dbDriver, bindModel, uiBridge);
                 root.isProcessing = false;
-                if((res?.status ?? -1) > 0) {
-                    vkEvent("shiftFinished", res);
+                if (!ok) {
+                    vkEvent("info", "Зміну успішно ЗАКРИТО");
                     root.close();
-                } else if((res?.status ?? -1) < 0){
-                    vkEvent("error", `Не вдалося закрити зміну: ${res?.errstr || bindModel.lastError || "???"}`);
-                } else vkEvent("warning", res?.errstr || bindModel.lastError || "???");
-            } else {
-                vkEvent("error", "Системна помилка: Відсутня функція закриття зміни");
-            }
+                } else logView.error("Помилка закриття зміни");
+            } else { logView.error("Системна помилка: Відсутня функція закриття зміни"); }
         }
     }
+
     Action {
         id: populateIncasAction
         text: "Populate incas"
         onTriggered: {
-            const uiBridge = {
-                setHasIncas: (v) => { vw.hasIncas = v; },
+            if (typeof JS.populateIncas === "function") {
+                const uiBridge = {
+                    setHasIncas: (v) => { vw.hasIncas = v; },
+                    error: (v) => { logView.error(`${v || "???"}`); },
+                    warn: (v) => { logView.warn(`${v || "???"}`); },
+                    info: (v) => { logView.info(`${v || "???"}`); }
+                }
+                root.isProcessing = true;
+                JS.populateIncas(dbDriver, vw.model, uiBridge)
+                root.isProcessing = false;
+            } else {
+                logView.warn("Відсутня функція заповнення інкасації");
             }
-            JS.populateIncas(dbDriver, vw.model, uiBridge)
        }
+    }
+
+    Action {
+        id: incasAction;
+        text: qsTr("Зарахувати на ГУРТ 📥");
+        enabled: !root.isProcessing
+                 && typeof vw !== "undefined"
+                 && vw.hasIncas
+                 && JS.isIncas(dbDriver)
+        onTriggered: {
+
+            if (typeof JS.handleIncasAction === "function") {
+                const ui = {
+                    error: (v) => { logView.error(`${v || "???"}`); },
+                    warn: (v) => { logView.warn(`${v || "???"}`); },
+                    info: (v) => { logView.info(`${v || "???"}`); }
+                };
+                root.isProcessing = true;
+                JS.handleIncasAction(dbDriver, vw.model, bindModel, ui);
+                populateIncasAction.trigger();
+                root.isProcessing = false;
+            } else {
+                logView.error("Системна помилка: Відсутня функція інкасації");
+            }
+        }
     }
 
     // =============================================================================
@@ -146,7 +148,7 @@ Window {
     StackLayout {
         id: shftStack
         anchors.fill: parent
-        onCurrentIndexChanged: populateIncasAction.trigger();
+        onCurrentIndexChanged: if (currentIndex === 1) populateIncasAction.trigger();
 
         // ---------------------------------------------------------------------
         // СЛАТ 0: МОДУЛЬ АВТОРИЗАЦІЇ ТА ВХОДУ (ПЕРЕД ПОЧАТКОМ РОБОТИ)
@@ -534,4 +536,32 @@ Window {
             // onClosed: { if (typeof populateIncasAction !== "undefined") populateIncasAction.trigger(); }
         }
     }
+
+    LogView {
+        id: logView
+
+        // Фіксуємо ширину плаваючих карток, щоб вони виглядали як Snackbars
+        width: parent.width < 400 ? parent.width - 16 : 360
+
+        // Динамічна висота: росте вгору залежно від кількості активних повідомлень (макс. 4 рядки)
+        height: Math.min(count * 45, parent.height * 0.4)
+
+        // Максимальний пріоритет шару — лежить поверх SwipeView та футера
+        z: 999
+
+        anchors {
+            // Притискаємо стек до правого нижнього кута (класика для сповіщень)
+            bottom: parent.bottom
+            right: parent.right
+
+            // margins{right: 10; bottom:50}
+            bottomMargin: 50
+            rightMargin: 10
+        }
+
+        // Вимикаємо інтерактивний скрол мишкою, бо це тепер просто контейнер карток
+        interactive: false
+        debug: false
+    }
+
 }

@@ -4,316 +4,467 @@ import QtQuick.Layouts
 import QtQuick.Controls
 
 import "js/v147/sqlClient.js" as JS
-// import "../lib.js" as Lib
 
 Window {
-    id: root
-    width: 240
-    height: 480
-//    title: qsTr('Clients')
-    property var db                 // DataBase driver
-    onDbChanged: vw.model.load()
+    id: clientManageWindow
+    width: 320 // Трохи збільшимо ширину (з 240 до 320) для комфортного тач-введення
+    height: 500
+    visible: true
+    // title: qsTr("Керування клієнтами каси")
 
-    // signal vkEvent(string id, var param)
+    property var dbDriver                 // Драйвер бази даних (C++)
 
-    Action{
+    onDbDriverChanged: {
+        console.log(`Client.qml dbDriver=${dbDriver} dataModel=${dataModel}`)
+        if (dbDriver && dataModel && typeof dataModel.load === "function") {
+            dataModel.load();
+        }
+    }
+
+    // Дія відкриття віконного блоку створення клієнта
+    Action {
         id: actionNew
-        text: "Новий клієнт"  // qsTr("New")
+        text: "Новий клієнт"
         onTriggered: {
-            if (rectNewClient.visible ){
-                rectNewClient.visible = false
-                edName.text = ''
-                edPhone.text = ''
-                edNote.text = ''
-            } else {
-                rectNewClient.visible = true
+            rectNewClient.visible = !rectNewClient.visible;
+            if (rectNewClient.visible) {
+                edName.forceActiveFocus();
             }
         }
-            // rectNewClient.visible = !rectNewClient.visible
     }
 
     Component {
         id: dlg
-        FocusScope{
-            id: root
-            width: childrenRect.width;
-            height: childrenRect.height
+
+        FocusScope {
+            id: dlgRoot
+
+            width: dlgRoot.ListView.view ? dlgRoot.ListView.view.width : 320
+            height: 56 // Збільшуємо висоту для комфортного тачу
+
+            // Картка-підкладка для клієнта
             Rectangle {
                 id: dlgRect
-                width: root.ListView.view.width
-                height: 45
-                color: (index == vw.currentIndex) ?  'lightsteelblue' :'white'
-                                                        // (index%2 == 0 ?  Qt.darker('white',1.01) : 'white')
-                ColumnLayout{
-                    width: parent.width
-                    anchors.verticalCenter:  parent.verticalCenter
-                    spacing: 2
-                    Label{
-                        id:fldChar
-                        text:name
-                        Layout.fillWidth: true
-                        MouseArea{
-                            anchors.fill:parent
-                            onClicked:{ fldEdit.code = "name"; fldEdit.text = name; fldEdit.forceActiveFocus(); }
-                        }
-                    }
-                    RowLayout{
-                        Layout.fillWidth: true
-                        Label{text:'['+id+']'; color: 'dimgray'}
-                        Label{
-                            id: fldPhone
-                            color:phone === '' ? 'lightgray':'black'
-                            text: phone === '' ? 'телефон' : phone
-                            MouseArea{
-                                anchors.fill:parent
-                                onClicked:{ fldEdit.code = "phone"; fldEdit.text = phone; fldEdit.forceActiveFocus(); }
-                            }
-                        }
-                        Label{
-                            id: fldNote
-                            color:clnote === '' ? 'lightgray':'black'
-                            text: clnote === '' ? 'примітка' : clnote
-                            MouseArea{
-                                anchors.fill:parent
-                                onClicked:{ fldEdit.code = "note"; fldEdit.text = clnote; fldEdit.forceActiveFocus(); }
-                            }
-                        }
-                    }
-                }
-                TextField{
-                    id: fldEdit
-                    property string code
+                anchors.fill: parent
+                anchors.margins: 2
+                radius: 8
+
+                color: index === dlgRoot.ListView.view.currentIndex ? "#e3f2fd" : "#ffffff"
+                border.color: index === dlgRoot.ListView.view.currentIndex ? "#0288d1" : "#e5e7eb"
+                border.width: 1
+
+                MouseArea {
                     anchors.fill: parent
-                    visible: false
-                    selectByMouse: true
-                    onActiveFocusChanged: if (activeFocus) {visible = true; selectAll()} else {visible = false}
-                    onAccepted: {
-                        let ok = true
-                        if (code === "name") { name = text; }
-                        else if (code === "phone") { phone = text; }
-                        else if (code === "note") { clnote = text; }
-                        else { ok = false; }
-                        if (ok){
-                            root.ListView.view.model.update(db, index)
-                        }
-                        visible= false
-                    }
-                    Keys.onEscapePressed: visible= false    //root.ListView.view.forceActiveFocus()
-                }
-                MouseArea{
-                   // anchors.fill: parent;
-                    width: (index === root.ListView.view.currentIndex)?0:parent.width
-                    height: (index === root.ListView.view.currentIndex)?0:parent.height
+                    z: -1
                     onClicked: {
-                        root.ListView.view.currentIndex = index;
+                        if (dlgRoot.ListView.view) {
+                            dlgRoot.ListView.view.currentIndex = index;
+                        }
+                    }
+                }
+
+                // Контейнер вмісту рядка
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 6
+                    spacing: 2
+
+                    Item {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 20
+
+                        // Текстове відображення імені
+                        Label {
+                            id: lblChar
+                            anchors.fill: parent
+                            verticalAlignment: Text.AlignVCenter
+                            text: model.name || "Без імені"
+                            font.bold: true
+                            font.pixelSize: 13
+                            color: "#1f2937"
+                            elide: Text.ElideRight
+                            visible: !editName.visible
+
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: {
+                                    dlgRoot.ListView.view.currentIndex = index;
+                                    editName.text = model.name || "";
+                                    editName.visible = true;
+                                    editName.forceActiveFocus();
+                                }
+                            }
+                        }
+
+                        // Інлайновий інпут імені
+                        TextField {
+                            id: editName
+                            anchors.fill: parent
+                            visible: false
+                            selectByMouse: true
+                            font.pixelSize: 12
+                            font.bold: true
+                            color: "#0288d1"
+                            background: Rectangle { color: "#ffffff"; border.color: "#0288d1"; radius: 4 }
+                            onActiveFocusChanged: if (activeFocus) selectAll(); else visible = false
+                            onAccepted: {
+                                if (text.trim() !== "") {
+                                    model.name = text.trim();
+                                    dlgRoot.ListView.view.model.update(dbDriver, index);
+                                }
+                                visible = false;
+                            }
+                            Keys.onEscapePressed: visible = false
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        // Системний бейдж ID клієнта
+                        Label {
+                            text: `id:${model.id}`
+                            font.pixelSize: 10
+                            font.family: "monospace"
+                            color: "#6b7280"
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+
+                        // Блок ТЕЛЕФОНУ
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 18
+                            Layout.alignment: Qt.AlignVCenter
+
+                            Label {
+                                id: lblPhone
+                                anchors.fill: parent
+                                verticalAlignment: Text.AlignVCenter
+                                font.pixelSize: 11
+                                elide: Text.ElideRight
+                                visible: !editPhone.visible
+
+                                text: (model.phone || "") === "" ? "📞 телефон" : "📞 " + model.phone
+                                color: (model.phone || "") === "" ? "#9ca3af" : "#37474f"
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: {
+                                        dlgRoot.ListView.view.currentIndex = index;
+                                        editPhone.text = model.phone || "";
+                                        editPhone.visible = true;
+                                        editPhone.forceActiveFocus();
+                                    }
+                                }
+                            }
+
+                            TextField {
+                                id: editPhone
+                                anchors.fill: parent
+                                visible: false
+                                selectByMouse: true
+                                font.pixelSize: 11
+                                color: "#0288d1"
+                                background: Rectangle { color: "#ffffff"; border.color: "#0288d1"; radius: 4 }
+                                onActiveFocusChanged: if (activeFocus) selectAll(); else visible = false
+                                onAccepted: {
+                                    model.phone = text.trim();
+                                    dlgRoot.ListView.view.model.update(dbDriver, index);
+                                    visible = false;
+                                }
+                                Keys.onEscapePressed: visible = false
+                            }
+                        }
+
+                        // Блок ПРИМІТКИ
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 18
+                            Layout.alignment: Qt.AlignVCenter
+
+                            Label {
+                                id: lblNote
+                                anchors.fill: parent
+                                verticalAlignment: Text.AlignVCenter
+                                font.pixelSize: 11
+                                elide: Text.ElideRight
+                                visible: !editNote.visible
+
+                                text: (model.clnote || "") === "" ? "📝 примітка" : "📝 " + model.clnote
+                                color: (model.clnote || "") === "" ? "#9ca3af" : "#37474f"
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: {
+                                        dlgRoot.ListView.view.currentIndex = index;
+                                        editNote.text = model.clnote || "";
+                                        editNote.visible = true;
+                                        editNote.forceActiveFocus();
+                                    }
+                                }
+                            }
+
+                            TextField {
+                                id: editNote
+                                anchors.fill: parent
+                                visible: false
+                                selectByMouse: true
+                                font.pixelSize: 11
+                                color: "#0288d1"
+                                background: Rectangle { color: "#ffffff"; border.color: "#0288d1"; radius: 4 }
+                                onActiveFocusChanged: if (activeFocus) selectAll(); else visible = false
+                                onAccepted: {
+                                    model.clnote = text.trim();
+                                    dlgRoot.ListView.view.model.update(dbDriver, index);
+                                    visible = false;
+                                }
+                                Keys.onEscapePressed: visible = false
+                            }
+                        }
                     }
                 }
             }
         }
     }
 
-    ListModel{
+    ListModel {
         id: dataModel
-        property var data
 
-        function load(){
-            clear()
-            const source = JS.dbClient(root.db)
-            // console.log(`Client.qml#9wi4 source=${JSON.stringify(source)}`)
-            if (!source) return;
-            source.sort((a,b) => { return  (a.name || "").localeCompare(b.name || "") })
-            // data = Lib.getClientList(dbDriver).sort((a,b) => { return  a.name < b.name ? -1 : 1; })
-            // console.log('[client] data ='+ JSON.stringify(data))
-            data = source;
-            populate()
+        property var rawCachedClients: []
+
+        function load() {
+            clear();
+            if (!clientManageWindow.dbDriver) return;
+
+            const source = JS.dbClient(clientManageWindow.dbDriver) || [];
+            // Безпечне сортування за ПІБ
+            // console.info(`II: Client.qml/load source=${JSON.stringify(source)}`)
+            source.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+
+            dataModel.rawCachedClients = source;
+            populate(findEdit.text);
         }
 
-        function isAllowed(row, flt){
-            const filterLower = flt.trim().toLowerCase();
-            const nameStr = String(data[row].name || "").toLowerCase();
-            const noteStr = String(data[row].clnote || "").toLowerCase();
-            const phoneStr = String(data[row].phone || "").toLowerCase();
-            return (data[row].id === filterLower)
+        function isAllowed(rowIdx, flt) {
+            const cache = dataModel.rawCachedClients;
+            if (!cache || !cache[rowIdx]) return false;
+
+            const filterLower = String(flt).toLowerCase().trim();
+            const nameStr = String(cache[rowIdx].name || "").toLowerCase();
+            const noteStr = String(cache[rowIdx].clnote || "").toLowerCase();
+            const phoneStr = String(cache[rowIdx].phone || "").toLowerCase();
+            const idStr = String(cache[rowIdx].id || "").toLowerCase();
+
+            return (idStr === filterLower
                     || nameStr.includes(filterLower)
                     || noteStr.includes(filterLower)
-                    || phoneStr.includes(filterLower);
+                    || phoneStr.includes(filterLower));
         }
 
-        function populate( flt =""){
-            // console.log('[client] flt =' + flt)
-            clear()
-            if ((flt === undefined) || flt === "") {
-                for (let i =0; i < data.length; ++i) append(data[i])
+        function populate(flt = "") {
+            clear();
+            const cache = dataModel.rawCachedClients;
+            // if (!Array.isArray(cache)) return;
+
+            const cleanFilter = String(flt || "").trim();
+
+            if (cleanFilter === "") {
+                for (let i = 0; i < cache.length; ++i) {
+                    append(cache[i]);
+                }
             } else {
-                for (let r =0; r < data.length; ++r){
-                    if (isAllowed(r, flt)) {
-                        append(data[r])
+                for (let r = 0; r < cache.length; ++r) {
+                    if (isAllowed(r, cleanFilter)) {
+                        append(cache[r]);
                     }
                 }
-
             }
-
         }
 
-        function addNew(dbDriver, name, phone ="", note =""){        // submit
-            // console.log("#8943j subm() currentIndex="+currentIndex+" name="+model.get(currentIndex).phone)
-            // const res = Lib.updClient(dbDriver, "", name, phone, note)
-            load()
+        function addNew(dbDriver, clientName, clientPhone = "", clientNote = "") {
+            if (!dbDriver || !clientName || clientName.trim() === "") return;
+
+            JS.ins(dbDriver, clientName.trim(), clientPhone.trim(), clientNote.trim());
+
+            load();
+            rectNewClient.visible = false;
+            edName.text = ""; edPhone.text = ""; edNote.text = "";
         }
 
-        function update(dbDriver, row){        // submit
-            // console.log("#8943j subm() currentIndex="+currentIndex+" name="+model.get(currentIndex).phone)
-            // const res = Lib.updClient(dbDriver, get(row).id, get(row).name, get(row).phone, get(row).clnote)
-            load()
+        function update(dbDriver, row) {
+            if (!dbDriver || row < 0 || row >= count) return;
+            JS.upd(dbDriver, get(row).id, get(row).name, get(row).phone, get(row).clnote);
+            load();
         }
     }
 
-    Page{
+    Page {
+        id: mainPage
         anchors.fill: parent
+
         header: ToolBar {
+            background: Rectangle { color: "#f8f9fa"; border.color: "#e0e0e0"; border.width: 1 }
+
             RowLayout {
                 anchors.fill: parent
-                Button{
-                    id: find
-                    Layout.preferredWidth: 40
-                    Layout.preferredHeight: 40
-                    visible: findEdit.visible || vw.model.count
-                    flat: true
-                    icon{name:"find"; source: "qrc:/icon/find.svg"}
-//                    contentItem:
-//                        Image {
-//                                anchors{fill: parent; margins: parent.height/5}
-//                        }
-                    onClicked: {findEdit.visible = !findEdit.visible}
+                anchors.leftMargin: 6; anchors.rightMargin: 6
+                spacing: 6
+
+                ToolButton {
+                    id: btnFindToggle
+                    Layout.preferredWidth: 36
+                    Layout.preferredHeight: 36
+                    icon.source: "qrc:/icon/find.svg"
+                    onClicked: findEdit.visible = !findEdit.visible
                 }
-                TextField{
-                    id: findEdit
-                    Layout.preferredWidth: 100
-                    Layout.preferredHeight: 30
-                    selectByMouse: true
-                    visible: false
-                    onVisibleChanged: {
-                        if (visible) { forceActiveFocus() }
-                        else {
-                            text = ''
-                        }
-                    }
-                    onAccepted: vw.model.populate(text)
-                }
-                Item{
+
+                // Рядок живого швидкого пошуку
+                Rectangle {
+                    id: findEditWrapper
                     Layout.fillWidth: true
+                    Layout.preferredHeight: 32
+                    color: "white"
+                    radius: 4
+                    border.color: findEdit.activeFocus ? "#0288d1" : "#bdbdbd"
+                    visible: findEdit.visible    || dataModel.count > 0
+
+                    TextField {
+                        id: findEdit
+                        anchors.fill: parent
+                        leftPadding: 8
+                        selectByMouse: true
+                        visible: false
+                        placeholderText: "Пошук клієнта..."
+                        background: null
+
+                        onVisibleChanged: {
+                            if (visible) forceActiveFocus();
+                            else text = '';
+                        }
+                        // Живий пошук при кожному введенні літери
+                        onTextChanged: dataModel.populate(text)
+                        onAccepted: dataModel.populate(text)
+                    }
                 }
+
+                // Item {
+                //     Layout.fillWidth: true
+                //     Layout.preferredHeight: 32
+                // }
 
                 ToolButton {
                     text: "⋮"
+                    font.pixelSize: 16
+                    font.bold: true
                     onClicked: toolMenu.open()
+
                     Menu {
                         id: toolMenu
                         y: parent.height
-                        MenuItem { action: actionNew; }
+                        MenuItem { action: actionNew }
                     }
                 }
             }
-
         }
 
-        Pane{
-            anchors.fill: parent;
-            ColumnLayout{
-                anchors.fill: parent;
-                Rectangle{
-                    id: rectNewClient
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: childrenRect.height
-                    visible: false
-                    color: "transparent"
-                    ColumnLayout{
-                        width: parent.width
-                        RowLayout{
-                            Label {text:'Name: '}
-                            TextField{
-                                id: edName
-                                placeholderText: "name"
-                            }
-                        }
-                        RowLayout{
-                            Label {text:'Phone: '}
-                            TextField{
-                                id: edPhone
-                                placeholderText: "phone"
-                            }
-                        }
-                        RowLayout{
-                            Label {text:'Note: '}
-                            TextField{
-                                id: edNote
-                                placeholderText: "note"
-                            }
-                        }
-                        RowLayout{
-                            Layout.alignment: Qt.AlignCenter
-                            Button{
-                                text: "Save"
-                                onClicked: vw.model.addNew(db, edName.text, dPhone.text, edNote.text)
-                            }
-                            Button{
-                                action: actionNew
-                                text: 'Cancel'
-                            }
+        // 📝 ТІЛО СТОРІНКИ: Блок введення та список
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 10
+            spacing: 10
 
-                        }
+            // ✨ СУЧАСНА КАРТКА ДЛЯ СТВОРЕННЯ НОВОГО КЛІЄНТА (rectNewClient)
+            Rectangle {
+                id: rectNewClient
+                Layout.fillWidth: true
+                Layout.preferredHeight: rectNewClient.visible ? newClientColumn.implicitHeight + 16 : 0
+                visible: false
+                color: "#ffffff"
+                radius: 8
+                border.color: "#0288d1"
+                border.width: 1
+                clip: true
 
+                ColumnLayout {
+                    id: newClientColumn
+                    anchors.fill: parent
+                    anchors.margins: 10
+                    spacing: 8
+
+                    Label { text: "👤 Додати нову картку клієнта"; font.bold: true; color: "#0288d1"; font.pixelSize: 12 }
+
+                    // Форма введення ПІБ
+                    RowLayout {
+                        spacing: 8
+                        Label { text: "ПІБ:"; font.bold: true; Layout.preferredWidth: 50; font.pixelSize: 11 }
+                        Rectangle {
+                            Layout.fillWidth: true; height: 32; color: "#f9fafb"; radius: 4; border.color: edName.activeFocus ? "#0288d1" : "#bdbdbd"
+                            TextField { id: edName; anchors.fill: parent; leftPadding: 6; font.pixelSize: 12; background: null; placeholderText: "Прізвище, Ім'я..." }
+                        }
+                    }
+
+                    // Форма введення телефону
+                    RowLayout {
+                        spacing: 8
+                        Label { text: "Тел:"; font.bold: true; Layout.preferredWidth: 50; font.pixelSize: 11 }
+                        Rectangle {
+                            Layout.fillWidth: true; height: 32; color: "#f9fafb"; radius: 4; border.color: edPhone.activeFocus ? "#0288d1" : "#bdbdbd"
+                            // ✅ ВИПРАВЛЕНО: id поля виправлено на edPhone (ліквідовано ReferenceError краш)
+                            TextField { id: edPhone; anchors.fill: parent; leftPadding: 6; font.pixelSize: 12; background: null; placeholderText: "+380..." }
+                        }
+                    }
+
+                    // Форма введення нотаток
+                    RowLayout {
+                        spacing: 8
+                        Label { text: "Опис:"; font.bold: true; Layout.preferredWidth: 50; font.pixelSize: 11 }
+                        Rectangle {
+                            Layout.fillWidth: true; height: 32; color: "#f9fafb"; radius: 4; border.color: edNote.activeFocus ? "#0288d1" : "#bdbdbd"
+                            TextField { id: edNote; anchors.fill: parent; leftPadding: 6; font.pixelSize: 12; background: null; placeholderText: "Тип дисконту, VIP, тощо..." }
+                        }
+                    }
+
+                    // Кнопки управління формою
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.topMargin: 4
+                        spacing: 8
+
+                        Button {
+                            text: "💾 Зберегти"
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 34
+                            font.bold: true
+                            // ✅ ВИПРАВЛЕНО: Передаємо edPhone.text замість неіснуючого dPhone
+                            onClicked: dataModel.addNew(clientManageWindow.dbDriver, edName.text, edPhone.text, edNote.text)
+                        }
+                        Button {
+                            text: "Скасувати"
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 34
+                            onClicked: rectNewClient.visible = false
+                        }
                     }
                 }
-
-                ListView{
-                    id: vw
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    spacing: 1
-                    clip: true
-                    focus: true
-                    model: dataModel
-                    delegate: dlg
-
-    /*                highlight: Rectangle {
-                        width: vw.width; height: vw.currentItem.height
-                        color: "lightsteelblue"; radius: 5
-                        y: vw.currentItem != null ? vw.currentItem.y : vw.y
-                        Behavior on y {
-                            SpringAnimation {
-                                spring: 3
-                                damping: 0.2
-                            }
-                        }
-                    }*/
-        //            highlightFollowsCurrentItem: false
-                        /*            add: Transition {
-                        NumberAnimation { properties: "y"; from: 100; duration: 500 }
-                    }*/
-                }
-
             }
-
-
+            // 3. СПИСОК КЛІЄНТІВ
+            ListView {
+                id: vw
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                spacing: 2
+                clip: true
+                focus: true
+                model: dataModel
+                delegate: dlg
+                // Гарний кастомний скроллбар
+                ScrollBar.vertical: ScrollBar {
+                    policy: ScrollBar.AsNeeded
+                }
+            }
         }
-
     }
-
 }
-
-/*
-  client request structure
-  [{
-    "id":"1012",
-    "name":"Some Name",
-    "fullname":"",
-    "phone":"+380xxxxxxxxx",
-    "clnote":"/3209",
-    "mask":"0",
-    "sect":"Клієнти"},
-}]
-  */
-
 
 

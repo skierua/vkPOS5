@@ -1,3 +1,4 @@
+// ModelDbDcms.qml
 import QtQuick
 import "js/v147/sqlBind.js" as LibBind
 import "js/v147/sqlItem.js" as LibItem
@@ -160,39 +161,13 @@ ListModel {
             addNew(dcm, modelCounter);
     }
 
-    function bindForPrint(idx){
+    function bindForPrint(db, idx){
+        if (!db) return null;
         if (idx < 0 || idx >= count) return null;
         const pid = get(idx).pid
-        const bindDcms = mRoot.data
-        .filter(v => v.pid === pid)
-        .map((v) => { return {
-                 "dcm": v.dcmtype || "",
-                 "dbt": v.acntdbt || "",
-                 "cdt": v.acntcdt || "",
-                 "crn": v.itemid || "",
-                 "amnt": (v.amount || 0).toFixed(v.jarticle?.unitprec || 2),
-                 "eq": (v.eqamount || 0).toFixed(2),
-                 "dsc": (v.discount || 0).toFixed(2),
-                 "bns": (v.bonus || 0).toFixed(2),
-                "jitem": v.jarticle,
-                 "note": v.dcmnote || "",
-                 "retfor": v.retfor || ""
-             }; });
-        const parent = bindInfo(Number(pid));
-        const res = {
-            "id": "dcmbind",
-            "dcm": parent?.dcmtype || "",
-            "dbt": parent?.acntdbt || "",
-            "cdt": parent?.acntcdt || "",
-            "amnt": (parent?.amount || 0).toFixed(2),
-            "eq": (parent?.eqamount || 0).toFixed(2),
-            "dsc": (parent?.discount || 0).toFixed(2),
-            "bns": (parent?.bonus || 0).toFixed(2),
-            "note": parent?.dcmnote || "",
-            "clnt": parent?.clid || "",
-            "tm": parent?.dcmtime || "",
-            "dcms":bindDcms
-        }
+        if (Number(pid || -1) <= 0) return null;
+        const res = LibBind.dbBind(db, pid)
+        // console.info(`II: ModelDbDcms.qml/bindForPrint bind=${JSON.stringify(res)}`)
         return res;
     }
 
@@ -224,34 +199,4 @@ ListModel {
     }
 
 }
-/*
-{
-    "id": "dcmbind",
-    "dcm": model.code,
-    "dbt": cashAcntNo,
-    "cdt": "",
-    "amnt": (total?.pmnt || 0).toFixed(2),
-    "eq": (total?.eq || 0).toFixed(2),
-    "dsc": (total?.dsc || 0).toFixed(2),
-    "bns": (total?.bns || 0).toFixed(2),
-    "note": "",
-    "clnt": ui.clid || "",
-    "tm": utcTimeStamp,
-    "dcms":
-        [
-            {
-                "dcm": row.dcode,
-                "dbt": targetAcntNo,
-                "cdt": row.dacnt?.acntno || "",
-                "crn": row.darticle?.id || "",
-                "amnt": (row.dsign * Number(row.damnt || 0)).toFixed(precision),
-                "eq": (row.moneyEq || 0).toFixed(2),
-                "dsc": (row.moneyDsc || 0).toFixed(2),
-                "bns": (row.moneyBns || 0).toFixed(2),
-                "note": row.dnote || "",
-                "retfor": row.retfor || ""
-            },
-        ]
-}
-*/
 

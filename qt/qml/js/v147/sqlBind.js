@@ -1,7 +1,15 @@
 .pragma library
 
+function parse(raw){
+    try {
+        return JSON.parse(raw);
+    } catch (err) {
+        return null;
+    }
+}
+
+// used for printing
 function dbBind(db, bindid) {
-    console.warn("sqlBind.js#8dwt deprecated !!!")
     let tbl = "docum";
     const stmt = `
     SELECT
@@ -13,7 +21,7 @@ function dbBind(db, bindid) {
         coalesce(dcmnote,itemchar,'') note,
         dcmtime,
         coalesce(itemchar,'ГРН') ichar,
-        coalesce(' ('||itemname||')','') iname,
+        coalesce(itemname,'') iname,
         coalesce(itemmask,1) mask,
         coalesce(unitprec,2) prec,
         coalesce(itemunit.code,'') ucode,
@@ -46,7 +54,7 @@ function dbBind(db, bindid) {
         jbind.errid = 1;
         jbind.errname = "Bind documents not found";
         // log("Bind documents not found","lib.printCheck", "EE")
-        cb(jbind.errname);
+        // cb(jbind.errname);
         return false;
     }
     jbind.dcms = jdcm.rows;
