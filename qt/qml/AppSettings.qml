@@ -46,12 +46,12 @@ Item {
         onTriggered: {
             const val = JS.getBasic(dbDriver);
 
+            modeGroup.currentModeid = Number(val?.appmode || 3);
             editTerm.text = String(val?.id || "TEST");
             editTermName.text = String(val?.name || "");
             editPrinter.text = String(val?.pos_printer || "");
             editCheckAmnt.text = String(val?.amnt_sign || "1");
 
-            // ✅ Розумне перетворення текстових прапорців 1/0 з бази у логічні true/false для Switch
             if (typeof switchAutoPrint !== "undefined") {
                 switchAutoPrint.checked = String(val?.auto_print || "0") === "1";
             }
@@ -103,8 +103,6 @@ Item {
                 return;
             }
 
-            // ✅ ВИПРАВЛЕНО: Вичитуємо кожне поле з відповідної властивості JSON об'єкта
-            // Захищаємо код від undefined за допомогою ( ... || "")
             const cashStr = String(val.cash || "");
             const tradeStr = String(val.trade || "");
             const bulkStr = String(val.bulk || "");
@@ -185,6 +183,49 @@ Item {
                             anchors.fill: parent
                             anchors.margins: 16
                             spacing: 14
+
+                            Item{
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 40
+                                ButtonGroup {
+                                        id: modeGroup
+                                        property int currentModeid: 3
+                                        onCheckedButtonChanged: {
+                                            if (checkedButton) {
+                                                currentModeid = checkedButton.modeid
+                                                console.log("Активний тип:", currentModeid)
+                                            }
+                                        }
+                                    }
+
+                                    RowLayout {
+                                        width: parent.width
+                                        spacing: 5
+
+                                        Label {
+                                            text: "Оберіть тип підрозділу:"
+                                            font.bold: true
+                                            color: "#666666"
+                                        }
+
+                                        RadioButton {
+                                            readonly property int modeid: 2
+                                            text: "KANTOR"
+                                            ButtonGroup.group: modeGroup
+                                            checked: modeid === modeGroup.currentModeid    //true // Початковий вибір
+                                            font.pixelSize: 14
+                                        }
+
+                                        RadioButton {
+                                            readonly property int modeid: 1
+                                            text: "SHOP"
+                                            ButtonGroup.group: modeGroup
+                                            checked: modeid === modeGroup.currentModeid
+                                            font.pixelSize: 14
+                                        }
+
+                                    }
+                            }
 
                             // Поле: Код терміналу
                             ColumnLayout {
@@ -287,6 +328,7 @@ Item {
                         onClicked: {
                             const val = {
                                 id: editTerm.text.trim(),
+                                appmode: modeGroup.currentModeid,
                                 name: editTermName.text.trim(),
                                 amnt_sign: editCheckAmnt.text.trim(),
                                 pos_printer: editPrinter.text.trim(),
@@ -294,8 +336,10 @@ Item {
                                 print_dcm: editCheckPrintDcm.text.trim()
                             };
                             const ok = JS.setBasic(dbDriver, val);
-                            if (ok) root.vkEvent("info", "Конфігурацію успішно збережено");
-                                else root.vkEvent("error", "Помилка збереження конфігурації")
+                            if (ok) {
+                                root.vkEvent("modeidChanged", modeGroup.currentModeid);
+                                root.vkEvent("info", "Конфігурацію успішно збережено");
+                            } else root.vkEvent("error", "Помилка збереження конфігурації")
                         }
                     }
                 }
@@ -487,6 +531,46 @@ Item {
                             } else {
                                 root.vkEvent("error", "Помилка запису мережевих налаштувань у базу SQLite");
                             }
+                        }
+                    }
+
+                    Item{
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 44
+                        RowLayout{
+                            width: parent.width
+                            // anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.verticalCenter: parent.verticalCenter
+                            Button {
+                                id: btnSyncBalanceREST
+                                text: "Синхронізувати баланс з REST"
+                                font.pixelSize: 12
+                                font.bold: true
+                                Layout.fillWidth: true
+                                // Layout.preferredHeight: 44
+
+                                // background: Rectangle {
+                                //     color: btnSaveREST.pressed ? "#01579b" : (btnSaveREST.hovered ? "#0277bd" : "#0288d1")
+                                //     radius: 8
+                                //     Rectangle {
+                                //         anchors.fill: parent; anchors.margins: -1; color: "transparent"; border.color: "#20000000"; border.width: 1; radius: 9; z: -1
+                                //     }
+                                // }
+
+                                // contentItem: Text {
+                                //     text: parent.text; font: parent.font; color: "white"
+                                //     horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                                // }
+
+                                onClicked: {
+                                    REST.uploadBalance2(dbDriver, 0,
+                                                        (e) => {
+                                                           if (!!e) root.vkEvent("error", e || "REST sync error");
+                                                        });
+
+                                }
+                            }
+
                         }
                     }
                 }

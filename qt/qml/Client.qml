@@ -320,23 +320,31 @@ Window {
                 }
 
                 // Рядок живого швидкого пошуку
-                Rectangle {
-                    id: findEditWrapper
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 32
-                    color: "white"
-                    radius: 4
-                    border.color: findEdit.activeFocus ? "#0288d1" : "#bdbdbd"
-                    visible: findEdit.visible    || dataModel.count > 0
+                // Rectangle {
+                //     id: findEditWrapper
+                //     Layout.fillWidth: true
+                //     Layout.preferredHeight: 32
+                //     color: "white"
+                //     radius: 4
+                //     border.color: findEdit.activeFocus ? "#0288d1" : "#bdbdbd"
+                //     visible: findEdit.visible    || dataModel.count > 0
 
                     TextField {
                         id: findEdit
-                        anchors.fill: parent
-                        leftPadding: 8
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 32
+                        // anchors.fill: parent
+                        // leftPadding: 8
                         selectByMouse: true
                         visible: false
                         placeholderText: "Пошук клієнта..."
-                        background: null
+                        // background: null
+                        background: Rectangle {
+                            radius: 6
+                            color: parent.activeFocus ? "#FFFFFF" : "#F9FAFB"
+                            border { width: 1; color: parent.activeFocus ? "#0288d1" : "#bdbdbd" }
+                            // border { width: 1; color: parent.activeFocus ? "#3B82F6" : "#D1D5DB" }
+                        }
 
                         onVisibleChanged: {
                             if (visible) forceActiveFocus();
@@ -346,12 +354,12 @@ Window {
                         onTextChanged: dataModel.populate(text)
                         onAccepted: dataModel.populate(text)
                     }
-                }
-
-                // Item {
-                //     Layout.fillWidth: true
-                //     Layout.preferredHeight: 32
                 // }
+
+                Item {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 32
+                }
 
                 ToolButton {
                     text: "⋮"

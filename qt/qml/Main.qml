@@ -18,6 +18,23 @@ ApplicationWindow {
     height: 480
 
     property int modeid: 2    // 2 kantor, 1 shop
+    onModeidChanged: {
+        for (i = naviMenu_dynamic.count - 1; i >= 0; --i) {
+            let item = naviMenu_dynamic.itemAt(i);
+            naviMenu_dynamic.removeItem(item);
+
+            // Якщо цей пункт був створений динамічно через createObject або createQmlObject,
+            // знищуємо його, повністю звільняючи оперативну пам'ять терміналу
+            if (item) {
+                // Перевіряємо кастомний маркер 'isDynamic', який додамо при створенні.
+                if (typeof item.destroy === "function") {
+                    item.destroy();
+                }
+            }
+        }
+
+    }
+
     property string dbname: ''
 
     onDbnameChanged: {
@@ -29,6 +46,7 @@ ApplicationWindow {
         const uiBridge = {
             dbname: dbname,                          // Передаємо актуальне ім'я файлу бази
             winShift: () => { winShiftAction.trigger(); },
+            setModeId: (v) => {root.modeid = Number(v || 3)},
             setRateOnline: (v) => { rateLoader.isRESTConnected = !!v; },
             setTaxAction: (v) => { bindTaxAction.enabled = !!v; },
             setFooter: (v) => { footerLeftLabel.text = v; }
@@ -125,10 +143,10 @@ ApplicationWindow {
                         { isSeparator: true },  // ✂️ роздільник
                         winCashWizardAction,
                         actionSetting,
-                        syncBalanceAction,
+                        // syncBalanceAction,
                         changeDBAction,
                         { isSeparator: true },  // ✂️ роздільник
-                        testAction,
+                        // testAction,
                         winShiftAction,
                         { isSeparator: true },  // ✂️ роздільник
                         quitAction
@@ -150,7 +168,10 @@ ApplicationWindow {
                                     return naviMenu_dynamic.shouldShowSeparator(index) ? separatorComponent : null
                                 }
                                 // Якщо це звичайний Action — перевіряємо, чи він увімкнений
-                                return modelData.enabled ? menuItemComponent : null
+                                const isAllowed = ((modelData.allowed || 3) & root.modeid) !== 0;
+                                // console.log(`Main.qml#9e5f is=${isAllowed} text=${modelData.text} modelall=${(modelData.allowed || 3)} rootid=${root.modeid}`)
+                                return isAllowed ? menuItemComponent : null
+                                // return modelData.enabled ? menuItemComponent : null
                             }
 
                             // Прокидаємо дані екшена всередину завантаженого компонента
@@ -293,11 +314,11 @@ ApplicationWindow {
                         //     action: winTaxServiceAction
                         //     onTriggered: naviMenu.close()
                         // }
-                        MenuItem {
-                            action: syncBalanceAction
-                            // icon.source: "qrc:/icon/undo.svg"
-                            onTriggered: naviMenu.close()
-                        }
+                        // MenuItem {
+                        //     action: syncBalanceAction
+                        //     // icon.source: "qrc:/icon/undo.svg"
+                        //     onTriggered: naviMenu.close()
+                        // }
                         MenuItem {
                             action: changeDBAction
                             // icon.source: "qrc:/icon/undo.svg"
@@ -657,7 +678,7 @@ ApplicationWindow {
         icon.source: "qrc:/icon/add.svg"
         icon.width: 14
         icon.height: 14
-        enabled: (root.modeid & bindFactureAction.allowed)
+        // enabled: (root.modeid & bindFactureAction.allowed)
         onTriggered: {
             const uiBridge = {
                 drawer: () => { drawer2Right.open(); },
@@ -679,7 +700,7 @@ ApplicationWindow {
         icon.source: "qrc:/icon/add.svg"
         icon.width: 14
         icon.height: 14
-        enabled: (root.modeid & bindTaxAction.allowed)
+        // enabled: bindTaxAction.allowed
         onTriggered: {
             const uiBridge = {
                 drawer: () => { drawer2Right.open(); },
@@ -701,7 +722,7 @@ ApplicationWindow {
         icon.source: "qrc:/icon/add.svg"
         icon.width: 14
         icon.height: 14
-        enabled: (root.modeid & bindInnerAction.allowed)
+        // enabled: (root.modeid & bindInnerAction.allowed)
         onTriggered: {
             const uiBridge = {
                 drawer: () => { drawer2Right.open(); },
@@ -730,7 +751,7 @@ ApplicationWindow {
         id: winBalanceAction
         property int allowed: 1
         text: qsTr("Залишки товарів")
-        enabled: (root.modeid & winBalanceAction.allowed)
+        // enabled: (root.modeid & winBalanceAction.allowed)
         onTriggered: {
             // Якщо вікно вже відкрите — фокусуємо його, якщо ні — завантажуємо в пам'ять
             if (balanceLoader.active) {
@@ -771,6 +792,9 @@ ApplicationWindow {
                         logView.warn(`[Settings] ${param ?? "Unknown warning"}`, 4, 10)
                     } else if (id === 'error') {
                         logView.error(`[Settings] ${param ?? "Unknown error"}`, 16)
+                    } else if (id === 'modeidChanged') {
+                        root.modeid = Number(param || 3)
+                        // logView.info(`Режим змінено на ${root.modeid}`, 1, 5)
                     } else {
                         logView.warn("[Settings] Bad event", 1)
                     }
@@ -844,11 +868,11 @@ ApplicationWindow {
         onTriggered: { taxServiceLoader.active = checked; }
     }
 
-    Action{
-        id: syncBalanceAction
-        text: "Синхронізувати залишки"
-        onTriggered: JS.uploadBalance(Db, "all", logView)
-    }
+    // Action{
+    //     id: syncBalanceAction
+    //     text: "Синхронізувати залишки"
+    //     onTriggered: JS.uploadBalance(Db, "all", logView)
+    // }
 
     Action {
         id: changeDBAction
