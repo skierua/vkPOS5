@@ -18,22 +18,20 @@ ApplicationWindow {
     height: 480
 
     property int modeid: 2    // 2 kantor, 1 shop
-    onModeidChanged: {
-        for (i = naviMenu_dynamic.count - 1; i >= 0; --i) {
-            let item = naviMenu_dynamic.itemAt(i);
-            naviMenu_dynamic.removeItem(item);
+    // onModeidChanged: {
+    //     for (let i = naviMenu_dynamic.count - 1; i >= 0; --i) {
+    //         let item = naviMenu_dynamic.itemAt(i);
+    //         naviMenu_dynamic.removeItem(item);
 
-            // Якщо цей пункт був створений динамічно через createObject або createQmlObject,
-            // знищуємо його, повністю звільняючи оперативну пам'ять терміналу
-            if (item) {
-                // Перевіряємо кастомний маркер 'isDynamic', який додамо при створенні.
-                if (typeof item.destroy === "function") {
-                    item.destroy();
-                }
-            }
-        }
+    //         // if (item) {
+    //         //     // Перевіряємо кастомний маркер 'isDynamic', який додамо при створенні.
+    //         //     if (typeof item.destroy === "function") {
+    //         //         item.destroy();
+    //         //     }
+    //         // }
+    //     }
 
-    }
+    // }
 
     property string dbname: ''
 
@@ -146,7 +144,7 @@ ApplicationWindow {
                         // syncBalanceAction,
                         changeDBAction,
                         { isSeparator: true },  // ✂️ роздільник
-                        // testAction,
+                        testAction,
                         winShiftAction,
                         { isSeparator: true },  // ✂️ роздільник
                         quitAction
@@ -170,7 +168,7 @@ ApplicationWindow {
                                 // Якщо це звичайний Action — перевіряємо, чи він увімкнений
                                 const isAllowed = ((modelData.allowed || 3) & root.modeid) !== 0;
                                 // console.log(`Main.qml#9e5f is=${isAllowed} text=${modelData.text} modelall=${(modelData.allowed || 3)} rootid=${root.modeid}`)
-                                return isAllowed ? menuItemComponent : null
+                                return (isAllowed && modelData.enabled) ? menuItemComponent : null
                                 // return modelData.enabled ? menuItemComponent : null
                             }
 
