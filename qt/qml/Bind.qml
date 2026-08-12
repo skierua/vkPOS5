@@ -113,8 +113,10 @@ Item {
             printCode: Number(printCode || 0),
         };
         const res = JS.handleTranAction(dbDriver, prnDriver, bindModel, uiBridge);
-        if (!res) startBindAction.trigger();
-        else if (Number(res) === -1) newRowAction.trigger();
+        // if (!res) startBindAction.trigger();
+        // else if (Number(res) === -1) newRowAction.trigger();
+        if (Number(res) < 0)  newRowAction.trigger();
+        else startBindAction.trigger();
     }
 
     Action {

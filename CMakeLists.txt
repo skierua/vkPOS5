@@ -54,6 +54,7 @@ set(JS_FILES
     qt/qml/js/main.js
     qt/qml/js/CashDesk.js
     qt/qml/js/v147/sqlAcnt.js
+    qt/qml/js/v147/sqlBalance.js
     qt/qml/js/v147/sqlBind.js
     qt/qml/js/v147/sqlClient.js
     qt/qml/js/v147/sqlItem.js
@@ -119,7 +120,6 @@ qt_add_qml_module(appvkPOS5
         ${JS_FILES}
     SOURCES
         ${CPP_FILES}
-        QML_FILES qt/qml/js/v147/sqlBalance.js
 )
 
 qt_add_resources(appvkPOS5 "app_res"
