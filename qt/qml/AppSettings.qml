@@ -92,13 +92,13 @@ Item {
         text: "Рахунки"
         onTriggered: {
             if (!root.dbDriver) return;
-            const val = JS.getVal(dbDriver, root.acntDbKey);
+            const val = JS.getAcntList(dbDriver);
             if (!val) {
-                editAcntCash.text = "00";
-                editAcntTrade.text = "00";
-                editAcntBulk.text = "01";
-                editAcntIncas.text = "03";
-                editAcntProfit.text = "07-55";
+                editAcntCash.text = val?.cash.sunstring(2) || "00";
+                editAcntTrade.text = val?.trade.sunstring(2) || "00";
+                editAcntBulk.text = val?.bulk.sunstring(2) || "01";
+                editAcntIncas.text = val?.incas.sunstring(2) || "03";
+                editAcntProfit.text = val?.profit.sunstring(2) || "07-55";
                 stack.currentIndex = 3;
                 return;
             }
@@ -912,14 +912,14 @@ Item {
                             const profitTxt = editAcntProfit.text.trim();
 
                             const val = {
-                                "cash":   !cashTxt ? "" : (JS.glCashPrefix || "30") + cashTxt,
-                                "trade":  !tradeTxt ? "" : (JS.glTradePrefix || "35") + tradeTxt,
-                                "bulk":   !bulkTxt ? "" : (JS.glTradePrefix || "35") + bulkTxt,
-                                "incas":  !incasTxt ? "" : (JS.glCashPrefix || "30") + incasTxt,
-                                "profit": !profitTxt ? "" : (JS.glDepoPrefix || "36") + profitTxt
+                                cash:   !cashTxt ? "" : (JS.glCashPrefix || "30") + cashTxt,
+                                trade:  !tradeTxt ? "" : (JS.glTradePrefix || "35") + tradeTxt,
+                                bulk:   !bulkTxt ? "" : (JS.glTradePrefix || "35") + bulkTxt,
+                                incas:  !incasTxt ? "" : (JS.glCashPrefix || "30") + incasTxt,
+                                profit: !profitTxt ? "" : (JS.glDepoPrefix || "36") + profitTxt
                             };
 
-                            const ok = JS.setVal(dbDriver, root.acntDbKey, val);
+                            const ok = JS.setAcntList(dbDriver, val);
 
                             if (ok) {
                                 root.vkEvent("info", "Конфігурацію рахунків обліку успішно збережено в базі каси");
