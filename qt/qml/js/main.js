@@ -70,6 +70,7 @@ function handleDbNameChanged(db, prn, container, msg, ui){
     const basicConf = Conf.getBasic(db);
     const shft = LibShift.crntShift(db)
 
+    ui.setModeId(Number(basicConf?.appmode || 3))
     prn.setTerm(basicConf?.id || "TEST")
     prn.setUser(shft?.cshrname || "")
     prn.setCheck(basicConf?.print_dcm || "")
@@ -180,25 +181,6 @@ function handleAddBindTab(db, prn, comp, msg, container, ui){
         } else if (id === 'clientChanged') {
             if (ui && typeof ui.setClientFromBind === "function")
                 ui.setClientFromBind(param || null);
-        // } else if (id === 'tranOk') {
-        //    if (!!param && !!param.bind){
-        //        // print dcm
-        //        const pMode = Number(param?.prnMode ?? 2);
-        //        // console.info(`II: main.js/handleAddBindTab pMode=${pMode} auto=${(basicConf?.auto_print || 0)}`)
-        //        if (pMode !== 0 && (pMode === 1 || (basicConf?.auto_print || 0) !== 0)) {
-        //             const prnBind = JSON.parse(JSON.stringify(param.bind));
-        //             const item = LibItem.getItemById(db, prnBind.crn)
-        //             prnBind.jitem = item;
-        //             prn.saveCheck(prnBind || null);
-        //             const printOk = prn.printCheck(prnBind || null);
-        //             if (!!printOk)
-        //                 if (!!msg && typeof msg.error === "function") msg.error(prn.lastError());
-        //        }
-        //        if (!!(param?.sendToTax || false )){
-        //            sendTaxSale(db,(param?.bindForTax || null), msg);
-        //        }
-
-        //    }
         } else if (id === 'info') {
            // if (msg && typeof msg.info === "function")
                 msg?.info?.(`${param ?? "Unknown info"}`);

@@ -195,10 +195,11 @@ function handleTranAction(db, prn, model, ui) {
         sendBindToREST(db, jbind, ui);
     }
 
-    if (sendToTax && TAX.isConnected)
+    if (sendToTax && TAX.isConnected) {
         TAX.sale(db, bid, 0, (err, resp) => {
                       if (!!err)  ui?.error?.(err || "TAX sending error");
                   });
+    }
 
     const pMode = Number(ui?.printMode || 0)
     const pCode = Number(ui?.printCode || 0)

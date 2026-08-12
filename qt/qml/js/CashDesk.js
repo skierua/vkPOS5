@@ -403,6 +403,7 @@ function postRequest(path, req, callback) {
     request.setRequestHeader("Content-Type","application/json");
     request.setRequestHeader("Accept","application/json");
     request.setRequestHeader("developer-id","linux,mppanna");
+    // console.warn(`WW: CashDesk.js#111 send id BLOCKED !!!`)
     request.send(JSON.stringify(req));
     // request.send("data=" + JSON.stringify(req));
 }

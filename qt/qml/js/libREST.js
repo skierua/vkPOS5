@@ -133,7 +133,7 @@ function loadRates(req, callback) {
 function uploadBind2(bind, callback) {
     const currentTerm = String(Conf.TERM || "TEST");
     const currentShop = currentTerm;
-    const bindReq = { "reqid": "upd", "term": currentTerm, "shop": currentShop, "data": bind }
+    const req = { "reqid": "upd", "term": currentTerm, "shop": currentShop, "data": bind }
     if (BAN_SEND) {
     // debug info
         console.warn("WW: REST.uploadBind2 is PROHIBITED (BAN_SEND = true) !!!")
