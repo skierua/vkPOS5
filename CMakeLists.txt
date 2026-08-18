@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 
 project(vkPOS5
-    VERSION 3.12
+    VERSION 3.13
     LANGUAGES CXX)
 
 

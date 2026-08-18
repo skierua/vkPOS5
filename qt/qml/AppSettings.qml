@@ -231,7 +231,7 @@ Item {
                                         onCheckedButtonChanged: {
                                             if (checkedButton) {
                                                 currentModeid = checkedButton.modeid
-                                                console.log("Активний тип:", currentModeid)
+                                                // console.log("II: AppSettings.qml#w5t Активний тип:", currentModeid)
                                             }
                                         }
                                     }
