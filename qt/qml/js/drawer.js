@@ -1,5 +1,6 @@
 .import "v147/config.js" as Conf
 .import "v147/sqlAcnt.js" as LibAcnt
+.import "v147/sqlBalance.js" as LibBal
 .import "v147/sqlClient.js" as LibClient
 .import "v147/sqlItem.js" as LibItem
 
@@ -16,7 +17,7 @@ function load(db, model, balList, mask =0, reverse =false) {
     SECTION_CACHE.clear();
     const condition = Number(mask < 4) ? `(item IS NULL OR length(item) < 4)` : ""
     for (let bal of balList){
-        const source = LibAcnt.balBalance2(db, bal, condition) || [];
+        const source = LibBal.balBalance(db, bal, condition) || [];
         // console.log(`ModelDrawer/load source=${JSON.stringify(source)}`)
         if (!source || source.length < 1) continue;
         for (let acnt of source){
@@ -55,7 +56,27 @@ function load(db, model, balList, mask =0, reverse =false) {
         }
     }
     // console.log(`drawer.js/load ROW_CACHE=${JSON.stringify(ROW_CACHE)}`)
-    sortData();
+    // sortData();
+    ROW_CACHE.sort((a,b) => {
+                 const compBind = (a.acntno || "").localeCompare(b.acntno || "");
+                 if (compBind !== 0) return compBind;
+
+                 const maskA = Number(a.mask);
+                 const maskB = Number(b.mask);
+                 if (!isNaN(maskA) && !isNaN(maskB) && maskA !== maskB) {
+                     return maskA - maskB;
+                 }
+
+                 const numA = Number(a.so);
+                 const numB = Number(b.so);
+                 if (!isNaN(numA) && !isNaN(numB) && numA !== numB) {
+                     return numA - numB;
+                 }
+                 const compSo = (a.so || "").localeCompare(b.so || "");
+                 if (compSo !== 0) return compSo;
+
+                 return (a.acntno || "").localeCompare(b.acntno || "");
+             });
     filterData(model)
 }
 
@@ -66,7 +87,7 @@ function loadProfit(db, model, balList) {
     ROW_CACHE.splice(0, ROW_CACHE.length);
     SECTION_CACHE.clear();
     const bal = `${Conf.TRADE_RESULT_PREFIX}.`;
-    const source = LibAcnt.balBalance2(db, bal) || [];
+    const source = LibBal.balBalance(db, bal) || [];
     // console.info(`II: drawer.js/loadProfit ${JSON.stringify(source)}`);
     // const acntMap = new Map();
     for (let acnt of source){
@@ -107,14 +128,19 @@ function loadProfit(db, model, balList) {
         ROW_CACHE.push(rowData);
     }
 // console.info(`II: drawer.js/loadProfit ${JSON.stringify([...SECTION_CACHE.entries()])}`)
-    sortData();
+    // sortData();
+    ROW_CACHE.sort((a,b) => {
+                       return (a.bind || "").localeCompare(b.bind || "")
+                       || (a.so || "").localeCompare(b.so || "");
+                       // || Math.abs(Number(b.total)) - Math.abs(Number(a.total));
+                   });
     filterData(model)
     return;
 }
 
-function sortData(){
+/*function sortData(){
     ROW_CACHE.sort((a,b) => {
-                 const compBind = (a.bind || "").localeCompare(b.bind || "");
+                 const compBind = (a.acntno || "").localeCompare(b.acntno || "");
                  if (compBind !== 0) return compBind;
 
                  const maskA = Number(a.mask);
@@ -132,8 +158,8 @@ function sortData(){
                  if (compSo !== 0) return compSo;
 
                  return (a.acntno || "").localeCompare(b.acntno || "");
-             })
-}
+             });
+}*/
 
 function isAllowed(row, flt) {
     if (!row) return false;

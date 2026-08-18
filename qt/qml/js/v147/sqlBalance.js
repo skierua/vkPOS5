@@ -10,10 +10,9 @@ function dbBalance(db, flt = "", order = "", reverse = false) {
     // console.log(`984#sqlAcnt.js db=[Ok]`)
 
     // Розрахунок сальдо залежно від типу рахунку (Актив / Пасив)
-    let amount = " (beginamnt+turndbt-turncdt) as total, coalesce(turndbt, '') income, coalesce(turncdt, '') outcome, coalesce(dbtupd, '') intm, coalesce(cdtupd, '') outm,";
-    if (reverse) {
-        amount = " (0 - (beginamnt+turndbt-turncdt)) as total, coalesce(turncdt, '') income, coalesce(turndbt, '') outcome, coalesce(cdtupd, '') intm, coalesce(dbtupd, '') outm,";
-    }
+    const amount = reverse
+                 ? " (0 - (beginamnt+turndbt-turncdt)) as total, coalesce(turncdt, '') income, coalesce(turndbt, '') outcome, coalesce(cdtupd, '') intm, coalesce(dbtupd, '') outm,"
+                   :" (beginamnt+turndbt-turncdt) as total, coalesce(turndbt, '') income, coalesce(turncdt, '') outcome, coalesce(dbtupd, '') intm, coalesce(cdtupd, '') outm,";
     const whereCondition = (flt === "" ? "" : `WHERE ${flt}`)
     const sortCondition = (order === "" ? "" : `ORDER BY ${order}`)
     const vsql = `
@@ -62,6 +61,19 @@ function dbTradeBalance(db, condition = "", order = "") {
     ${sortCondition};
 `
     return db.dbSelectRowsJSON(vsql);
+}
+
+/**
+ * Залишки по групі рахунків (напр. по всьому 300)
+ * NO reverse, NO sort
+ */
+function balBalance(db, bal, condition) {
+    if (!db || !bal || bal.length < 2) return [];
+
+    const flt = `substr(acntno, 1, ${bal.length}) = '${bal}' AND abs(beginamnt + turndbt - turncdt) > 0.0009`
+        + (!condition ? "" : ` AND ${condition}`);
+// console.log(`II: sqlAcnt.js/balBalance2 flt = ${flt}`)
+    return dbBalance(db, flt);
 }
 
 /*
