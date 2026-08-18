@@ -1138,7 +1138,7 @@ Item {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 48
                             Layout.alignment: Qt.AlignVCenter
-                            color: (root.totalEq + root.totalDsc)> 0 ? "#ffebee" : "#e3f2fd" // Ніжно-червоний або ніжно-синій фон
+                            color: root.totalPmnt < 0 ? "#ffebee" : "#e3f2fd"  // Ніжно-червоний або ніжно-синій фон
                             radius: 8
                             border.color: root.totalPmnt < 0 ? "#ffcdd2" : "#bbdefb"
                             border.width: 1
@@ -1152,7 +1152,7 @@ Item {
                                     text: "РАЗОМ:"
                                     font.pixelSize: 12
                                     font.bold: true
-                                    color: (root.totalEq + root.totalDsc) > 0 ? "#c62828" : "#1565c0"
+                                    color: root.totalPmnt < 0 ? "#c62828" : "#1565c0"
                                     Layout.alignment: Qt.AlignVCenter
                                 }
 
@@ -1161,13 +1161,15 @@ Item {
                                     Layout.fillWidth: true
                                     horizontalAlignment: Text.AlignRight
                                     verticalAlignment: Text.AlignVCenter
-                                    color: (root.totalEq + root.totalDsc)> 0 ? "#b71c1c" : "#0d47a1" // Глибокий фінансовий колір
+                                    color: root.totalPmnt < 0 ? "#b71c1c" : "#0d47a1"  // Глибокий фінансовий колір
                                     // text: (root.totalPmnt < 0 ? "- " : "")
                                     //       + Math.abs(root.totalPmnt / (bindModel?.rate ?? 1)).toLocaleString(Qt.locale(), 'f', 2)
                                     //       + (bindModel.rate === 1 ? " грн" : " 💱")
-                                    text: ((root.totalEq + root.totalDsc) > 0 ? "- " : "")
-                                    +`${(Math.abs(root.totalEq + root.totalDsc)).toFixed(2)} грн`
-                                    // text: (root.totalPmnt < 0 ? "- " : "") + Math.abs(root.totalPmnt).toLocaleString(Qt.locale(), 'f', 2) + " грн"
+                                    // text: ((root.totalEq + root.totalDsc) > 0 ? "- " : "")
+                                    //       +`${(Math.abs(root.totalEq + root.totalDsc)).toFixed(2)} грн`
+                                    // text: ((root.totalEq + root.totalDsc) > 0 ? "- " : "")
+                                    // +`${(Math.abs(root.totalEq + root.totalDsc)).toFixed(2)} грн`
+                                    text: (root.totalPmnt < 0 ? "- " : "") + Math.abs(root.totalPmnt).toLocaleString(Qt.locale(), 'f', 2) + " грн"
                                     font.pixelSize: 24
                                     font.bold: true
                                 }
