@@ -3,6 +3,9 @@ import QtQuick.Window
 import QtQuick.Layouts
 import QtQuick.Controls
 
+import "js/dcmview.js" as JS
+
+
 
 Window {
     id: dcmViewRootWindow
@@ -12,17 +15,28 @@ Window {
 
     property var dbDriver                 // DataBase driver
     onDbDriverChanged: {
-        // vw.model.populate(dbDriver)
-        loadAction.trigger()
+        // console.info(`II: DcmView.qml dbDriver=[${dbDriver}]`)
+        if (dcmViewRootWindow.dbDriver !== undefined
+                && dcmViewRootWindow.dbDriver !== null)
+            loadAction.trigger();
     }
+    property var dbFilter                 // DataBase filter
+    onDbFilterChanged:
+        if (dcmViewRootWindow.dbDriver !== undefined
+                && dcmViewRootWindow.dbDriver !== null)
+            loadAction.trigger();
 
     property var prnDriver                 // printer manager
+
+    property int countPage: 1
+    property int countBind: 0
 
     signal vkEvent(string eventId, var eventParam)
 
     Action {
         id: previousAction
-        enabled: vcrntEdit.text !== "" && Number(vcrntEdit.text) > (vcrntEdit.validator ? vcrntEdit.validator.bottom : 1)
+        // enabled: vcrntEdit.text !== "" && Number(vcrntEdit.text) > (vcrntEdit.validator ? vcrntEdit.validator.bottom : 1)
+        enabled: Number(vcrntEdit.text) > (vcrntEdit.validator ? vcrntEdit.validator.bottom : 1)
         text: "❮"
         onTriggered: {
             const currentPage = parseInt(vcrntEdit.text) || 1;
@@ -32,7 +46,7 @@ Window {
 
     Action {
         id: nextAction
-        enabled: vw.model !== null && vcrntEdit.text !== "" && (vw.model.pager !== undefined) && parseInt(vcrntEdit.text) < vw.model.pager.length
+        enabled: vw.model !== null && vcrntEdit.text !== "" && (JS.PAGER !== undefined) && parseInt(vcrntEdit.text) < JS.PAGER.length
         text: "❯"
         onTriggered: {
             const currentPage = parseInt(vcrntEdit.text) || 1;
@@ -44,19 +58,19 @@ Window {
             id: loadAction
             icon.source: "qrc:/icon/reload.svg"
             onTriggered: {
+                const ui = {
+                    setPages: (v) => { dcmViewRootWindow.countPage = Number(v || 1);},
+                    setBinds: (v) => { dcmViewRootWindow.countBind = Number(v || 0);},
+                }
                 vfilterEdit.text = "";
                 // console.info(`II: DcmView.qml/loadAction dbDriver=${dbDriver}`)
-                if (dbDriver !== undefined && dbDriver !== null) {
-                    // ✅ Захист від currentIndex === -1 за допомогою currentValue
-                    const activeFilter = findInterval.currentValue !== undefined ? String(findInterval.currentValue) : "shftid = 0";
-                    // console.info(`II: DcmView.qml/loadAction activeFilter=${activeFilter}`)
-                    if (vw.model && typeof vw.model.load === "function") {
-                        // console.info(`II: DcmView.qml/loadAction load`)
-                        vw.model.load(dbDriver, activeFilter);
-                    }
+                if (dcmViewRootWindow.dbDriver !== undefined && dcmViewRootWindow.dbDriver !== null) {
+                    const activeFilter = (findInterval.currentValue !== undefined ? String(findInterval.currentValue) : "shftid = 0")
+                                       + (!dbFilter ? "" : ` AND ${dbFilter}`);
+                    JS.load(dcmViewRootWindow.dbDriver, vw.model, activeFilter, ui)
                 } else {
-                    console.warn("Драйвер бази даних відсутній")
-                    // logView.error("Драйвер бази даних відсутній");
+                    // console.warn("Драйвер бази даних відсутній")
+                    logView.error("Драйвер бази даних відсутній");
                 }
             }
         }
@@ -73,8 +87,8 @@ Window {
         id: viewFullBindAction
         text: "Показати весь чек"
         onTriggered: {
-            if (vw.model && typeof vw.model.showFullBind === "function" && vw.currentIndex !== -1) {
-                vw.model.showFullBind(vw.currentIndex);
+            if (vw.model && typeof JS.showFullBind === "function" && vw.currentIndex !== -1) {
+                JS.showFullBind(vw.model, vw.currentIndex);
             }
         }
     }
@@ -85,7 +99,7 @@ Window {
         text: "Повернути"
         onTriggered: {
             if (vw.currentIndex === -1 || !vw.model) return;
-            const dcm = vw.model.dcmForRefuse(vw.currentIndex)
+            const dcm = JS.dcmForRefuse(vw.model.get(vw.currentIndex))
             // console.log(`DcmView#hys70 res=${JSON.stringify(dcm)}`); return;
             if (dcm){
                 vkEvent("refuse", dcm);
@@ -98,7 +112,8 @@ Window {
         text: "Друкувати чек"
         onTriggered: {
             if (vw.currentIndex === -1 || !vw.model) return;
-            const jbind = vw.model.bindForPrint(dcmViewRootWindow.dbDriver, vw.currentIndex)
+            const pid = vw.model.get(vw.currentIndex).pid
+            const jbind = JS.bindForPrint(dcmViewRootWindow.dbDriver, pid)
             // console.log(`DcmView#d7hf res=${JSON.stringify(jbind)}`); return;
 
             if (jbind){
@@ -121,7 +136,8 @@ Window {
         text: "Зберегти накладну"
         onTriggered: {
             if (vw.currentIndex === -1 || !vw.model) return;
-            const jbind = vw.model.bindForPrint(dcmViewRootWindow.dbDriver, vw.currentIndex)
+            const pid = vw.model.get(vw.currentIndex).pid
+            const jbind = JS.bindForPrint(dcmViewRootWindow.dbDriver, pid)
             if (jbind) {
                 const printer = dcmViewRootWindow.prnDriver
                               ? dcmViewRootWindow.prnDriver
@@ -190,7 +206,8 @@ Window {
                         verticalAlignment: Text.AlignVCenter
                         font.bold: true
                         font.pixelSize: 14
-                        color: Number(model.amount || 0) > 0 ? "#2e7d32" : "#d32f2f"
+                        color: Number(model.amount || 0) > 0 ?  "Navy" : "FireBrick"
+                        // color: Number(model.amount || 0) > 0 ? "#2e7d32" : "#d32f2f"
                         text: Number(model.amount || 0) > 0 ? "＋" : "−"
                     }
 
@@ -306,18 +323,16 @@ Window {
 
         Rectangle {
             width: vw.width
-            height: 34 // Повинно чітко відповідати висоті рядка делегата чека
+            height: 34
             color: "#e3f2fd" // Ніжний пастельно-блакитний колір Material Active
             radius: 6
 
-            // Захист від null-значень у Qt 6. Якщо об'єкта немає — повертаємо 0
             y: (vw.currentItem !== null && typeof vw.currentItem !== "undefined") ? vw.currentItem.y : 0
 
-            // Плавна та красива пружинна анімація перетікання фокусу
             Behavior on y {
                 SpringAnimation {
                     spring: 3
-                    damping: 0.3 // Трохи збільшимо демпфування для зменшення зайвого "тремтіння"
+                    damping: 0.3
                 }
             }
         }
@@ -334,7 +349,7 @@ Window {
 
             // Отримуємо посилання на модель через контекст ListView
             readonly property var viewObj: rootSec.ListView.view
-            readonly property var infoObj: (viewObj && viewObj.model) ? viewObj.model.bindInfo(section) : null
+            readonly property var infoObj: (viewObj && viewObj.model) ? JS.sectInfo(section) : null
             readonly property var dateObj: {
                 if (!rootSec.infoObj) return null;
 
@@ -374,7 +389,8 @@ Window {
                         font.pixelSize: 12
                         font.bold: true
                         // Якщо сума повернення (від'ємна) — підсвічуємо червоним
-                        color: (rootSec.infoObj && Number(rootSec.infoObj.amount || 0) < 0) ? "#d32f2f" : "#2e7d32"
+                        color: (rootSec.infoObj && Number(rootSec.infoObj.amount || 0) < 0) ? "FireBrick" : "Navy"
+                        // color: (rootSec.infoObj && Number(rootSec.infoObj.amount || 0) < 0) ? "#d32f2f" : "#2e7d32"
                         text: rootSec.infoObj ? Number(rootSec.infoObj.amount || 0).toLocaleString(Qt.locale(), 'f', 2) : "0.00"
                     }
 
@@ -449,7 +465,8 @@ Window {
             anchors{fill: parent}
             clip: true
             spacing: 2
-            model: ModelDbDcms{}
+            // model: ModelDbDcms{}
+            model: ListModel{}
             delegate: dlg
 
             // Плавні тач-анімації списку
@@ -509,17 +526,29 @@ Window {
                     action: loadAction
                     font.bold: true
                 }
-
-                Label {
-                    id: headerTitle
-                    elide: Label.ElideRight
-                    font.bold: true
-                    font.pixelSize: 14
-                    color: "#263238"
-                    horizontalAlignment: Qt.AlignHCenter
-                    verticalAlignment: Qt.AlignVCenter
-                    Layout.fillWidth: true
+                UIBtn{
+                    id: btnDbSelect
+                    Layout.fillHeight: true
+                    Layout.preferredWidth: Math.max(250, implicitWidth) // Захист від занадто вузької кнопки
+                    // action: selectAcntAction
+                    text: qsTr("Всі документи")
+                    toolTip: qsTr("Фільтр бази даних")
+                    onClicked: {
+                        if (typeof JS?.handleSelect === "function") JS.handleSelect(dbDriver, selectPopup)
+                        else logView.error("Функцію handleSelect не визначено")
+                    }
                 }
+                Item { Layout.fillWidth: true } // Розпірка простору
+                // Label {
+                //     id: headerTitle
+                //     elide: Label.ElideRight
+                //     font.bold: true
+                //     font.pixelSize: 14
+                //     color: "#263238"
+                //     horizontalAlignment: Qt.AlignHCenter
+                //     verticalAlignment: Qt.AlignVCenter
+                //     Layout.fillWidth: true
+                // }
 
                 ComboBox {
                     id: findInterval
@@ -540,7 +569,7 @@ Window {
 
                     textRole: 'text'
                     valueRole: 'filter'
-                    onCurrentValueChanged: loadAction.trigger();
+                    onCurrentValueChanged: if (dcmViewRootWindow.dbDriver !== undefined && dcmViewRootWindow.dbDriver !== null) loadAction.trigger();
                 }
 
                 ToolButton {
@@ -571,30 +600,25 @@ Window {
                 anchors.fill: parent
                 anchors.leftMargin: 12; anchors.rightMargin: 12
                 spacing: 10
-
                 // Пошуковий фільтр
-                Rectangle {
-                    Layout.preferredWidth: 140
-                    height: 32
-                    color: "white"
-                    radius: 4
-                    border.color: vfilterEdit.activeFocus ? "#0288d1" : "#bdbdbd"
-
-                    TextField {
-                        id: vfilterEdit
-                        anchors.fill: parent
-                        leftPadding: 6
-                        selectByMouse: true
-                        font.pixelSize: 12
-                        placeholderText: "🔍 Фільтр чеків..."
-                        background: null
-                        onActiveFocusChanged: if (activeFocus) selectAll();
-                        onAccepted: {
-                            vw.model.filterData(text.trim());
-                            vcrntEdit.text = "1";
+                UIFindEdit{
+                    id: vfilterEdit
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 32
+                    placeholderText: "🔍 Фільтр чеків..."
+                    // onEditingFinished: {
+                    onAccepted: {
+                        const ui = {
+                            filter: text.trim(),
+                            setPages: (v) => { dcmViewRootWindow.countPage = Number(v || 1);},
+                            setBinds: (v) => { dcmViewRootWindow.countBind = Number(v || 0);},
                         }
+                        JS.filterData(vw.model, ui);
+                        vcrntEdit.text = "1";
+
                     }
                 }
+
 
                 Item { Layout.fillWidth: true } // Розпірка простору
 
@@ -614,17 +638,20 @@ Window {
                         font.bold: true
                         selectByMouse: true
                         background: null
-                        validator: IntValidator { bottom: 1 }
+                        validator: IntValidator { bottom: 1; top: dcmViewRootWindow.countPage }
                         horizontalAlignment: Text.AlignHCenter
                         text: "1"
                         onActiveFocusChanged: if (activeFocus) selectAll();
                         onTextChanged: {
                             if (!text || text === "") return;
-                            const maxPage = (vw.model && vw.model.pager) ? vw.model.pager.length : 1;
+                            // const maxPage = (vw.model && JS.PAGER) ? JS.PAGER.length : 1;
+
+                            const maxPage = dcmViewRootWindow.countPage;
                             if (Number(text) > maxPage) text = String(maxPage);
-                            if (vw.model && typeof vw.model.populate === "function") {
-                                vw.model.populate(text);
-                            }
+                            JS?.populate?.(vw.model, text);
+                            // if (JS && typeof JS.populate === "function") {
+                            //     JS.populate(text);
+                            // }
                         }
                     }
                 }
@@ -635,30 +662,41 @@ Window {
                     id: footerCount
                     font.pixelSize: 11
                     color: "#546e7a"
-                    text: String(" з %1 (%2 позицій)")
-                        .arg((vw.model && vw.model.pager) ? vw.model.pager.length : 0)
-                        .arg((vw.model) ? (vw.model.bindCount || 0) : 0)
+                    text: ` з ${dcmViewRootWindow.countPage} (${dcmViewRootWindow.countBind} чеків)`
                 }
             }
         }
     }
 
+    UIPopupSelect{
+        id: selectPopup
+        // width: 360
+        height: dcmViewRootWindow.height * 0.85
+        x: (dcmViewRootWindow.width - width) / 2
+        y: (dcmViewRootWindow.height - height) / 2 // Центруємо також по вертикалі
+        onSelected: (code, id, name) => {
+            if (code==="default"){                  // client
+                dcmViewRootWindow.dbFilter = null
+            } else if (code === "acntno") {        // acntno
+                dcmViewRootWindow.dbFilter = `(pid IS NULL OR pid ='' OR acntcdt = '${id}')`
+            } else if (code==="currency") {
+                const crnFilter = !id ? "itemid IS NULL OR itemid = ''"
+                                      : `itemid = '${id}'`
+                dcmViewRootWindow.dbFilter = `(pid IS NULL OR pid ='' OR ${crnFilter})`
+                // console.info(`II: DcmView.qml#7eh dbFilter=${dbFilter}`)
+            } else if (code==="article") {
+                dcmViewRootWindow.dbFilter = `(pid IS NULL OR pid ='' OR itemid = '${id}')`
+            } else {
+                vkEvent("warn", "SelectPopup bad code, nothing to do")
+            }
+            btnDbSelect.text = `${name} [${id}]`;
+            selectPopup.close()
 
-
-    Component.onCompleted: {
-        // statusChanged.connect(handleComponentStatusChange) //console.log("status="+ root.status
-        // Db.msg("Test message FROM DcmView.");
-        // console.log("#73h main TEST fiscMode="+ fiscMode)
-
-        // contextMenu.addAction(clearFilterAction)
-        // contextMenu.addAction(viewFullBindAction)
-        // contextMenu.addAction(refuseAction)
-        // contextMenu.addItem( Qt.createQmlObject('import QtQuick.Controls; MenuSeparator {}', contextMenu.contentItem, "dynamicSeparator") )
-        // contextMenu.addAction(actionPrintCheck)
-        // contextMenu.addAction(actionPrintOrder)
-        // contextMenu.addItem( Qt.createQmlObject('import QtQuick.Controls; MenuSeparator {}', contextMenu.contentItem, "dynamicSeparator") )
-        // contextMenu.addAction(bindModeAction)
+        }
     }
+
+
+    // Component.onCompleted: {}
 
 }
 

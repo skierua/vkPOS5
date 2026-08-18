@@ -39,13 +39,14 @@ INSERT INTO "dcmtype" ("pkey","dctpchar","dctpname","tranable") VALUES ( 'trade:
 INSERT INTO "balname" ("bal","balname","articlemask","trade") VALUES ( '30', 'Залишок', 7, 0 );
 INSERT INTO "balname" ("bal","balname","articlemask","trade") VALUES ( '31', 'Коррахунок', 7, 0 );
 INSERT INTO "balname" ("bal","balname","articlemask","trade") VALUES ( '35', 'Торгівля', 6, 1 );
-INSERT INTO "balname" ("bal","balname","articlemask","trade") VALUES ( 'eq', 'Торг.Еквівалент', 6, 0 );
 INSERT INTO "balname" ("bal","balname","articlemask","trade") VALUES ( '36', 'Розрахунки', 7, 0 );
 INSERT INTO "balname" ("bal","balname","articlemask","trade") VALUES ( '38', 'Бонуси', 1, 0 );
 INSERT INTO "balname" ("bal","balname","articlemask","trade") VALUES ( '42', 'Капітал', 1, 0 );
 INSERT INTO "balname" ("bal","balname","articlemask","trade") VALUES ( '44', 'Дохід', 1, 0 );
+INSERT INTO "balname" ("bal","balname","articlemask","trade") VALUES ( 'eq', 'Торг.Еквівалент', 6, 0 );
 INSERT INTO "balname" ("bal","balname","articlemask","trade") VALUES ( 'rs', 'Торг.Дохід', 1, 0 );
 INSERT INTO "balname" ("bal","balname","articlemask","trade") VALUES ( '80', 'Витрати', 1, 0 );
+INSERT INTO "balname" ("bal","balname","articlemask","trade") VALUES ( 'te', 'Транзитний', 7, 0 );
 
 INSERT INTO "acntbal" ("acntno","client","acntnote","mask","trade") VALUES ( '36001000', '1000', NULL, 7, 0 );
 INSERT INTO "acntbal" ("acntno","client","acntnote","mask","trade") VALUES ( '3607-55', NULL, 'ДохідВитрати', 7, 0 );
@@ -54,6 +55,7 @@ INSERT INTO "acntbal" ("acntno","client","acntnote","mask","trade") VALUES ( '30
 INSERT INTO "acntbal" ("acntno","client","acntnote","mask","trade") VALUES ( '3500', NULL, NULL, 14, 1 );
 INSERT INTO "acntbal" ("acntno","client","acntnote","mask","trade") VALUES ( 'rslt', NULL, 'ЕКВІВАЛЕНТ доходу', 1, 0 );
 INSERT INTO "acntbal" ("acntno","client","acntnote","mask","trade") VALUES ( '3501', NULL, 'ТОРГ-ГУРТ(HURT)', 0, 1 );
+INSERT INTO "acntbal" ("acntno","client","acntnote","mask","trade") VALUES ( 'temp', NULL, NULL, 0, 0 );
 
 INSERT INTO "item" ("pkey","folder","scancode","parentid","itemchar","itemname","itemnote","defunit","itemmask","uktzed","taxchar","taxprc") VALUES ( '980', 0, NULL, NULL, 'UAH', 'українська гривня', NULL, NULL, 1, '', '', '' );
 INSERT INTO "item" ("pkey","folder","scancode","parentid","itemchar","itemname","itemnote","defunit","itemmask","uktzed","taxchar","taxprc") VALUES ( '100001', 1, NULL, NULL, 'ІНОЗ.ВАЛЮТА', 'Іноземна валюти та ін.', NULL, NULL, 2, '', '', '' );

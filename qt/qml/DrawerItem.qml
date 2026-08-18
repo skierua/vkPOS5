@@ -127,6 +127,8 @@ Item {
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
+                hoverEnabled: true
+                ToolTip{ visible: parent.hovered; delay: 800; timeout: 4000; text: qsTr("Каса"); }
             }
             Button {
                 id: btnViewTrade
@@ -150,6 +152,8 @@ Item {
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
+                hoverEnabled: true
+                ToolTip{ visible: parent.hovered; delay: 800; timeout: 4000; text: qsTr("TRADE"); }
             }
             Button {
                 id: btnViewDebt
@@ -172,6 +176,8 @@ Item {
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
+                hoverEnabled: true
+                ToolTip{ visible: parent.hovered; delay: 800; timeout: 4000; text: qsTr("Борги, депозити"); }
             }
             Button {
                 id: btnViewArticle
@@ -194,6 +200,8 @@ Item {
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
+                hoverEnabled: true
+                ToolTip{ visible: parent.hovered; delay: 800; timeout: 4000; text: qsTr("Товари"); }
             }
             Button {
                 id: btnViewProfit
@@ -216,6 +224,8 @@ Item {
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
+                hoverEnabled: true
+                ToolTip{ visible: parent.hovered; delay: 800; timeout: 4000; text: qsTr("Доходи(торгові)"); }
             }
 
         }
@@ -356,16 +366,23 @@ Item {
             }
         }
 
+
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 38
+            Layout.preferredHeight: 32
             Layout.maximumHeight: 38
-            color: "#ffffff"
-            radius: 8
-            border.color: dataFilter.activeFocus ? "#0288d1" : "#e0e0e0"
-            border.width: dataFilter.activeFocus ? 2 : 1
+            color: "#eaedf0"
+            // radius: 8
+            // border.color: dataFilter.activeFocus ? "#0288d1" : "#e0e0e0"
+            // border.width: dataFilter.activeFocus ? 2 : 1
+            UIFindEdit{
+                id: dataFilter
+                placeholderText: "🔍 Фільтрувати..."
+                onTextChanged: JS.filterData(vw.model, text.trim())
+                onAccepted: JS.filterData(vw.model, text.trim())
+            }
 
-            RowLayout {
+/*            RowLayout {
                 anchors.fill: parent
                 anchors.leftMargin: 8
                 anchors.rightMargin: 4
@@ -399,7 +416,7 @@ Item {
                     }
                     background: Rectangle { color: "transparent" }
                 }
-            }
+            } */
         }
     }
 }

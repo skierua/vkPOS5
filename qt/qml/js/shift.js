@@ -13,6 +13,11 @@
    const shift = LibShift.crntShift(db);
    if (!shift) return;
    ui.setShiftData(shift);
+   const dfltAcnts = LibAcnt.DfltAcnt.acnts(db);
+   // console.info(`II: shift.js/handleDriverChanged bulk=[${dfltAcnts?.bulk}]`)
+   const hasBulkVal = !!dfltAcnts?.bulk || false;
+   ui?.setHasBulk?.(hasBulkVal);
+   // console.info(`II: shift.js/handleDriverChanged hasBulkVal=[${hasBulkVal}]`)
    const isShiftActive = (shift?.shftend === '');
    ui.setStackIndex(isShiftActive);
    if (isShiftActive){

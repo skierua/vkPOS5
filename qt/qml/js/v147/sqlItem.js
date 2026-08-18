@@ -178,6 +178,5 @@ function dbItems(db, condition, filter) {
         ${whereCondition};
     `
 // console.log(`sqlItem vsql= ${vsql}`)
-    // ✅ ОПТИМІЗАЦІЯ QT6: Пряме завантаження масиву QVariantList без JSON.parse
     return db.dbSelectRowsJSON(vsql, filter) || [];
 }

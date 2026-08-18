@@ -168,10 +168,8 @@ Window {
         id: vwHeader
 
         Rectangle {
-            // ✅ ВИПРАВЛЕНО: Змінено id на headerRoot, щоб прибрати конфлікт із головним вікном root
             id: headerRoot
 
-            // ✅ ОПТИМІЗАЦІЯ: Пряме та стабільне звернення до таблиці за її id (vw) замість ListView.view
             width: vw.width
             height: 32 // Трохи збільшимо висоту для сучасного вигляду
             color: "#F3F4F6" // Приємний нейтральний сірий фон шапки таблиці (Tailwind Gray 100)
@@ -195,7 +193,6 @@ Window {
                     Layout.preferredWidth: 60
                     Layout.fillHeight: true
 
-                    // ✅ ВИПРАВЛЕНО: Замінено Row на RowLayout для залізобетонного центрування без наповзання
                     RowLayout {
                         anchors.centerIn: parent
                         spacing: 2
@@ -274,7 +271,6 @@ Window {
                         anchors.fill: parent
                         hoverEnabled: true
 
-                        // ✅ ОПТИМІЗАЦІЯ QT6: Автоматична підказка без ручних onEntered/onExited
                         ToolTip.delay: 800
                         ToolTip.timeout: 4000
                         ToolTip.visible: containsMouse
@@ -567,7 +563,6 @@ Window {
         id: dlg
 
         FocusScope {
-            // ✅ ВИПРАВЛЕНО: Змінено id на delegateRoot для уникнення конфліктів контексту root
             id: delegateRoot
             width: vw.width
             height: 30 // Трохи збільшимо висоту рядка для кращої читаності сум касирами
@@ -586,7 +581,6 @@ Window {
                     color: "#F3F4F6"
                 }
 
-                // ✅ ВИПРАВЛЕНО: Повний перехід на RowLayout, що суворо дублює сітку нашої новой шапки vwHeader
                 RowLayout {
                     anchors {
                         fill: parent
@@ -627,7 +621,7 @@ Window {
                             return Math.abs(totalNum).toLocaleString(Qt.locale(), 'f', precision);
                         }
 
-                        // ✅ ФІНАНСОВЕ КОДУВАННЯ: Якщо мінус на залишку — підсвічуємо чітким червоним кольором
+                        // Якщо мінус на залишку — підсвічуємо чітким червоним кольором
                         color: Number(total || 0) < 0 ? "#DC2626" : "#111827"
                         font { pixelSize: 12; bold: true }
                     }
@@ -689,68 +683,6 @@ Window {
         }
     }
 
-/*    Component {
-        id: dlg
-        FocusScope {
-            id: root
-            width: root.ListView.view.width //childrenRect.width;
-            height: 28;
-            Rectangle{
-                width: vw.width
-                height: childrenRect.height * 1.2
-                // height: 35       //visible ? childrenRect.height+2 : 0
-                clip: true
-                Row{
-                    width: parent.width
-                    spacing: root.ListView.view.headerItem.children[0].spacing
-                    Text{
-                        width: root.ListView.view.headerItem.children[0].children[0].width //- parent.spacing
-                        text: item.id
-                    }
-                   Text{
-                       width: root.ListView.view.headerItem.children[0].children[1].width //- parent.spacing
-                       text: item.itemchar
-                       clip: true
-                   }
-                   Text{
-                       width: root.ListView.view.headerItem.children[0].children[2].width //- parent.spacing
-                       horizontalAlignment: Text.AlignRight
-                       // anchors.horizontalCenter: parent.horizontalCenter
-                       text: Math.abs(Number(total)).toLocaleString(Qt.locale(),'f', Number(item.unitprec))
-                       color: Number(total) < 0 ? 'red' : 'black'
-                   }
-                   Text{
-                       width: root.ListView.view.headerItem.children[0].children[3].width //- parent.spacing
-                       horizontalAlignment: Text.AlignRight
-                       text: price.toFixed(price < 10 ? 2 : 0)
-                       clip: true
-                   }
-                   Text{
-                       width: root.ListView.view.headerItem.children[0].children[4].width //- parent.spacing
-                       horizontalAlignment: Text.AlignRight
-                       text: Math.abs(price * Number(total)).toLocaleString(Qt.locale(),'f', 0)
-                       clip: true
-                       color: (price * Number(total)) < 0 ? 'red' : 'black'
-                   }
-
-                   Text{
-                       width: root.ListView.view.headerItem.children[0].children[5].width //- parent.spacing
-                       horizontalAlignment: Text.AlignRight
-                       text: root.ListView.view.humanDate(intm)
-                       clip: true
-                   }
-                   Text{
-                       width: root.ListView.view.headerItem.children[0].children[6].width //- parent.spacing
-                       // width: 60    //parent.width *0.15 - parent.spacing
-                       horizontalAlignment: Text.AlignRight
-                       text: root.ListView.view.humanDate(outm)
-                       clip: true
-                   }
-                }
-            }
-
-        }
-    }*/
 
     Page{
         anchors.fill: parent
@@ -926,6 +858,14 @@ Window {
                                 MenuItem { action: loadBulkAction; }
                             }
                         }
+                        UIFindEdit{
+                            id: vfilterEdit
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 32
+                            placeholderText: "Фільтрувати..."
+                            // onTextChanged: vw.load()
+                            onEditingFinished: vw.load()
+                        }
 
                         Label {
                             id: headerTitle
@@ -1021,7 +961,7 @@ Window {
                   rightMargin: 10
               }
 
-              TextField {
+/*              TextField {
                   id: vfilterEdit
                   Layout.preferredWidth: 120
                   Layout.preferredHeight: 28
@@ -1031,7 +971,7 @@ Window {
                   horizontalAlignment: Text.AlignHCenter
                   placeholderText: "Пошук/Фільтр"
                   onEditingFinished: vw.load()
-              }
+              }*/
 
               Item { Layout.fillWidth: true } // Розпірка
 

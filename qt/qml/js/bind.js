@@ -306,7 +306,7 @@ function handleFind(db, str, popup, ui) {
     const cleanText = str.trim();
     if (cleanText === "") return;
     popup.jsdata = [];
-    let res = []
+    const res = []
     if(isNaN(cleanText)) {
         const clsource = LibClient.dbClient(db, null, cleanText)
         const cllist = clsource
@@ -413,7 +413,7 @@ function handleFind(db, str, popup, ui) {
         }
         if (res.length === 0 && str.length < 14) {
             const scansource = LibItem.dbItems(db,
-                               `(itemmask = 4) AND scancode LIKE '%${str}%')`)
+                               `(itemmask = 4) AND scancode LIKE '%${str}%'`)
             if (scansource.length > 0){
                 const scanlist = scansource
                 .sort((a,b) => a.itemchar.localeCompare(b.itemchar) )
@@ -508,9 +508,9 @@ function handleNewRefuse(db, model, dcm){
     if (!model || !dcm) return false;
     const datcl = LibItem.getItemById(db, String(dcm.itemid || ""));
     const dacnt = LibAcnt.acntbal(db, String(dcm.acntcdt || ""));
-    console.log(`bind.js#wlp0/handleNewRefuse dcm=${JSON.stringify(dcm)}`)
+    // console.log(`bind.js#wlp0/handleNewRefuse dcm=${JSON.stringify(dcm)}`)
     const res = model.addRefused(dcm, datcl, dacnt);
-    console.log(`bind.js#wlp0/handleNewRefuse res=[${res}]`)
+    // console.log(`bind.js#wlp0/handleNewRefuse res=[${res}]`)
     return res;
 
 }

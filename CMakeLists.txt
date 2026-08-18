@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 
 project(vkPOS5
-    VERSION 3.10
+    VERSION 3.11
     LANGUAGES CXX)
 
 
@@ -65,8 +65,13 @@ set(JS_FILES
     qt/qml/js/v147/sqlTran.js
     qt/qml/js/bind.js
     qt/qml/js/drawer.js
-    qt/qml/js/shift.js
+    qt/qml/js/dcmview.js
     qt/qml/js/rate.js
+    qt/qml/js/shift.js
+    qt/qml/UIBtn.qml
+    qt/qml/UITextField.qml
+    qt/qml/UIFindEdit.qml
+    qt/qml/UIPopupSelect.qml
 )
 
 set(DB_FILES
@@ -110,7 +115,6 @@ qt_add_qml_module(appvkPOS5
         qt/qml/DrawerItem.qml
         qt/qml/LogView.qml
         qt/qml/ModelBind.qml
-        qt/qml/ModelDbDcms.qml
         qt/qml/Rate.qml
         qt/qml/Shift.qml
         qt/qml/Stat.qml

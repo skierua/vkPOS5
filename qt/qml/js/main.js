@@ -24,13 +24,15 @@ function handleDbNameChanged(db, prn, container, msg, ui){
 
 
 
-    const dfltAcnts = LibAcnt.DfltAcnt.acnts(db);
+    const dfltAcnts = Conf.getAcntList(db);
     // if needed we should open account or set proper mask
     // console.log(`II: main.js/handleDbNameChanged [${JSON.stringify(dfltAcnts)}]`);
     if (dfltAcnts) {
         for (let key in dfltAcnts){
             // console.log(`36g#Main.qmlkey=${key} acnt=${dfltAcnts[key]}`)
-            const acnt = LibAcnt.acntbal(db, dfltAcnts[key], true);
+            if (!!dfltAcnts[key]){
+                const acnt = LibAcnt.acntbal(db, dfltAcnts[key], true);
+            }
         }
     } else {
         const cashAcntNo = LibAcnt.createCashAcntNo();
@@ -208,6 +210,17 @@ function handleShiftWinClose(db, timer){
             if (typeof timer !== "undefined") timer.start();
         }
     }
+}
+
+function reloadNaviMenu(menu, instantiator){
+    for (let i = menu.count - 1; i >= 0; --i) {
+        let item = menu.itemAt(i);
+        menu.removeItem(item);
+
+    }
+    instantiator.model = menu.menuStructure;
+    // ui?.reloadModel?.()
+
 }
 
 function handleZReport(msg){
