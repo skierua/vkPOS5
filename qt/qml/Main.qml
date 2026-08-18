@@ -18,20 +18,7 @@ ApplicationWindow {
     height: 480
 
     property int modeid: 2    // 2 kantor, 1 shop
-    // onModeidChanged: {
-    //     for (let i = naviMenu_dynamic.count - 1; i >= 0; --i) {
-    //         let item = naviMenu_dynamic.itemAt(i);
-    //         naviMenu_dynamic.removeItem(item);
-
-    //         // if (item) {
-    //         //     // Перевіряємо кастомний маркер 'isDynamic', який додамо при створенні.
-    //         //     if (typeof item.destroy === "function") {
-    //         //         item.destroy();
-    //         //     }
-    //         // }
-    //     }
-
-    // }
+    onModeidChanged: JS.reloadNaviMenu(naviMenu_dynamic, naviMenuInstantiator);
 
     property string dbname: ''
 
@@ -152,6 +139,7 @@ ApplicationWindow {
 
                     // 2. ✨ Інстанціатор, який фільтрує та створює контент «на льоту»
                     Instantiator {
+                        id: naviMenuInstantiator
                         model: naviMenu_dynamic.menuStructure
 
                         // Головна логіка: створюємо MenuItem або MenuSeparator
@@ -166,9 +154,9 @@ ApplicationWindow {
                                     return naviMenu_dynamic.shouldShowSeparator(index) ? separatorComponent : null
                                 }
                                 // Якщо це звичайний Action — перевіряємо, чи він увімкнений
-                                const isAllowed = ((modelData.allowed || 3) & root.modeid) !== 0;
+                                const isAllowed = !!((modelData.allowed || 3) & root.modeid)    // !== 0;
                                 // console.log(`Main.qml#9e5f is=${isAllowed} text=${modelData.text} modelall=${(modelData.allowed || 3)} rootid=${root.modeid}`)
-                                return (isAllowed && modelData.enabled) ? menuItemComponent : null
+                                return (isAllowed/* && modelData.enabled*/) ? menuItemComponent : null
                                 // return modelData.enabled ? menuItemComponent : null
                             }
 
@@ -698,7 +686,7 @@ ApplicationWindow {
         icon.source: "qrc:/icon/add.svg"
         icon.width: 14
         icon.height: 14
-        // enabled: bindTaxAction.allowed
+        enabled: false
         onTriggered: {
             const uiBridge = {
                 drawer: () => { drawer2Right.open(); },
@@ -711,6 +699,7 @@ ApplicationWindow {
                 compContainer.currentItem.startBindAction.trigger();
             }
         }
+        onEnabledChanged: JS.reloadNaviMenu(naviMenu_dynamic, naviMenuInstantiator);
     }
 
     Action {

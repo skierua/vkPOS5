@@ -304,14 +304,26 @@ Window {
         anchors.fill: parent
 
         header: ToolBar {
-            background: Rectangle { color: "#f8f9fa"; border.color: "#e0e0e0"; border.width: 1 }
+            // implicitHeight: 40  //toolBarLayout.implicitHeight
+            background: Rectangle {
+                color: "#f8f9fa";
+                border.color: "#e0e0e0";
+                border.width: 1 }
 
             RowLayout {
+                id: toolBarLayout
                 anchors.fill: parent
                 anchors.leftMargin: 6; anchors.rightMargin: 6
                 spacing: 6
+                UIFindEdit{
+                    id: findEdit
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 32
+                    placeholderText: "Пошук клієнта..."
+                    onTextChanged: dataModel.populate(text)
+                }
 
-                ToolButton {
+ /*               ToolButton {
                     id: btnFindToggle
                     Layout.preferredWidth: 36
                     Layout.preferredHeight: 36
@@ -319,42 +331,31 @@ Window {
                     onClicked: findEdit.visible = !findEdit.visible
                 }
 
-                // Рядок живого швидкого пошуку
-                // Rectangle {
-                //     id: findEditWrapper
-                //     Layout.fillWidth: true
-                //     Layout.preferredHeight: 32
-                //     color: "white"
-                //     radius: 4
-                //     border.color: findEdit.activeFocus ? "#0288d1" : "#bdbdbd"
-                //     visible: findEdit.visible    || dataModel.count > 0
-
-                    TextField {
-                        id: findEdit
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 32
-                        // anchors.fill: parent
-                        // leftPadding: 8
-                        selectByMouse: true
-                        visible: false
-                        placeholderText: "Пошук клієнта..."
-                        // background: null
-                        background: Rectangle {
-                            radius: 6
-                            color: parent.activeFocus ? "#FFFFFF" : "#F9FAFB"
-                            border { width: 1; color: parent.activeFocus ? "#0288d1" : "#bdbdbd" }
-                            // border { width: 1; color: parent.activeFocus ? "#3B82F6" : "#D1D5DB" }
-                        }
-
-                        onVisibleChanged: {
-                            if (visible) forceActiveFocus();
-                            else text = '';
-                        }
-                        // Живий пошук при кожному введенні літери
-                        onTextChanged: dataModel.populate(text)
-                        onAccepted: dataModel.populate(text)
+                TextField {
+                    id: findEdit
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 32
+                    // anchors.fill: parent
+                    // leftPadding: 8
+                    selectByMouse: true
+                    visible: false
+                    placeholderText: "Пошук клієнта..."
+                    // background: null
+                    background: Rectangle {
+                        radius: 6
+                        color: parent.activeFocus ? "#FFFFFF" : "#F9FAFB"
+                        border { width: 1; color: parent.activeFocus ? "#0288d1" : "#bdbdbd" }
+                        // border { width: 1; color: parent.activeFocus ? "#3B82F6" : "#D1D5DB" }
                     }
-                // }
+
+                    onVisibleChanged: {
+                        if (visible) forceActiveFocus();
+                        else text = '';
+                    }
+                    // Живий пошук при кожному введенні літери
+                    onTextChanged: dataModel.populate(text)
+                    onAccepted: dataModel.populate(text)
+                }*/
 
                 Item {
                     Layout.fillWidth: true
@@ -403,7 +404,26 @@ Window {
                     Label { text: "👤 Додати нову картку клієнта"; font.bold: true; color: "#0288d1"; font.pixelSize: 12 }
 
                     // Форма введення ПІБ
-                    RowLayout {
+                    UITextField{
+                        id: edName
+                        Layout.fillWidth: true
+                        title: "Назва"
+                        placeholderText: "Прізвище, Ім'я..."
+                    }
+                    UITextField{
+                        id: edPhone
+                        Layout.fillWidth: true
+                        title: "Телефон"
+                        placeholderText: "+380..."
+                    }
+                    UITextField{
+                        id: edNote
+                        Layout.fillWidth: true
+                        title: "Опис, нотатки"
+                        placeholderText: "Тип дисконту, VIP, тощо..."
+                    }
+
+/*                    RowLayout {
                         spacing: 8
                         Label { text: "ПІБ:"; font.bold: true; Layout.preferredWidth: 50; font.pixelSize: 11 }
                         Rectangle {
@@ -431,7 +451,7 @@ Window {
                             Layout.fillWidth: true; height: 32; color: "#f9fafb"; radius: 4; border.color: edNote.activeFocus ? "#0288d1" : "#bdbdbd"
                             TextField { id: edNote; anchors.fill: parent; leftPadding: 6; font.pixelSize: 12; background: null; placeholderText: "Тип дисконту, VIP, тощо..." }
                         }
-                    }
+                    } */
 
                     // Кнопки управління формою
                     RowLayout {
@@ -439,20 +459,20 @@ Window {
                         Layout.topMargin: 4
                         spacing: 8
 
-                        Button {
-                            text: "💾 Зберегти"
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 34
-                            font.bold: true
-                            // ✅ ВИПРАВЛЕНО: Передаємо edPhone.text замість неіснуючого dPhone
-                            onClicked: dataModel.addNew(clientManageWindow.dbDriver, edName.text, edPhone.text, edNote.text)
-                        }
-                        Button {
+                        UIBtn{
                             text: "Скасувати"
                             Layout.fillWidth: true
                             Layout.preferredHeight: 34
                             onClicked: rectNewClient.visible = false
                         }
+                        UIBtn{
+                            palette: "blue"
+                            text: "💾 Зберегти"
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 34
+                            onClicked: dataModel.addNew(clientManageWindow.dbDriver, edName.text, edPhone.text, edNote.text)
+                        }
+
                     }
                 }
             }

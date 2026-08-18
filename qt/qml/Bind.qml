@@ -324,7 +324,8 @@ Item {
                         font.bold: true
                         verticalAlignment: Text.AlignVCenter
                         horizontalAlignment: Text.AlignHCenter
-                        color: model.dsign < 0 ? "#d32f2f" : "#2e7d32"
+                        color: model.dsign < 0 ? "FireBrick" : "Navy"
+                        // color: model.dsign < 0 ? "#d32f2f" : "#2e7d32"
                         text: model.dsign < 0 ? '−' : '＋'
                     }
 
@@ -732,7 +733,21 @@ Item {
             spacing: 16
 
             // 1. Кнопка управління знаком кількості (+ / -)
-            Button {
+            UIBtn{
+                // id: btnAmnt
+                Layout.preferredWidth: 48
+                Layout.preferredHeight: 48
+                Layout.alignment: Qt.AlignVCenter
+                palette: Number(root.crntAmnt) < 0 ? "pink" : "skyblue"
+                font.pixelSize: 32
+                text: Number(root.crntAmnt) < 0 ? '−' : '＋'
+                onClicked: {
+                    root.crntAmnt = -1 * Number(root.crntAmnt);
+                    fldMainInput.forceActiveFocus();
+                }
+            }
+
+/*            Button {
                 id: btnAmnt
                 Layout.preferredWidth: 48
                 Layout.preferredHeight: 48
@@ -740,7 +755,6 @@ Item {
 
                 background: Rectangle {
                     color: root.crntAmnt < 0 ? "#ffebee" : "#e3f2fd" // Ніжно-червоний або ніжно-синій фон
-                    // color: btnAmnt.pressed ? "#1b5e20" : (btnAmnt.hovered ? "#2e7d32" : "#4caf50")
                     radius: 6
                     // Легка внутрішня тінь для об'єму
                     border.color: root.crntAmnt < 0 ? "#b71c1c" : "#0d47a1"
@@ -761,7 +775,7 @@ Item {
                     root.crntAmnt = -1 * Number(root.crntAmnt);
                     fldMainInput.forceActiveFocus();
                 }
-            }
+            }*/
             Rectangle {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
@@ -840,7 +854,18 @@ Item {
                         }
                     }
 
-                    Button {
+                    UIBtn{
+                        id: btnGrnShortcut
+                        Layout.preferredWidth: 50
+                        Layout.preferredHeight: 32
+                        Layout.alignment: Qt.AlignVCenter
+                        visible: (Number(root.crntAcnt?.mask ?? 0) & 1) === 1 // Перевірка фіскальної маски
+                        text: 'ГРН'
+                        onClicked: root.newDcm();
+                        toolTip: qsTr("Створити документ у НАЦ.ВАЛЮТІ")
+                    }
+
+/*                    Button {
                         id: btnGrnShortcut
                         Layout.preferredWidth: 50
                         Layout.preferredHeight: 32
@@ -857,7 +882,7 @@ Item {
                         font.pixelSize: 12
                         font.bold: true
                         onClicked: root.newDcm();
-                    }
+                    }*/
                 }
             }
 
@@ -866,7 +891,24 @@ Item {
                 Layout.fillHeight: true
                 spacing: 6
 
-                Button {
+                UIBtn{
+                    id: btnCreditAcnt
+                    Layout.fillHeight: true
+                    Layout.preferredWidth: Math.max(100, implicitWidth) // Захист від занадто вузької кнопки
+                    action: selectAcntAction
+                    toolTip: qsTr("Кореспондуючий рахунок")
+                }
+
+                UIBtn{
+                    id: btnCreditAcntReset
+                    Layout.preferredWidth: 40
+                    Layout.fillHeight: true
+                    visible: (root.crntAcnt?.acntno || "").substring(0, 2) !== '35'
+                    action: resetAcntAction
+                    toolTip: qsTr("Поврнути до типового рахунку")
+                }
+
+/*                Button {
                     id: btnCreditAcnt
                     Layout.fillHeight: true
                     Layout.preferredWidth: Math.max(100, implicitWidth) // Захист від занадто вузької кнопки
@@ -877,9 +919,9 @@ Item {
                         radius: 6
                         border{color: "#b0bec5"; width: 1}
                     }
-                }
+                }*/
 
-                Button {
+ /*               Button {
                     id: btnCreditAcntReset
                     Layout.preferredWidth: 40
                     Layout.fillHeight: true
@@ -891,7 +933,7 @@ Item {
                         radius: 6
                         border{color: "#b0bec5"; width: 1}
                     }
-                }
+                }*/
             }
         }
 
@@ -1040,7 +1082,18 @@ Item {
                 spacing: 16
 
                 // КНОПКА ТРАНЗАКЦІЇ (Велика, акцентна, закруглена)
-                Button {
+                UIBtn{
+                    // id: btnDrawer
+                    Layout.preferredWidth: 48
+                    Layout.preferredHeight: 48
+                    Layout.alignment: Qt.AlignVCenter
+                    palette: "green"
+                    action: tranAutoPrn
+                    font.pixelSize: 20
+                    text: "✔"
+                    toolTip: qsTr("Провести/Записати чек")
+                }
+/*                Button {
                     id: btnTran
                     Layout.preferredWidth: 48
                     Layout.preferredHeight: 48
@@ -1064,7 +1117,7 @@ Item {
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                     }
-                }
+                }*/
 
                 GridLayout {
                     // id: totalAreaLayout
@@ -1085,7 +1138,7 @@ Item {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 48
                             Layout.alignment: Qt.AlignVCenter
-                            color: root.totalPmnt < 0 ? "#ffebee" : "#e3f2fd" // Ніжно-червоний або ніжно-синій фон
+                            color: (root.totalEq + root.totalDsc)> 0 ? "#ffebee" : "#e3f2fd" // Ніжно-червоний або ніжно-синій фон
                             radius: 8
                             border.color: root.totalPmnt < 0 ? "#ffcdd2" : "#bbdefb"
                             border.width: 1
@@ -1099,7 +1152,7 @@ Item {
                                     text: "РАЗОМ:"
                                     font.pixelSize: 12
                                     font.bold: true
-                                    color: root.totalPmnt < 0 ? "#c62828" : "#1565c0"
+                                    color: (root.totalEq + root.totalDsc) > 0 ? "#c62828" : "#1565c0"
                                     Layout.alignment: Qt.AlignVCenter
                                 }
 
@@ -1108,10 +1161,12 @@ Item {
                                     Layout.fillWidth: true
                                     horizontalAlignment: Text.AlignRight
                                     verticalAlignment: Text.AlignVCenter
-                                    color: root.totalPmnt < 0 ? "#b71c1c" : "#0d47a1" // Глибокий фінансовий колір
-                                    text: (root.totalPmnt < 0 ? "- " : "")
-                                          + Math.abs(root.totalPmnt / (bindModel?.rate ?? 1)).toLocaleString(Qt.locale(), 'f', 2)
-                                          + (bindModel.rate === 1 ? " грн" : " 💱")
+                                    color: (root.totalEq + root.totalDsc)> 0 ? "#b71c1c" : "#0d47a1" // Глибокий фінансовий колір
+                                    // text: (root.totalPmnt < 0 ? "- " : "")
+                                    //       + Math.abs(root.totalPmnt / (bindModel?.rate ?? 1)).toLocaleString(Qt.locale(), 'f', 2)
+                                    //       + (bindModel.rate === 1 ? " грн" : " 💱")
+                                    text: ((root.totalEq + root.totalDsc) > 0 ? "- " : "")
+                                    +`${(Math.abs(root.totalEq + root.totalDsc)).toFixed(2)} грн`
                                     // text: (root.totalPmnt < 0 ? "- " : "") + Math.abs(root.totalPmnt).toLocaleString(Qt.locale(), 'f', 2) + " грн"
                                     font.pixelSize: 24
                                     font.bold: true
@@ -1316,14 +1371,31 @@ Item {
                                 color: "#78909c"
                                 font.pixelSize: 11
                                 font.bold: true
-                                text: bindModel.rate === 1 ? '' : `₴ ${((root.totalEq + root.totalDsc)/* / bindModel.rate*/).toFixed(2)}`
+                                // text: bindModel.rate === 1
+                                //       ? ''
+                                //       : `₴ ${((root.totalEq + root.totalDsc)).toFixed(2)}`
+                                text: (root.totalPmnt / (bindModel?.rate ?? 1)).toLocaleString(Qt.locale(), 'f', 2)
+                                // text: (root.totalPmnt < 0 ? "- " : "")
+                                //       + Math.abs(root.totalPmnt / (bindModel?.rate ?? 1)).toLocaleString(Qt.locale(), 'f', 2)
+                                //       + (bindModel.rate === 1 ? " грн" : " 💱")
                             }
                         }
                     }
                 }
 
                 // КНОПКА ГРОШОВОЇ СКРИНЬКИ (Стильна, сіра)
-                Button {
+                UIBtn{
+                    // id: btnDrawer
+                    Layout.preferredWidth: 48
+                    Layout.preferredHeight: 48
+                    Layout.alignment: Qt.AlignVCenter
+                    font.pixelSize: 20
+                    action: drawerAction
+                    text: "⌂" // Або іконка скриньки
+                    toolTip: qsTr("Швидкі залишки")
+                }
+
+/*                Button {
                     id: btnDrawer
                     Layout.preferredWidth: 48
                     Layout.preferredHeight: 48
@@ -1342,12 +1414,39 @@ Item {
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                     }
-                }
+                }*/
             }
 
         }
     }
 
+    UIPopupSelect{
+        id: selectPopup
+        // width: 360
+        height: root.height * 0.85
+        x: (root.width - width) / 2
+        y: (root.height - height) / 2 // Центруємо також по вертикалі
+        onSelected: (code, id) => {
+            if (code==="client"){                  // client
+                root.crntAcnt = JS.getAcnt(dbDriver)    // set default account
+                const clnt = JS.getClient(dbDriver, id);
+                root.crntClient = clnt;
+                setCrntClient(clnt);
+                // console.log(`w82j$Bind.qml HERE 1111`)
+                // newRowAction.trigger();
+            } else if (code === "acntno") {        // acntno
+                root.crntAcnt = JS.getAcnt(dbDriver, id)
+                newRowAction.trigger();
+            } else if (code==="article") {        // acntno
+                newDcm(id);
+            } else {
+                vkEvent("warn", "[Bind] selectPopup bad code, nothing to do")
+            }
+            selectPopup.close()
+
+        }
+    }
+/*
     Popup{
         id: selectPopup
         property var jsdata: [] // [{id, name, fullname, code, sect}]
@@ -1385,36 +1484,30 @@ Item {
                 selectPopupFilter.forceActiveFocus();
             }
         }
-        // onVisibleChanged: if(!visible){selectPopupFilter.text='';
-        //                   } else {
-        //                       selectPopupView.vpopulate(selectPopupFilter.text);
-        //                       selectPopupFilter.forceActiveFocus();
-        //
-    //  }
         ColumnLayout {
             anchors.fill: parent
             anchors.margins: 12 // Внутрішні відступи самого попапу
             spacing: 12
-            /*RowLayout {
-                Layout.fillWidth: true
+            // RowLayout {
+            //     Layout.fillWidth: true
 
-                Label {
-                    text: selectPopup.currentMode === "client" ? "👤 Вибір клієнта" :
-                          selectPopup.currentMode === "acntno" ? "💳 Вибір рахунку" : "📦 Вибір товару"
-                    font.pixelSize: 16
-                    font.bold: true
-                    color: "#212121"
-                    Layout.fillWidth: true
-                }
+            //     Label {
+            //         text: selectPopup.currentMode === "client" ? "👤 Вибір клієнта" :
+            //               selectPopup.currentMode === "acntno" ? "💳 Вибір рахунку" : "📦 Вибір товару"
+            //         font.pixelSize: 16
+            //         font.bold: true
+            //         color: "#212121"
+            //         Layout.fillWidth: true
+            //     }
 
-                ToolButton {
-                    text: "✕"
-                    font.pixelSize: 14
-                    font.bold: true
-                    onClicked: selectPopup.close()
-                    background: Rectangle { color: "transparent" }
-                }
-            }*/
+            //     ToolButton {
+            //         text: "✕"
+            //         font.pixelSize: 14
+            //         font.bold: true
+            //         onClicked: selectPopup.close()
+            //         background: Rectangle { color: "transparent" }
+            //     }
+            // }
             ListView{
                     id: selectPopupView
                     Layout.fillWidth: true
@@ -1558,72 +1651,71 @@ Item {
                     }
                 }
 
-            Rectangle {
-                 Layout.fillWidth: true
-                 height: 40
-                 color: "#f5f5f5"
-                 radius: 8
-                 border.color: selectPopupFilter.activeFocus ? "#0288d1" : "#e0e0e0"
-                 border.width: selectPopupFilter.activeFocus ? 2 : 1
-
-                 RowLayout {
-                     anchors.fill: parent
-                     anchors.leftMargin: 8
-                     anchors.rightMargin: 4
-                     spacing: 6
-
-                     // Іконка пошуку (символьна для простоти, можна замінити на SVG)
-                     Label {
-                         text: "🔍"
-                         font.pixelSize: 14
-                         color: "#9e9e9e"
-                     }
-
-                     TextField {
-                         id: selectPopupFilter
-                         Layout.fillWidth: true
-                         placeholderText: 'Пошук за назвою, ID чи штрихкодом...'
-                         font.pixelSize: 13
-                         selectByMouse: true
-
-                         // Прибираємо стандартний фон TextField, бо ми намалювали свій гарний Rectangle
-                         background: null
-
-                         onTextChanged: selectPopupView.vpopulate(text)
-                         onAccepted: selectPopupView.vpopulate(text)
-                     }
-
-                     // Кнопка швидкого очищення фільтра
-                     ToolButton {
-                         text: "✕"
-                         visible: selectPopupFilter.text !== ""
-                         Layout.preferredWidth: 28
-                         Layout.preferredHeight: 28
-                         onClicked: selectPopupFilter.text = ""
-                         background: Rectangle { color: "transparent" }
-                     }
-                 }
+            UIFindEdit{
+                id: selectPopupFilter
+                Layout.fillWidth: true
+                placeholderText: 'Пошук за назвою, ID чи штрихкодом...'
+                fillWidth: true
+                expanded: true
+                onTextChanged: selectPopupView.vpopulate(text)
+                onAccepted: selectPopupView.vpopulate(text)
             }
+
+            // Rectangle {
+            //      Layout.fillWidth: true
+            //      height: 40
+            //      color: "#f5f5f5"
+            //      radius: 8
+            //      border.color: selectPopupFilter.activeFocus ? "#0288d1" : "#e0e0e0"
+            //      border.width: selectPopupFilter.activeFocus ? 2 : 1
+
+            //      RowLayout {
+            //          anchors.fill: parent
+            //          anchors.leftMargin: 8
+            //          anchors.rightMargin: 4
+            //          spacing: 6
+
+            //          // Іконка пошуку (символьна для простоти, можна замінити на SVG)
+            //          Label {
+            //              text: "🔍"
+            //              font.pixelSize: 14
+            //              color: "#9e9e9e"
+            //          }
+
+            //          TextField {
+            //              id: selectPopupFilter
+            //              Layout.fillWidth: true
+            //              placeholderText: 'Пошук за назвою, ID чи штрихкодом...'
+            //              font.pixelSize: 13
+            //              selectByMouse: true
+
+            //              // Прибираємо стандартний фон TextField, бо ми намалювали свій гарний Rectangle
+            //              background: null
+
+            //              onTextChanged: selectPopupView.vpopulate(text)
+            //              onAccepted: selectPopupView.vpopulate(text)
+            //          }
+
+            //          // Кнопка швидкого очищення фільтра
+            //          ToolButton {
+            //              text: "✕"
+            //              visible: selectPopupFilter.text !== ""
+            //              Layout.preferredWidth: 28
+            //              Layout.preferredHeight: 28
+            //              onClicked: selectPopupFilter.text = ""
+            //              background: Rectangle { color: "transparent" }
+            //          }
+            //      }
+            // }
 
 
 
 
         }
 
-//         TextField{
-//             id: selectPopupFilter
-//             height: 26
-//             width: 80
-// //            font.pixelSize: 8
-//             anchors{right:parent.right;bottom:parent.bottom}
-//             selectByMouse: true
-//             placeholderText: 'фільтр'
-// //            color: text==''?'lightgray':'black'
-//             onAccepted: selectPopupView.vpopulate(text)
-//         }
 
     }
-
+*/
 
     // Component.onCompleted: {
     //     startBindAction.trigger();

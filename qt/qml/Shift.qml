@@ -23,6 +23,7 @@ Window {
     onDbDriverChanged: {
         const uiBridge = {
             setShiftData: (v) => { root.crntShiftData = v; },
+            setHasBulk: (v) => { root.hasBulkAcnt = (v || false); },
             setStackIndex: (v) => {shftStack.currentIndex = (v ? 1 : 0);},
         };
         JS.handleDriverChanged(dbDriver, cmb.model, uiBridge);
@@ -32,6 +33,12 @@ Window {
         // }
     }
     property var crntShiftData: null
+    property bool hasBulkAcnt: false
+    // onHasBulkAcntChanged: {
+    //     // console.info(`II: Shift.qml onHasBulkAcntChanged to [${hasBulkAcnt}] isVisible=[${rightSidePanel_close.visible}]`);
+    // //     rightSidePanel_close.visible = hasBulkAcnt;
+    //     console.info(`II: Shift.qml onHasBulkAcntChanged to [${hasBulkAcnt}] isVisible=[${rightSidePanel_close.visible}]`);
+    // }
     property bool isProcessing: false
 
     signal vkEvent(string id, var param)
@@ -100,7 +107,9 @@ Window {
     Action {
         id: populateIncasAction
         text: "Populate incas"
+        enabled: root.hasBulkAcnt
         onTriggered: {
+            // if ()
             if (typeof JS.populateIncas === "function") {
                 const uiBridge = {
                     setHasIncas: (v) => { vw.hasIncas = v; },
@@ -243,7 +252,20 @@ Window {
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: 12
-                            Button {
+                            UIBtn{
+                                action: cancelAction;
+                                Layout.fillWidth: true;
+                                Layout.preferredHeight: 36
+                            }
+                            UIBtn{
+                                id: startButton
+                                palette: "blue"
+                                action: startAction;
+                                Layout.fillWidth: true;
+                                Layout.preferredHeight: 36
+                                highlighted: true
+                            }
+/*                            Button {
                                 action: cancelAction
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 36
@@ -259,7 +281,7 @@ Window {
                                     color: parent.enabled ? (parent.down ? "#1D4ED8" : "#3B82F6") : "#E5E7EB"
                                 }
                                 contentItem: Text { text: parent.text; font.bold: true; color: parent.enabled ? "#FFFFFF" : "#9CA3AF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                            }
+                            } */
                         }
                     }
                 }
@@ -271,191 +293,237 @@ Window {
         Pane {
             id: closeGroup
             padding: 14
-            RowLayout {
+            ColumnLayout{
                 anchors.fill: parent
                 spacing: 16
-                // ЛІВА ПАНЕЛЬ: Картка метаданих та сервісних сповіщень
-                ColumnLayout {
-                    Layout.alignment: Qt.AlignTop
-                    Layout.preferredWidth: 220
-                    spacing: 10
-                    Label { text: qsTr("МОНІТОР СТАТУСУ ЗМІНИ"); font { pixelSize: 11; bold: true } color: "#4B5563" }
-                    Rectangle { Layout.fillWidth: true; height: 1; color: "#E5E7EB" }
-                    // Інформаційний блок-віджет
-                    Rectangle {
-                        Layout.fillWidth: true
-                        implicitHeight: infoLayout.implicitHeight + 16
-                        radius: 8
-                        color: "#FFFFFF"
-                        border { width: 1; color: "#E5E7EB" }
-                        ColumnLayout {
-                            id: infoLayout
-                            anchors.fill: parent
-                            anchors.margins: 10
-                            spacing: 6
-                            RowLayout { Label { text: qsTr("ID:"); color: "#6B7280"; Layout.preferredWidth: 65 } Label { id: shid; font.bold: true; text: String(crntShiftData.id || "0") } }
-                            RowLayout { Label { text: qsTr("Касир:"); color: "#6B7280"; Layout.preferredWidth: 65 } Label { id: shcshr; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true; text: String(crntShiftData.cshrname || "—") } }
-                            RowLayout { Label { text: qsTr("Дата:"); color: "#6B7280"; Layout.preferredWidth: 65 } Label { id: shdate; text: String(crntShiftData.shftdate || "—") } }
-                            RowLayout { Label { text: qsTr("Старт:"); color: "#6B7280"; Layout.preferredWidth: 65 } Label { id: shopen; text: String(crntShiftData.shftbegin || "—") } }
-                            RowLayout { Label { text: qsTr("Кінець:"); color: "#6B7280"; Layout.preferredWidth: 65 } Label { id: shclose; color: "#6B7280"; text: String(crntShiftData.shftend || "—") } }
-                        }
-                    }
-                    Rectangle {
-                        id: redyToCloseAlert
-                        Layout.fillWidth: true
-                        visible: JS.isIncas(dbDriver) && vw && vw.hasIncas
-                        implicitHeight: alertTxt.implicitHeight + 20
-                        radius: 8
-                        color: "#FEF2F2"
-                        border { width: 1; color: "#FCA5A5" }
-                        ColumnLayout {
-                            anchors.centerIn: parent
-                            width: parent.width - 16
-                            spacing: 2
-                            Label { text: "⚠ " + qsTr("УВАГА КАСИРА!"); font { pixelSize: 11; bold: true } color: "#9B1C1C"; Layout.alignment: Qt.AlignHCenter }
-                            Label { id: alertTxt; text: qsTr("Виявлено неінкасовану валюту.\nЗакриття касового дня заблоковано!"); font.pixelSize: 10; color: "#9B1C1C"; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
-                        }
-                    }
-                    Item { Layout.fillHeight: true } // Розпірка
-                    // Нижній блок кнопок лівої панелі
-                    Button { action: cancelAction; Layout.fillWidth: true; Layout.preferredHeight: 32 }
-                }
-                // ПРАВА ПАНЕЛЬ: Велика картка таблиці інкасацій валют
-                ColumnLayout {
+
+                RowLayout {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    spacing: 8
-                    Rectangle {
-                        Layout.fillWidth: true
+                    // anchors.fill: parent
+                    spacing: 16
+                    // ЛІВА ПАНЕЛЬ: Картка метаданих та сервісних сповіщень
+                    Item{
+                        Layout.alignment: Qt.AlignTop
+                        // Layout.fillWidth: true
+                        Layout.preferredWidth: 280
                         Layout.fillHeight: true
-                        radius: 8
-                        color: "#FFFFFF"
-                        border { width: 1; color: "#E5E7EB" }
+                        // color: "khaki"
                         clip: true
-                        ListView {
-                            id: vw
+                        ColumnLayout {
+                            // visible: false
                             anchors.fill: parent
-                            anchors.margins: 4
-                            clip: true
-                            spacing: 4
-                            property bool hasIncas: false
-                            readonly property real colW1: (width - 16) * 0.22 - spacing
-                            readonly property real colW2: (width - 16) * 0.24 - spacing
-                            // readonly property real colW3: (width - 16) * 0.16 - spacing
-                            // readonly property real colW4: (width - 16) * 0.16 - spacing
-                            readonly property real colW5: (width - 16) * 0.30 - spacing
-                            readonly property real colW6: (width - 16) * 0.24 - spacing
-                            header: Rectangle {
-                                width: vw.width; height: 26; color: "#F3F4F6"; radius: 4
-                                RowLayout {
-                                    anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 8
-                                    Label {
-                                        Layout.preferredWidth: vw.colW1;  horizontalAlignment: Text.AlignHCenter;
-                                        text: qsTr("ВАЛ");
-                                        font { pixelSize: 10; bold: true }
-                                        color: "#4B5563"
-                                    }
-                                    Label {
-                                        Layout.preferredWidth: vw.colW2;  horizontalAlignment: Text.AlignHCenter
-                                        text: qsTr("СУМА");
-                                        font { pixelSize: 10; bold: true }
-                                        color: "#4B5563";
-                                    }
-                                    // Label { Layout.preferredWidth: vw.colW3; text: qsTr("ІНКАС"); font { pixelSize: 10; bold: true } color: "#4B5563"; horizontalAlignment: Text.AlignRight }
-                                    // Label { Layout.preferredWidth: vw.colW4; text: qsTr("ЗАЛИШ"); font { pixelSize: 10; bold: true } color: "#4B5563"; horizontalAlignment: Text.AlignRight }
-                                    Label {
-                                        Layout.preferredWidth: vw.colW5; horizontalAlignment: Text.AlignHCenter;
-                                        text: qsTr("КУРС");
-                                        font { pixelSize: 10; bold: true }
-                                        color: "#4B5563";
-                                    }
-                                    Label {
-                                        Layout.preferredWidth: vw.colW6; horizontalAlignment: Text.AlignHCenter
-                                        text: qsTr("ДОХІД");
-                                        font { pixelSize: 10; bold: true }
-                                        color: "#4B5563";
-                                    }
+                            // Layout.alignment: Qt.AlignTop
+                            // Layout.preferredWidth: 220
+                            spacing: 10
+                            Label { text: qsTr("МОНІТОР СТАТУСУ ЗМІНИ"); font { pixelSize: 11; bold: true } color: "#4B5563" }
+                            Rectangle { Layout.fillWidth: true; height: 1; color: "#E5E7EB" }
+                            // Інформаційний блок-віджет
+                            Rectangle {
+                                Layout.fillWidth: true
+                                implicitHeight: infoLayout.implicitHeight + 16
+                                radius: 8
+                                color: "#FFFFFF"
+                                border { width: 1; color: "#E5E7EB" }
+                                ColumnLayout {
+                                    id: infoLayout
+                                    anchors.fill: parent
+                                    anchors.margins: 10
+                                    spacing: 6
+                                    RowLayout { Label { text: qsTr("ID:"); color: "#6B7280"; Layout.preferredWidth: 65 } Label { id: shid; font.bold: true; text: String(crntShiftData.id || "0") } }
+                                    RowLayout { Label { text: qsTr("Касир:"); color: "#6B7280"; Layout.preferredWidth: 65 } Label { id: shcshr; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true; text: String(crntShiftData.cshrname || "—") } }
+                                    RowLayout { Label { text: qsTr("Дата:"); color: "#6B7280"; Layout.preferredWidth: 65 } Label { id: shdate; text: String(crntShiftData.shftdate || "—") } }
+                                    RowLayout { Label { text: qsTr("Старт:"); color: "#6B7280"; Layout.preferredWidth: 65 } Label { id: shopen; text: String(crntShiftData.shftbegin || "—") } }
+                                    RowLayout { Label { text: qsTr("Кінець:"); color: "#6B7280"; Layout.preferredWidth: 65 } Label { id: shclose; color: "#6B7280"; text: String(crntShiftData.shftend || "—") } }
                                 }
                             }
-                            model: ListModel {}
-                            delegate: FocusScope {
-                                id: delegateRoot
-                                width: vw.width; height: 32
-                                Rectangle {
-                                    anchors { fill: parent; /*leftMargin: 2; rightMargin: 2*/ } radius: 6
-                                    color: vw.currentIndex === index ? "#EFF6FF" : ((index % 2 === 0) ? "#FFFFFF" : "#F9FAFB")
-                                    border { width: 1; color: vw.currentIndex === index ? "#BFDBFE" : "#F3F4F6" }
-                                    RowLayout {
-                                        anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 8
-                                        Rectangle {
-                                            Layout.preferredWidth: vw.colW1 - 6; Layout.preferredHeight: 18; radius: 4
-                                            color: Number(amnt || 0) > 0 ? "#FDE8E8" : "#d7f5d7"
-                                            // color: Number(amnt || 0) > 0 ? "#FDE8E8" : "#F3F4F6"
-                                            Text { anchors.centerIn: parent;
-                                                text: (Number(priceQty || 1) === 1 ? "" : (priceQty || 1) + " ") + (item?.itemchar || "—");
-                                                // text: (item.qty === "1" || item.qty === 1 || !item.qty ? "" : item.qty + " ") + (item?.itemchar || "—");
+                            Rectangle {
+                                id: redyToCloseAlert
+                                Layout.fillWidth: true
+                                visible: JS.isIncas(dbDriver) && vw && vw.hasIncas
+                                implicitHeight: alertTxt.implicitHeight + 20
+                                radius: 8
+                                color: "#FEF2F2"
+                                border { width: 1; color: "#FCA5A5" }
+                                ColumnLayout {
+                                    anchors.centerIn: parent
+                                    width: parent.width - 16
+                                    spacing: 2
+                                    Label { text: "⚠ " + qsTr("УВАГА КАСИРА!"); font { pixelSize: 11; bold: true } color: "#9B1C1C"; Layout.alignment: Qt.AlignHCenter }
+                                    Label { id: alertTxt; text: qsTr("Виявлено неінкасовану валюту.\nЗакриття касового дня заблоковано!"); font.pixelSize: 10; color: "#9B1C1C"; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
+                                }
+                            }
+                            Item { Layout.fillHeight: true } // Розпірка
+                        }
+
+                    }
+
+                    // ПРАВА ПАНЕЛЬ: Велика картка таблиці інкасацій валют
+                    Item{
+                        id: rightSidePanel_close
+                        visible: hasBulkAcnt
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: 260
+                        Layout.fillHeight: true
+                        clip: true
+                        // color: "blue"
+                        ColumnLayout {
+                            anchors.fill: parent
+                            spacing: 8
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                radius: 8
+                                color: "#FFFFFF"
+                                border { width: 1; color: "#E5E7EB" }
+                                clip: true
+                                ListView {
+                                    id: vw
+                                    anchors.fill: parent
+                                    anchors.margins: 4
+                                    clip: true
+                                    spacing: 4
+                                    property bool hasIncas: false
+                                    readonly property real colW1: (width - 16) * 0.22 - spacing
+                                    readonly property real colW2: (width - 16) * 0.24 - spacing
+                                    // readonly property real colW3: (width - 16) * 0.16 - spacing
+                                    // readonly property real colW4: (width - 16) * 0.16 - spacing
+                                    readonly property real colW5: (width - 16) * 0.30 - spacing
+                                    readonly property real colW6: (width - 16) * 0.24 - spacing
+                                    header: Rectangle {
+                                        width: vw.width; height: 26; color: "#F3F4F6"; radius: 4
+                                        RowLayout {
+                                            anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 8
+                                            Label {
+                                                Layout.preferredWidth: vw.colW1;  horizontalAlignment: Text.AlignHCenter;
+                                                text: qsTr("ВАЛ");
                                                 font { pixelSize: 10; bold: true }
-                                                color: Number(amnt || 0) > 0 ? "#DC2626" : "#16A34A";
-                                                // color: Number(amnt || 0) > 0 ? "#9B1C1C" : "#374151";
+                                                color: "#4B5563"
+                                            }
+                                            Label {
+                                                Layout.preferredWidth: vw.colW2;  horizontalAlignment: Text.AlignHCenter
+                                                text: qsTr("СУМА");
+                                                font { pixelSize: 10; bold: true }
+                                                color: "#4B5563";
+                                            }
+                                            // Label { Layout.preferredWidth: vw.colW3; text: qsTr("ІНКАС"); font { pixelSize: 10; bold: true } color: "#4B5563"; horizontalAlignment: Text.AlignRight }
+                                            // Label { Layout.preferredWidth: vw.colW4; text: qsTr("ЗАЛИШ"); font { pixelSize: 10; bold: true } color: "#4B5563"; horizontalAlignment: Text.AlignRight }
+                                            Label {
+                                                Layout.preferredWidth: vw.colW5; horizontalAlignment: Text.AlignHCenter;
+                                                text: qsTr("КУРС");
+                                                font { pixelSize: 10; bold: true }
+                                                color: "#4B5563";
+                                            }
+                                            Label {
+                                                Layout.preferredWidth: vw.colW6; horizontalAlignment: Text.AlignHCenter
+                                                text: qsTr("ДОХІД");
+                                                font { pixelSize: 10; bold: true }
+                                                color: "#4B5563";
                                             }
                                         }
-                                        Text {
-                                            Layout.preferredWidth: vw.colW2; horizontalAlignment: Text.AlignRight;
-                                            text: Math.abs(Number(amnt || 0)).toLocaleString(Qt.locale(), 'f', 2);
-                                            color: Number(amnt || 0) > 0 ? "#DC2626" : "#16A34A";
-                                            // color: Number(amnt || 0) > 0 ? "#DC2626" : "#1F2937";
-                                            font { pixelSize: 12; family: "Courier New, Consolas, Monospace" }
-                                        }
-                                        /*Text {
-                                            Layout.preferredWidth: vw.colW3; horizontalAlignment: Text.AlignRight;
-                                            text: Math.abs(Number(incas || 0)).toLocaleString(Qt.locale(), 'f', 2);
-                                            // color: Number(incas || 0) < 0 ? "#16A34A" : "#6B7280";
-                                            font { pixelSize: 12; bold: true; family: "Courier New, Consolas, Monospace" }
-                                        }*/
-                                        /*Text {
-                                            Layout.preferredWidth: vw.colW4; horizontalAlignment: Text.AlignRight;
-                                            readonly property real resVal: Number(amnt || 0) + Number(incas || 0);
-                                            text: Math.abs(resVal).toLocaleString(Qt.locale(), 'f', 2);
-                                            // color: resVal < 0 ? "#DC2626" : "#111827";
-                                            font { pixelSize: 12; bold: resVal !== Number(amnt || 0); family: "Courier New, Consolas, Monospace" }
-                                        } */
-                                        Text {
-                                            // readonly property real priceVal: Number(price || 0) * Number(item?.qty || 1)
-                                            Layout.preferredWidth: vw.colW5; horizontalAlignment: Text.AlignRight;
-                                            text: (Number(priceVal || 0)).toFixed(4);
-                                            font { pixelSize: 12; family: "Courier New, Consolas, Monospace" }
-                                            // color: "#4B5563"
-                                        }
-                                        Text {
-                                            Layout.preferredWidth: vw.colW6; horizontalAlignment: Text.AlignRight;
-                                            property real profitVal: 0 - Number(eqamount || 0) - Number(amnt || 0) * Number(priceVal || 0) /  Number(priceQty || 1) ;
-                                            text: Math.abs(profitVal).toFixed(0);
-                                            color: profitVal < 0 ? "#DC2626" : "#16A34A";
-                                            // color: profitVal < 0 ? "#DC2626" : "#111827";
-                                            font { pixelSize: 12; bold: true; family: "Courier New, Consolas, Monospace" }
+                                    }
+                                    model: ListModel {}
+                                    delegate: FocusScope {
+                                        id: delegateRoot
+                                        width: vw.width; height: 32
+                                        Rectangle {
+                                            anchors { fill: parent; /*leftMargin: 2; rightMargin: 2*/ } radius: 6
+                                            color: vw.currentIndex === index ? "#EFF6FF" : ((index % 2 === 0) ? "#FFFFFF" : "#F9FAFB")
+                                            border { width: 1; color: vw.currentIndex === index ? "#BFDBFE" : "#F3F4F6" }
+                                            RowLayout {
+                                                anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 8
+                                                Rectangle {
+                                                    Layout.preferredWidth: vw.colW1 - 6; Layout.preferredHeight: 18; radius: 4
+                                                    color: Number(amnt || 0) > 0 ? "#FDE8E8" : "#d7f5d7"
+                                                    // color: Number(amnt || 0) > 0 ? "#FDE8E8" : "#F3F4F6"
+                                                    Text { anchors.centerIn: parent;
+                                                        text: (Number(priceQty || 1) === 1 ? "" : (priceQty || 1) + " ") + (item?.itemchar || "—");
+                                                        // text: (item.qty === "1" || item.qty === 1 || !item.qty ? "" : item.qty + " ") + (item?.itemchar || "—");
+                                                        font { pixelSize: 10; bold: true }
+                                                        color: Number(amnt || 0) > 0 ? "#DC2626" : "#16A34A";
+                                                        // color: Number(amnt || 0) > 0 ? "#9B1C1C" : "#374151";
+                                                    }
+                                                }
+                                                Text {
+                                                    Layout.preferredWidth: vw.colW2; horizontalAlignment: Text.AlignRight;
+                                                    text: Math.abs(Number(amnt || 0)).toLocaleString(Qt.locale(), 'f', 2);
+                                                    color: Number(amnt || 0) > 0 ? "#DC2626" : "#16A34A";
+                                                    // color: Number(amnt || 0) > 0 ? "#DC2626" : "#1F2937";
+                                                    font { pixelSize: 12; family: "Courier New, Consolas, Monospace" }
+                                                }
+                                                /*Text {
+                                                    Layout.preferredWidth: vw.colW3; horizontalAlignment: Text.AlignRight;
+                                                    text: Math.abs(Number(incas || 0)).toLocaleString(Qt.locale(), 'f', 2);
+                                                    // color: Number(incas || 0) < 0 ? "#16A34A" : "#6B7280";
+                                                    font { pixelSize: 12; bold: true; family: "Courier New, Consolas, Monospace" }
+                                                }*/
+                                                /*Text {
+                                                    Layout.preferredWidth: vw.colW4; horizontalAlignment: Text.AlignRight;
+                                                    readonly property real resVal: Number(amnt || 0) + Number(incas || 0);
+                                                    text: Math.abs(resVal).toLocaleString(Qt.locale(), 'f', 2);
+                                                    // color: resVal < 0 ? "#DC2626" : "#111827";
+                                                    font { pixelSize: 12; bold: resVal !== Number(amnt || 0); family: "Courier New, Consolas, Monospace" }
+                                                } */
+                                                Text {
+                                                    // readonly property real priceVal: Number(price || 0) * Number(item?.qty || 1)
+                                                    Layout.preferredWidth: vw.colW5; horizontalAlignment: Text.AlignRight;
+                                                    text: (Number(priceVal || 0)).toFixed(4);
+                                                    font { pixelSize: 12; family: "Courier New, Consolas, Monospace" }
+                                                    // color: "#4B5563"
+                                                }
+                                                Text {
+                                                    Layout.preferredWidth: vw.colW6; horizontalAlignment: Text.AlignRight;
+                                                    property real profitVal: 0 - Number(eqamount || 0) - Number(amnt || 0) * Number(priceVal || 0) /  Number(priceQty || 1) ;
+                                                    text: Math.abs(profitVal).toFixed(0);
+                                                    color: profitVal < 0 ? "#DC2626" : "#16A34A";
+                                                    // color: profitVal < 0 ? "#DC2626" : "#111827";
+                                                    font { pixelSize: 12; bold: true; family: "Courier New, Consolas, Monospace" }
+                                                }
+                                            }
+                                            MouseArea { anchors.fill: parent; onClicked: vw.currentIndex = index; onDoubleClicked: { incasRateEdit.incasid = index; incasRateEdit.open(); } }
                                         }
                                     }
-                                    MouseArea { anchors.fill: parent; onClicked: vw.currentIndex = index; onDoubleClicked: { incasRateEdit.incasid = index; incasRateEdit.open(); } }
                                 }
                             }
                         }
                     }
-                    // Акцентні нижні кнопки управління днем
-                    RowLayout {
-                        Layout.fillWidth: true; spacing: 12
-                        Button {
-                        action: incasAction; Layout.fillWidth: true; Layout.preferredHeight: 36; visible: JS.isIncas(dbDriver); highlighted: enabled
-                        background: Rectangle { radius: 6; color: parent.enabled ? (parent.down ? "#047857" : "#10B981") : "#E5E7EB" }
+
+                }
+
+                // Акцентні нижні кнопки управління днем
+                RowLayout {
+                    Layout.fillWidth: true; spacing: 12
+                    UIBtn{
+                        action: cancelAction;
+                        Layout.fillWidth: true;
+                        Layout.preferredHeight: 36
+                    }
+                    UIBtn{
+                        palette: "green"
+                        action: incasAction;
+                        Layout.fillWidth: true;
+                        Layout.preferredHeight: 36
+                        visible: JS.isIncas(dbDriver);
+                    }
+
+                    // Button { action: cancelAction; Layout.fillWidth: true; Layout.preferredHeight: 32 }
+ /*                   Button {
+                    action: incasAction; Layout.fillWidth: true; Layout.preferredHeight: 36;
+                    visible: JS.isIncas(dbDriver);
+                    highlighted: enabled
+                    background: Rectangle { radius: 6; color:
+parent.enabled ? (parent.down ? "#047857" : "#10B981") : "#E5E7EB" }
+                    contentItem: Text { text: parent.text; font.bold: true; color: parent.enabled ? "#FFFFFF" : "#9CA3AF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                    } */
+                    Button {
+                        action: closeAction; Layout.fillWidth: true; Layout.preferredHeight: 36; highlighted: enabled
+                        background: Rectangle { radius: 6;
+                            color: parent.enabled ? (parent.down ? "#B91C1C" : "#EF4444") : "#E5E7EB" }
                         contentItem: Text { text: parent.text; font.bold: true; color: parent.enabled ? "#FFFFFF" : "#9CA3AF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                        }
-                        Button {
-                            action: closeAction; Layout.fillWidth: true; Layout.preferredHeight: 36; highlighted: enabled
-                            background: Rectangle { radius: 6; color: parent.enabled ? (parent.down ? "#B91C1C" : "#EF4444") : "#E5E7EB" }
-                            contentItem: Text { text: parent.text; font.bold: true; color: parent.enabled ? "#FFFFFF" : "#9CA3AF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                        }
                     }
                 }
             }
+
         }
         // --- МОДАЛЬНИЙ ПОПУП РЕДАГУВАННЯ СУМИ ТА КУРСУ ІНКАСАЦІЇ ---
         Popup {

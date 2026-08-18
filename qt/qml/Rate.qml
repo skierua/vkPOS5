@@ -371,7 +371,22 @@ Window {
             }
 
             // --- НИЖНІ КНОПКИ СИНХРОНІЗАЦІЇ ---
-            Button {
+            UIBtn{
+                id: loadBtn
+                palette: "green"
+                Layout.fillWidth: true
+                Layout.preferredHeight: 36
+                action: getWebAction
+            }
+            UIBtn{
+                id: saveBtn
+                palette: "blue"
+                Layout.fillWidth: true
+                Layout.preferredHeight: 36
+                action: saveWebAction
+            }
+
+/*            Button {
                 id: loadBtn
                 Layout.fillWidth: true
                 Layout.preferredHeight: 36
@@ -385,7 +400,7 @@ Window {
                 Layout.preferredHeight: 36
                 action: saveWebAction
                 font.bold: true
-            }
+            } */
         }
 
         LogView {

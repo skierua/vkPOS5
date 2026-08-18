@@ -62,7 +62,7 @@ ListModel {
 
 
     // DEPRECATED
-    function resolveCode(atcl, acnt, amnt) {
+ /*   function resolveCode(atcl, acnt, amnt) {
         console.warn("ModelBind/resolveCode DEPRECATED !!!"); return false;
 
 
@@ -93,7 +93,7 @@ ListModel {
         }
         // dbg(`mRoot.dtype=${mRoot.dtype} maskNum=${Number(atcl.mask || 0)} res=${res} `, "resolveCode")
         return res;
-    }
+    }*/
 
     function dcmsToTran(targetAcntNo) {
         mRoot.lastError = "";
@@ -198,7 +198,7 @@ ListModel {
 
     function addRefused(dcm, datcl, dacnt) {
         if (!dcm) return false;
-        console.log(`ModelBind/addRefused 111`)
+        // console.log(`ModelBind/addRefused 111`)
 
         const dtype = String(dcm.dcmtype || "");
         const damnt = 0 - Number(dcm.amount || 0);

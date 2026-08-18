@@ -5,6 +5,7 @@ import QtQuick.Layouts
 import "js/v147/config.js" as JS
 import "js/libREST.js" as REST
 import "js/CashDesk.js" as TAX
+import "js/v147/sqlAcnt.js" as LibAcnt
 
 Item {
     id: root
@@ -22,6 +23,7 @@ Item {
         actBasic,
         actREST,
         actTAX,
+        actDfltAccounts,
         actAccounts
     ]
 
@@ -37,6 +39,27 @@ Item {
         editTaxApi.text = TAX.API;
         editTaxCash.text = TAX.CASH;
         editTaxToken.text = TAX.TOKEN;
+    }
+
+    function loadAcntTab(acnt){
+        if (!root.dbDriver || !acnt){
+            root.vkEvent("error", "Помилка вхідних параметрів рахунку");
+            return;
+        }
+        const valList = LibAcnt.dbAcntbal(dbDriver, `acntno = '${acnt}'`);
+        // console.log(`II: AppSettings.qml#q6t3 valList=${JSON.stringify(valList)}`)
+        if (!valList || !valList.length) {
+            root.vkEvent("error", "Помилка заватаження рахунку");
+            return;
+        }
+
+        const v = valList[0];
+        editAcntTabNote.text = v.note;
+        editAcntTabMaskDomestic.checked = (Number(v.mask || 0) & 1) === 1;
+        editAcntTabMaskForeign.checked = (Number(v.mask || 0) & 2) === 2;
+        editAcntTabMaskArticles.checked = (Number(v.mask || 0) & 4) === 4;
+        editAcntTabTrade.checked = (Number(v.trade || 0) === 1);
+
     }
 
     // --- Блок логіки вкладок ---
@@ -88,26 +111,26 @@ Item {
     }
 
     Action {
-        id: actAccounts
-        text: "Рахунки"
+        id: actDfltAccounts
+        text: "Тирові рахунки"
         onTriggered: {
             if (!root.dbDriver) return;
             const val = JS.getAcntList(dbDriver);
-            if (!val) {
-                editAcntCash.text = val?.cash.sunstring(2) || "00";
-                editAcntTrade.text = val?.trade.sunstring(2) || "00";
-                editAcntBulk.text = val?.bulk.sunstring(2) || "01";
-                editAcntIncas.text = val?.incas.sunstring(2) || "03";
-                editAcntProfit.text = val?.profit.sunstring(2) || "07-55";
-                stack.currentIndex = 3;
-                return;
-            }
+            // if (!val) {
+            //     editAcntCash.text = val?.cash.substring(2) || "";
+            //     editAcntTrade.text = val?.trade.substring(2) || "";
+            //     editAcntBulk.text = val?.bulk.substring(2) || "";
+            //     editAcntIncas.text = val?.incas.substring(2) || "";
+            //     editAcntProfit.text = val?.profit.substring(2) || "";
+            //     stack.currentIndex = 3;
+            //     return;
+            // }
 
-            const cashStr = String(val.cash || "");
-            const tradeStr = String(val.trade || "");
-            const bulkStr = String(val.bulk || "");
-            const incasStr = String(val.incas || "");
-            const profitStr = String(val.profit || "");
+            const cashStr = String(val?.cash || "");
+            const tradeStr = String(val?.trade || "");
+            const bulkStr = String(val?.bulk || "");
+            const incasStr = String(val?.incas || "");
+            const profitStr = String(val?.profit || "");
 
             // Відсікаємо префікси, захищаючи довжину рядка
             editAcntCash.text = cashStr.substring(Math.min(cashStr.length, (JS.glCashPrefix || "30").length));
@@ -119,7 +142,21 @@ Item {
             stack.currentIndex = 3; // Перемикаємо StackLayout на вкладку №4
         }
     }
-
+    Action {
+        id: actAccounts
+        text: "Параметри рахунків"
+        onTriggered: {
+            stack.currentIndex = 4;
+            const val = LibAcnt.dbAcntbal(dbDriver);
+            const sortVal = val.sort((a,b)=> a.acntno.localeCompare(b.acntno))
+            .map(v => {
+                 return { "code": v.acntno,
+                     "name": `${v.acntno} - ${v.note || ("[" + v.name + "]")} ${v.clname || ""}`
+                 }})
+            for (let v of sortVal) acntTabCombo.model.append(v)
+            if (!!acntTabCombo.count ) acntTabCombo.currentIndex = 0
+        }
+    }
     // ✨ ФОН ВСЬОГО ЕКРАНА (М'який трендовий студійний сірий)
     Rectangle {
         anchors.fill: parent
@@ -144,7 +181,8 @@ Item {
             Label {
                 text: stack.currentIndex === 0 ? "Базові параметри каси" :
                       stack.currentIndex === 1 ? "Синхронізація REST API" :
-                      stack.currentIndex === 2 ? "Фіскалізація та ПРРО" : "Параметри рахунків"
+                      stack.currentIndex === 2 ? "Фіскалізація та ПРРО" :
+                      stack.currentIndex === 3 ? "Типові рахунки" : "Параметри рахунків"
                 font.pixelSize: 18
                 font.bold: true
                 color: "#1f2937" // Dark charcoal
@@ -228,58 +266,44 @@ Item {
                             }
 
                             // Поле: Код терміналу
-                            ColumnLayout {
+                            UITextField{
+                                id: editTerm;
                                 Layout.fillWidth: true
-                                spacing: 4
-                                Label { text: "Ідентифікатор (Код терміналу)"; font.pixelSize: 11; font.bold: true; color: "#6b7280" }
-                                Rectangle {
-                                    Layout.fillWidth: true; height: 38; color: "#f9fafb"; radius: 6; border.color: editTerm.activeFocus ? "#0288d1" : "#d1d5db"; border.width: editTerm.activeFocus ? 2 : 1
-                                    TextField { id: editTerm; anchors.fill: parent; leftPadding: 10; font.pixelSize: 13; selectByMouse: true; background: null; placeholderText: "Введіть унікальний код каси..." }
-                                }
+                                Layout.preferredHeight: 56
+                                title: "Ідентифікатор (Код терміналу)"
+                                placeholderText: "Введіть унікальний код каси..."
                             }
-
                             // Поле: Назва терміналу
-                            ColumnLayout {
+                            UITextField{
+                                id: editTermName;
                                 Layout.fillWidth: true
-                                spacing: 4
-                                Label { text: "Ідентифікатор (Назва терміналу)"; font.pixelSize: 11; font.bold: true; color: "#6b7280" }
-                                Rectangle {
-                                    Layout.fillWidth: true; height: 38; color: "#f9fafb"; radius: 6; border.color: editTermName.activeFocus ? "#0288d1" : "#d1d5db"; border.width: editTermName.activeFocus ? 2 : 1
-                                    TextField { id: editTermName; anchors.fill: parent; leftPadding: 10; font.pixelSize: 13; selectByMouse: true; background: null; placeholderText: "Введіть назву каси..." }
-                                }
+                                Layout.preferredHeight: 56
+                                title: "Ідентифікатор (Назва терміналу)"
+                                placeholderText: "Введіть назву каси..."
                             }
-
                             // Поле: POS Принтер
-                            ColumnLayout {
+                            UITextField{
+                                id: editPrinter;
                                 Layout.fillWidth: true
-                                spacing: 4
-                                Label { text: "Мережеве ім'я POS-принтера чеків"; font.pixelSize: 11; font.bold: true; color: "#6b7280" }
-                                Rectangle {
-                                    Layout.fillWidth: true; height: 38; color: "#f9fafb"; radius: 6; border.color: editPrinter.activeFocus ? "#0288d1" : "#d1d5db"; border.width: editPrinter.activeFocus ? 2 : 1
-                                    TextField { id: editPrinter; anchors.fill: parent; leftPadding: 10; font.pixelSize: 13; selectByMouse: true; background: null; placeholderText: "Наприклад: Sam4s_Xprinter" }
-                                }
+                                Layout.preferredHeight: 56
+                                title: "Мережеве ім'я POS-принтера чеків"
+                                placeholderText: "Наприклад: POSprn"
                             }
-
-                            // Поле: Кратність суми
-                            ColumnLayout {
+                            // Поле: Знак операції
+                            UITextField{
+                                id: editCheckAmnt;
                                 Layout.fillWidth: true
-                                spacing: 4
-                                Label { text: "Математичний знак суми (Amount Sign)"; font.pixelSize: 11; font.bold: true; color: "#6b7280" }
-                                Rectangle {
-                                    Layout.fillWidth: true; height: 38; color: "#f9fafb"; radius: 6; border.color: editCheckAmnt.activeFocus ? "#0288d1" : "#d1d5db"; border.width: editCheckAmnt.activeFocus ? 2 : 1
-                                    TextField { id: editCheckAmnt; anchors.fill: parent; leftPadding: 10; font.pixelSize: 13; selectByMouse: true; background: null; placeholderText: "-1 (витратний чек) | 1 (прибутковий)" }
-                                }
+                                Layout.preferredHeight: 56
+                                title: "Математичний знак суми (Amount Sign)"
+                                placeholderText: "-1 (витратний чек) | 1 (прибутковий)"
                             }
-
                             // Поле: Шаблон друку
-                            ColumnLayout {
+                            UITextField{
+                                id: editCheckPrintDcm;
                                 Layout.fillWidth: true
-                                spacing: 4
-                                Label { text: "Дефолтний шаблон друку документа"; font.pixelSize: 11; font.bold: true; color: "#6b7280" }
-                                Rectangle {
-                                    Layout.fillWidth: true; height: 38; color: "#f9fafb"; radius: 6; border.color: editCheckPrintDcm.activeFocus ? "#0288d1" : "#d1d5db"; border.width: editCheckPrintDcm.activeFocus ? 2 : 1
-                                    TextField { id: editCheckPrintDcm; anchors.fill: parent; leftPadding: 10; font.pixelSize: 13; selectByMouse: true; background: null; placeholderText: "Наприклад: check або check_knt" }
-                                }
+                                Layout.preferredHeight: 56
+                                title: "Дефолтний шаблон друку документа"
+                                placeholderText: "Наприклад: check або check_knt"
                             }
 
                             RowLayout {
@@ -300,31 +324,12 @@ Item {
                         }
                     }
 
-                    Button {
+                    UIBtn{
                         id: btnSaveSettings
+                        palette: "blue"
                         text: "💾 Зберегти зміни"
-                        font.pixelSize: 14
-                        font.bold: true
                         Layout.fillWidth: true
                         Layout.preferredHeight: 44
-
-                        background: Rectangle {
-                            color: btnSaveSettings.pressed ? "#01579b" : (btnSaveSettings.hovered ? "#0277bd" : "#0288d1")
-                            radius: 8
-
-                            Rectangle {
-                                anchors.fill: parent; anchors.margins: -1; color: "transparent"; border.color: "#20000000"; border.width: 1; radius: 9; z: -1
-                            }
-                        }
-
-                        contentItem: Text {
-                            text: parent.text
-                            font: parent.font
-                            color: "white"
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
-
                         onClicked: {
                             const val = {
                                 id: editTerm.text.trim(),
@@ -342,6 +347,7 @@ Item {
                             } else root.vkEvent("error", "Помилка збереження конфігурації")
                         }
                     }
+
                 }
             }
 
@@ -370,27 +376,24 @@ Item {
                             anchors.margins: 16
                             spacing: 14
 
-                            // Поле: Host URL
-                            ColumnLayout {
+                            RowLayout {
                                 Layout.fillWidth: true
-                                spacing: 4
-                                Label { text: "🔗 Адреса REST сервера (Host URL)"; font.pixelSize: 11; font.bold: true; color: "#6b7280" }
-                                Rectangle {
-                                    Layout.fillWidth: true; height: 38; color: "#f9fafb"; radius: 6;
-                                    border.color: editRestHost.activeFocus ? "#0288d1" : "#d1d5db"; border.width: editRestHost.activeFocus ? 2 : 1
-                                    TextField { id: editRestHost; anchors.fill: parent; leftPadding: 10; font.pixelSize: 13; selectByMouse: true; background: null; placeholderText: "Введіть REST URL (https://example.com) ..." }
+                                spacing: 10
+                                // Поле: Host URL
+                                UITextField{
+                                    id: editRestHost;
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 56
+                                    title: "🔗 Адреса REST сервера (Host URL"
+                                    placeholderText: "Введіть REST URL (https://example.com) ..."
                                 }
-                            }
-
-                            // Поле: API version
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                spacing: 4
-                                Label { text: "📦 Версія / Ендпоінт API (API Version)"; font.pixelSize: 11; font.bold: true; color: "#6b7280" }
-                                Rectangle {
-                                    Layout.fillWidth: true; height: 38; color: "#f9fafb"; radius: 6;
-                                    border.color: editRestApi.activeFocus ? "#0288d1" : "#d1d5db"; border.width: editRestApi.activeFocus ? 2 : 1
-                                    TextField { id: editRestApi; anchors.fill: parent; leftPadding: 10; font.pixelSize: 13; selectByMouse: true; background: null; placeholderText: "Введіть версію API (api/v1) ..." }
+                                // Поле: API version
+                                UITextField{
+                                    id: editRestApi;
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 56
+                                    title: "📦 Версія / Ендпоінт API (API Version)"
+                                    placeholderText: "Введіть версію API (api/v1) ..."
                                 }
                             }
 
@@ -400,15 +403,12 @@ Item {
                                 spacing: 10
 
                                 // Поле: Login
-                                ColumnLayout {
+                                UITextField{
+                                    id: editRestUser;
                                     Layout.fillWidth: true
-                                    spacing: 4
-                                    Label { text: "👤 Логін (Login)"; font.pixelSize: 11; font.bold: true; color: "#6b7280" }
-                                    Rectangle {
-                                        Layout.fillWidth: true; height: 38; color: "#f9fafb"; radius: 6;
-                                        border.color: editRestUser.activeFocus ? "#0288d1" : "#d1d5db"; border.width: editRestUser.activeFocus ? 2 : 1
-                                        TextField { id: editRestUser; anchors.fill: parent; leftPadding: 10; font.pixelSize: 13; selectByMouse: true; background: null; placeholderText: "REST login" }
-                                    }
+                                    Layout.preferredHeight: 56
+                                    title: "👤 Логін (Login)"
+                                    placeholderText: "REST login"
                                 }
 
                                 // Поле: Password
@@ -497,28 +497,12 @@ Item {
                             }
                         }
                     }
-
-                    Button {
+                    UIBtn{
                         id: btnSaveREST
+                        palette: "blue"
                         text: "💾 Зберегти зміни REST API"
-                        font.pixelSize: 14
-                        font.bold: true
                         Layout.fillWidth: true
                         Layout.preferredHeight: 44
-
-                        background: Rectangle {
-                            color: btnSaveREST.pressed ? "#01579b" : (btnSaveREST.hovered ? "#0277bd" : "#0288d1")
-                            radius: 8
-                            Rectangle {
-                                anchors.fill: parent; anchors.margins: -1; color: "transparent"; border.color: "#20000000"; border.width: 1; radius: 9; z: -1
-                            }
-                        }
-
-                        contentItem: Text {
-                            text: parent.text; font: parent.font; color: "white"
-                            horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
-                        }
-
                         onClicked: {
                             REST.setParam(editRestHost.text.trim(),
                                           editRestApi.text.trim(),
@@ -532,45 +516,20 @@ Item {
                                 root.vkEvent("error", "Помилка запису мережевих налаштувань у базу SQLite");
                             }
                         }
+
                     }
 
-                    Item{
+                    UIBtn{
+                        id: btnSyncBalanceREST
+                        text: "Синхронізувати баланс з REST"
                         Layout.fillWidth: true
                         Layout.preferredHeight: 44
-                        RowLayout{
-                            width: parent.width
-                            // anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.verticalCenter: parent.verticalCenter
-                            Button {
-                                id: btnSyncBalanceREST
-                                text: "Синхронізувати баланс з REST"
-                                font.pixelSize: 12
-                                font.bold: true
-                                Layout.fillWidth: true
-                                // Layout.preferredHeight: 44
 
-                                // background: Rectangle {
-                                //     color: btnSaveREST.pressed ? "#01579b" : (btnSaveREST.hovered ? "#0277bd" : "#0288d1")
-                                //     radius: 8
-                                //     Rectangle {
-                                //         anchors.fill: parent; anchors.margins: -1; color: "transparent"; border.color: "#20000000"; border.width: 1; radius: 9; z: -1
-                                //     }
-                                // }
-
-                                // contentItem: Text {
-                                //     text: parent.text; font: parent.font; color: "white"
-                                //     horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
-                                // }
-
-                                onClicked: {
-                                    REST.uploadBalance2(dbDriver, 0,
-                                                        (e) => {
-                                                           if (!!e) root.vkEvent("error", e || "REST sync error");
-                                                        });
-
-                                }
-                            }
-
+                        onClicked: {
+                            REST.uploadBalance2(dbDriver, 0,
+                                                (e) => {
+                                                   if (!!e) root.vkEvent("error", e || "REST sync error");
+                                                });
                         }
                     }
                 }
@@ -602,42 +561,32 @@ Item {
                             spacing: 14
 
                             // Поле 1: Host URL фіскального сервера
-                            ColumnLayout {
+                            UITextField{
+                                id: editTaxHost;
                                 Layout.fillWidth: true
-                                spacing: 4
-                                Label { text: "🖥 Адреса фіскального сервера (Tax Host URL)"; font.pixelSize: 11; font.bold: true; color: "#6b7280" }
-                                Rectangle {
-                                    Layout.fillWidth: true; height: 38; color: "#f9fafb"; radius: 6;
-                                    border.color: editTaxHost.activeFocus ? "#0288d1" : "#d1d5db"; border.width: editTaxHost.activeFocus ? 2 : 1
-                                    TextField { id: editTaxHost; anchors.fill: parent; leftPadding: 10; font.pixelSize: 13; selectByMouse: true; background: null; placeholderText: "Наприклад: http://localhost:8080 або https://check.gov.ua" }
-                                }
+                                Layout.preferredHeight: 56
+                                title: "🖥 Адреса фіскального сервера (Tax Host URL)"
+                                placeholderText: "Наприклад: http://localhost:8080 або https://check.gov.ua"
                             }
 
                             // Поле 2: API Ендпоінт драйвера РРО
-                            ColumnLayout {
+                            UITextField{
+                                id: editTaxApi;
                                 Layout.fillWidth: true
-                                spacing: 4
-                                Label { text: "📦 Шлях до фіскального API (Tax API Endpoint)"; font.pixelSize: 11; font.bold: true; color: "#6b7280" }
-                                Rectangle {
-                                    Layout.fillWidth: true; height: 38; color: "#f9fafb"; radius: 6;
-                                    border.color: editTaxApi.activeFocus ? "#0288d1" : "#d1d5db"; border.width: editTaxApi.activeFocus ? 2 : 1
-                                    TextField { id: editTaxApi; anchors.fill: parent; leftPadding: 10; font.pixelSize: 13; selectByMouse: true; background: null; placeholderText: "Наприклад: api/v1/rro або prro/sign" }
-                                }
+                                Layout.preferredHeight: 56
+                                title: "📦 Шлях до фіскального API (Tax API Endpoint)"
+                                placeholderText: "Наприклад: api/v1/rro або prro/sign"
                             }
 
                             // Поле 3: Ідентифікатор касового апарату (Cash ID)
-                            ColumnLayout {
+                            UITextField{
+                                id: editTaxCash;
                                 Layout.fillWidth: true
-                                spacing: 4
-                                Label { text: "🆔 Номер каси / Фіскальний код ПРРО (Cash ID)"; font.pixelSize: 11; font.bold: true; color: "#6b7280" }
-                                Rectangle {
-                                    Layout.fillWidth: true; height: 38; color: "#f9fafb"; radius: 6;
-                                    border.color: editTaxCash.activeFocus ? "#0288d1" : "#d1d5db"; border.width: editTaxCash.activeFocus ? 2 : 1
-                                    TextField { id: editTaxCash; anchors.fill: parent; leftPadding: 10; font.pixelSize: 13; selectByMouse: true; background: null; placeholderText: "Введіть унікальний фіскальний номер каси..." }
-                                }
+                                Layout.preferredHeight: 56
+                                title: "🆔 Номер каси / Фіскальний код ПРРО (Cash ID)"
+                                placeholderText: "Введіть унікальний фіскальний номер каси..."
                             }
 
-                            // Роздільна тонка лінія
                             Rectangle { Layout.fillWidth: true; height: 1; color: "#e5e7eb"; Layout.topMargin: 4; Layout.bottomMargin: 4 }
 
                             // Блок авторизації ПРРО та отримання сесійного ключа
@@ -708,27 +657,12 @@ Item {
                         }
                     }
 
-                    Button {
+                    UIBtn{
                         id: btnSaveTAX
+                        palette: "blue"
                         text: "💾 Зберегти конфігурацію РРО / ПРРО"
-                        font.pixelSize: 14
-                        font.bold: true
                         Layout.fillWidth: true
                         Layout.preferredHeight: 44
-
-                        background: Rectangle {
-                            color: btnSaveTAX.pressed ? "#01579b" : (btnSaveTAX.hovered ? "#0277bd" : "#0288d1")
-                            radius: 8
-                            Rectangle {
-                                anchors.fill: parent; anchors.margins: -1; color: "transparent"; border.color: "#20000000"; border.width: 1; radius: 9; z: -1
-                            }
-                        }
-
-                        contentItem: Text {
-                            text: parent.text; font: parent.font; color: "white"
-                            horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
-                        }
-
                         onClicked: {
                             TAX.setParam(editTaxHost.text.trim(),
                                          editTaxApi.text.trim(),
@@ -745,26 +679,11 @@ Item {
                         }
                     }
 
-                    Button {
+                    UIBtn{
                         id: btnRestoreTAX
                         text: "Відновити конфігурацію РРО / ПРРО"
-                        font.pixelSize: 14
-                        font.bold: true
                         Layout.fillWidth: true
                         Layout.preferredHeight: 44
-
-                        background: Rectangle {
-                            color: btnRestoreTAX.pressed ? "#b0bec5" : (btnRestoreTAX.hovered ? "#cfd8dc" : "#eaedf0")
-                            radius: 8
-                            Rectangle {
-                                anchors.fill: parent; anchors.margins: -1; color: "transparent"; border.color: "#d1d5db"; border.width: 1; radius: 9; z: -1
-                            }
-                        }
-
-                        contentItem: Text {
-                            text: parent.text; font: parent.font;
-                            horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
-                        }
 
                         onClicked: loadTAX();
                     }
@@ -773,13 +692,13 @@ Item {
             }
 
             ScrollView {
-                id: acntTab
+                id: dfltAcntTab
                 clip: true
                 Layout.fillWidth: true
                 Layout.fillHeight: true
 
                 ColumnLayout {
-                    width: acntTab.width - 16
+                    width: dfltAcntTab.width - 16
                     spacing: 14
 
                     Rectangle {
@@ -809,7 +728,16 @@ Item {
                                         color: editAcntCash.text !== "" ? "#ffffff" : "#f3f4f6"
                                         border.color: editAcntCash.activeFocus ? "#0288d1" : (editAcntCash.text !== "" ? "#9ca3af" : "#d1d5db")
                                         border.width: editAcntCash.activeFocus ? 2 : 1
-                                        TextField { id: editAcntCash; anchors.fill: parent; leftPadding: 10; font.pixelSize: 13; font.bold: text !== ""; color: "#1f2937"; selectByMouse: true; background: null; placeholderText: "00"; placeholderTextColor: "#9ca3af" }
+                                        TextField { id: editAcntCash;
+                                            anchors.fill: parent;
+                                            leftPadding: 10;
+                                            font.pixelSize: 13;
+                                            font.bold: text !== "";
+                                            color: "#1f2937";
+                                            selectByMouse: true;
+                                            background: null; placeholderText: "00";
+                                            placeholderTextColor: "#9ca3af"
+                                        }
                                     }
                                 }
                             }
@@ -818,7 +746,7 @@ Item {
                             ColumnLayout {
                                 Layout.fillWidth: true
                                 spacing: 4
-                                Label { text: "🏬 Роздрібний сейф TRADE (Trade Account)"; font.pixelSize: 11; font.bold: true; color: "#6b7280" }
+                                Label { text: "🏬 Роздрібний TRADE (Trade Account)"; font.pixelSize: 11; font.bold: true; color: "#6b7280" }
                                 RowLayout {
                                     spacing: 6
                                     Rectangle { width: 36; height: 38; color: "#fff3e0"; radius: 6; border.color: "#ffe0b2"; Label { text: JS.glTradePrefix || "35"; font.bold: true; color: "#e65100"; anchors.centerIn: parent } }
@@ -827,7 +755,17 @@ Item {
                                         color: editAcntTrade.text !== "" ? "#ffffff" : "#f3f4f6"
                                         border.color: editAcntTrade.activeFocus ? "#0288d1" : (editAcntTrade.text !== "" ? "#9ca3af" : "#d1d5db")
                                         border.width: editAcntTrade.activeFocus ? 2 : 1
-                                        TextField { id: editAcntTrade; anchors.fill: parent; leftPadding: 10; font.pixelSize: 13; font.bold: text !== ""; color: "#1f2937"; selectByMouse: true; background: null; placeholderText: "00"; placeholderTextColor: "#9ca3af" }
+                                        TextField { id: editAcntTrade;
+                                            anchors.fill: parent;
+                                            leftPadding: 10;
+                                            font.pixelSize: 13;
+                                            font.bold: text !== "";
+                                            color: "#1f2937";
+                                            selectByMouse: true;
+                                            background: null;
+                                            placeholderText: "00";
+                                            placeholderTextColor: "#9ca3af"
+                                        }
                                     }
                                 }
                             }
@@ -836,7 +774,7 @@ Item {
                             ColumnLayout {
                                 Layout.fillWidth: true
                                 spacing: 4
-                                Label { text: "📦 Гуртовий рахунок / Пакування (Bulk Account)"; font.pixelSize: 11; font.bold: true; color: "#6b7280" }
+                                Label { text: "📦 Гуртовий рахунок (Bulk Account)"; font.pixelSize: 11; font.bold: true; color: "#6b7280" }
                                 RowLayout {
                                     spacing: 6
                                     Rectangle { width: 36; height: 38; color: "#fff3e0"; radius: 6; border.color: "#ffe0b2"; Label { text: JS.glTradePrefix || "35"; font.bold: true; color: "#e65100"; anchors.centerIn: parent } }
@@ -845,7 +783,17 @@ Item {
                                         color: editAcntBulk.text !== "" ? "#ffffff" : "#f3f4f6"
                                         border.color: editAcntBulk.activeFocus ? "#0288d1" : (editAcntBulk.text !== "" ? "#9ca3af" : "#d1d5db")
                                         border.width: editAcntBulk.activeFocus ? 2 : 1
-                                        TextField { id: editAcntBulk; anchors.fill: parent; leftPadding: 10; font.pixelSize: 13; font.bold: text !== ""; color: "#1f2937"; selectByMouse: true; background: null; placeholderText: "01"; placeholderTextColor: "#9ca3af" }
+                                        TextField { id: editAcntBulk;
+                                            anchors.fill: parent;
+                                            leftPadding: 10;
+                                            font.pixelSize: 13;
+                                            font.bold: text !== "";
+                                            color: "#1f2937";
+                                            selectByMouse: true;
+                                            background: null;
+                                            placeholderText: "01";
+                                            placeholderTextColor: "#9ca3af"
+                                        }
                                     }
                                 }
                             }
@@ -854,7 +802,7 @@ Item {
                             ColumnLayout {
                                 Layout.fillWidth: true
                                 spacing: 4
-                                Label { text: "🚚 Транзитний рахунок інкасації (Incas Account)"; font.pixelSize: 11; font.bold: true; color: "#6b7280" }
+                                Label { text: "🚚 Транзитний рахунок між підрозділами"; font.pixelSize: 11; font.bold: true; color: "#6b7280" }
                                 RowLayout {
                                     spacing: 6
                                     Rectangle { width: 36; height: 38; color: "#e3f2fd"; radius: 6; border.color: "#bbdefb"; Label { text: JS.glCashPrefix || "30"; font.bold: true; color: "#1565c0"; anchors.centerIn: parent } }
@@ -863,7 +811,17 @@ Item {
                                         color: editAcntIncas.text !== "" ? "#ffffff" : "#f3f4f6"
                                         border.color: editAcntIncas.activeFocus ? "#0288d1" : (editAcntIncas.text !== "" ? "#9ca3af" : "#d1d5db")
                                         border.width: editAcntIncas.activeFocus ? 2 : 1
-                                        TextField { id: editAcntIncas; anchors.fill: parent; leftPadding: 10; font.pixelSize: 13; font.bold: text !== ""; color: "#1f2937"; selectByMouse: true; background: null; placeholderText: "03"; placeholderTextColor: "#9ca3af" }
+                                        TextField { id: editAcntIncas;
+                                            anchors.fill: parent;
+                                            leftPadding: 10;
+                                            font.pixelSize: 13;
+                                            font.bold: text !== "";
+                                            color: "#1f2937";
+                                            selectByMouse: true;
+                                            background: null;
+                                            placeholderText: "03";
+                                            placeholderTextColor: "#9ca3af"
+                                        }
                                     }
                                 }
                             }
@@ -872,7 +830,7 @@ Item {
                             ColumnLayout {
                                 Layout.fillWidth: true
                                 spacing: 4
-                                Label { text: "📊 Рахунок прибутків та збитків / Депозити (Profit Account)"; font.pixelSize: 11; font.bold: true; color: "#6b7280" }
+                                Label { text: "📊 Рахунок зарахування доходів/результату (Profit Account)"; font.pixelSize: 11; font.bold: true; color: "#6b7280" }
                                 RowLayout {
                                     spacing: 6
                                     Rectangle { width: 36; height: 38; color: "#e8f5e9"; radius: 6; border.color: "#c8e6c9"; Label { text: JS.glDepoPrefix || "36"; font.bold: true; color: "#2e7d32"; anchors.centerIn: parent } }
@@ -881,28 +839,29 @@ Item {
                                         color: editAcntProfit.text !== "" ? "#ffffff" : "#f3f4f6"
                                         border.color: editAcntProfit.activeFocus ? "#0288d1" : (editAcntProfit.text !== "" ? "#9ca3af" : "#d1d5db")
                                         border.width: editAcntProfit.activeFocus ? 2 : 1
-                                        TextField { id: editAcntProfit; anchors.fill: parent; leftPadding: 10; font.pixelSize: 13; font.bold: text !== ""; color: "#1f2937"; selectByMouse: true; background: null; placeholderText: "07-55"; placeholderTextColor: "#9ca3af" }
+                                        TextField { id: editAcntProfit;
+                                            anchors.fill: parent;
+                                            leftPadding: 10;
+                                            font.pixelSize: 13;
+                                            font.bold: text !== "";
+                                            color: "#1f2937";
+                                            selectByMouse: true;
+                                            background: null;
+                                            placeholderText: "07-55";
+                                            placeholderTextColor: "#9ca3af"
+                                        }
                                     }
                                 }
                             }
                         }
                     }
 
-                    Button {
+                    UIBtn{
                         id: btnSaveAccounts
+                        palette: "blue"
                         text: "💾 Зберегти аналітичні рахунки"
-                        font.pixelSize: 14
-                        font.bold: true
                         Layout.fillWidth: true
                         Layout.preferredHeight: 44
-
-                        background: Rectangle {
-                            color: btnSaveAccounts.pressed ? "#01579b" : (btnSaveAccounts.hovered ? "#0277bd" : "#0288d1")
-                            radius: 8
-                            Rectangle { anchors.fill: parent; anchors.margins: -1; color: "transparent"; border.color: "#20000000"; border.width: 1; radius: 9; z: -1 }
-                        }
-
-                        contentItem: Text { text: parent.text; font: parent.font; color: "white"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
 
                         onClicked: {
                             const cashTxt = editAcntCash.text.trim();
@@ -911,13 +870,12 @@ Item {
                             const incasTxt = editAcntIncas.text.trim();
                             const profitTxt = editAcntProfit.text.trim();
 
-                            const val = {
-                                cash:   !cashTxt ? "" : (JS.glCashPrefix || "30") + cashTxt,
-                                trade:  !tradeTxt ? "" : (JS.glTradePrefix || "35") + tradeTxt,
-                                bulk:   !bulkTxt ? "" : (JS.glTradePrefix || "35") + bulkTxt,
-                                incas:  !incasTxt ? "" : (JS.glCashPrefix || "30") + incasTxt,
-                                profit: !profitTxt ? "" : (JS.glDepoPrefix || "36") + profitTxt
-                            };
+                            const val = {};
+                            if (!!cashTxt) val.cash = (JS.glCashPrefix || "30") + cashTxt
+                            if (!!tradeTxt) val.trade = (JS.glTradePrefix || "35") + tradeTxt
+                            if (!!bulkTxt) val.bulk = (JS.glTradePrefix || "35") + bulkTxt
+                            if (!!incasTxt) val.incas = (JS.glCashPrefix || "30") + incasTxt
+                            if (!!profitTxt) val.profit = (JS.glDepoPrefix || "36") + profitTxt
 
                             const ok = JS.setAcntList(dbDriver, val);
 
@@ -926,6 +884,103 @@ Item {
                             } else {
                                 root.vkEvent("error", "Помилка збереження плану рахунків у SQLite");
                             }
+                        }
+                    }
+                }
+            }
+
+            ScrollView {
+                id: acntTab
+                clip: true
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                ColumnLayout {
+                    // Залишаємо відступ для комфортного скролу на POS-терміналах
+                    width: acntTab.width - 16
+                    spacing: 14
+                    RowLayout{
+                        Layout.fillWidth: true
+                        Label { text: qsTr("Рахунок:"); font { pixelSize: 11; bold: true } color: "#4B5563" }
+                        ComboBox {
+                            id: acntTabCombo
+                            textRole: "name"
+                            valueRole: "code"
+                            model:ListModel{}
+                            Layout.fillWidth: true
+                            onCurrentValueChanged: loadAcntTab(currentValue);
+                        }
+                    }
+                    UITextField{
+                        id: editAcntTabNote
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 56
+                        title: "Опис, примітка"
+                        placeholderText: "Введіть короткий опис або примітку..."
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.topMargin: 4
+                        ColumnLayout {
+                            spacing: 2
+                            Layout.fillWidth: true
+                            Label { text: "Маска"; font.pixelSize: 13; font.bold: true; color: "#1f2937" }
+                            Label { text: "Дозвіл на операції"; font.pixelSize: 11; color: "#6b7280" }
+                        }
+                        CheckBox {
+                            id: editAcntTabMaskDomestic
+                            text: "НАЦ.ВАЛЮТА"
+                            font.pixelSize: 14
+                        }
+                        CheckBox {
+                            id: editAcntTabMaskForeign
+                            text: "ІНОЗ.ВАЛЮТА"
+                            font.pixelSize: 14
+                        }
+                        CheckBox {
+                            id: editAcntTabMaskArticles
+                            text: "ТОВАРИ"
+                            font.pixelSize: 14
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.topMargin: 4
+                        ColumnLayout {
+                            spacing: 2
+                            Layout.fillWidth: true
+                            Label { text: "Торговий"; font.pixelSize: 13; font.bold: true; color: "#1f2937" }
+                            Label { text: "Рахунок для торгових операцій (купівля, продаж)"; font.pixelSize: 11; color: "#6b7280" }
+                        }
+                        Switch {
+                            id: editAcntTabTrade
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+                    }
+                    UIBtn{
+                        id: btnSaveAcntTab
+                        palette: "blue"
+                        text: "💾 Зберегти зміни"
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 44
+                        onClicked: {
+                            if (editAcntTabTrade.checked && editAcntTabMaskDomestic.checked){
+                                root.vkEvent("error", "НАЦ.ВАЛЮТА заборонені для Торгового рахунку");
+                                return;
+                            }
+
+                            const noteVal = editAcntTabNote.text.trim();
+                            const maskVal = (editAcntTabMaskDomestic.checked ? 1 : 0)
+                            + (editAcntTabMaskForeign.checked ? 2 : 0)
+                            + (editAcntTabMaskArticles.checked ? 4 : 0)
+                            const tradeVal = editAcntTabTrade.checked ? 1 : 0
+                            // console.log(`II: AppSettings.qml#q6t3 noteVal=${noteVal} maskVal=[${maskVal}] tradeVal=[${tradeVal}]`)
+
+                            const ok = LibAcnt.updAcntbal(root.dbDriver, acntTabCombo.currentValue, noteVal, maskVal, tradeVal)
+                            if (ok) {
+                                root.vkEvent("info", "Рахунок успішно оновлено");
+                                loadAcntTab(acntTabCombo.currentValue)
+                            } else root.vkEvent("error", "Помилка оновлення рахунку");
                         }
                     }
                 }

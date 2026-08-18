@@ -24,7 +24,7 @@ const DfltAcnt = ( () => {
             };
             if (dfltAcnts) return dfltAcnts;
             if (!db) return null;
-            const jlist = Conf.getVal(db, "acntlist");
+            const jlist = Conf.getAcntList(db);
             if (!!jlist) dfltAcnts = jlist;
 
             // console.log(`II: sqlAcnts.js/DfltAcnt tmp=${tmp}`)
@@ -320,7 +320,7 @@ function acntbalClientList(db, clid, filter) {
 }
 
 /**
- * sqlShift.js
+ * sqlShift.js, AppSettings.qml
  */
 function dbAcntbal(db, condition, filter) {
     if (!db) return [];
@@ -342,6 +342,30 @@ function dbAcntbal(db, condition, filter) {
 // console.log(`sqlAcnt.js#89au sql=${vsql}`);
     return db.dbSelectRowsJSON(vsql, filter);
 }
+
+/**
+ * AppSettings.qml
+ */
+function updAcntbal(db, acntno, note, mask, trade, client) {
+    if (!db || !acntno) return false;
+    const noteVal = !!note ? String(note) : null;
+    const maskVal = Number(mask);
+    const tradeVal = Number(trade);
+    // const clientVal =  !!client ? String(client) : null;
+    const acntnoVal = String(acntno);
+    const param = [noteVal, maskVal, tradeVal, acntnoVal]
+    const vsql = `
+        UPDATE acntbal SET
+          acntnote = ?,
+          mask = ?,
+          trade = ?,
+        WHERE acntno = ?
+    `;
+    // client = ?
+    const ok = db.dbUpdate(vsql, param)
+    return ok;
+}
+
 
 
 
