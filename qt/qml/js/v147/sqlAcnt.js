@@ -133,18 +133,6 @@ function balBalance(db, bal) {
 
     return dbBalance(db, flt, "id", reverse);
 }
-/**
- * Залишки по групі рахунків (напр. по всьому 300)
- * NO reverse, NO sort
- */
-function balBalance2(db, bal, condition) {
-    if (!db || !bal || bal.length < 2) return [];
-
-    const flt = `substr(acntno, 1, ${bal.length}) = '${bal}' AND abs(beginamnt + turndbt - turncdt) > 0.0009`
-        + (!condition ? "" : ` AND ${condition}`);
-// console.log(`II: sqlAcnt.js/balBalance2 flt = ${flt}`)
-    return dbBalance(db, flt);
-}
 
 /**
  * Обороти та баланс по торгових рахунках (3500)
@@ -358,7 +346,7 @@ function updAcntbal(db, acntno, note, mask, trade, client) {
         UPDATE acntbal SET
           acntnote = ?,
           mask = ?,
-          trade = ?,
+          trade = ?
         WHERE acntno = ?
     `;
     // client = ?
