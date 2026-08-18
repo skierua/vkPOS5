@@ -358,7 +358,7 @@ function updAcntbal(db, acntno, note, mask, trade, client) {
         UPDATE acntbal SET
           acntnote = ?,
           mask = ?,
-          trade = ?,
+          trade = ?
         WHERE acntno = ?
     `;
     // client = ?
