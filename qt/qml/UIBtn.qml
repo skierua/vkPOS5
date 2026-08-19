@@ -16,11 +16,11 @@ Button {
     readonly property var paletteList:  // textcolor, active, hovered, pressed
         [
         {"text": "#37474f", "active": "#eceff1"},  // basic
-        {"text": "white", "active": "#3B82F6"},  // blue
-        {"text": "white", "active": "#4caf50"},  // green
-        {"text": "white", "active": "#EF4444"},  // red
-        {"text": "FireBrick", "active": "Pink"},  // pink, for negative Bind amnt
-        {"text": "Navy", "active": "LightSkyBlue"},  // skyblue, for positive Bind amnt
+        {"text": "#FFFFFF", "active": "#3B82F6"},  // blue
+        {"text": "#FFFFFF", "active": "#4caf50"},  // green
+        {"text": "#FFFFFF", "active": "#EF4444"},  // red
+        {"text": "#B22222", "active": "#FFC0CB"},  // pink FireBrick/Pink, for negative Bind amnt
+        {"text": "#000080", "active": "#87CEFA"},  // skyblue Navy/LightSkyBlue, for positive Bind amnt
     ]
     property string palette: "basic"
 /*    readonly property var old_crntPalette:{
@@ -33,11 +33,12 @@ Button {
     readonly property var crntPalette:{
         let colorText = "";
         let colorActive = "";
-        if (palette === "blue") { colorText = paletteList[1]?.text || "#37474f"; colorActive = paletteList[1]?.active || "#eceff1"; }
-        else if (palette === "green") { colorText = paletteList[2]?.text || "#37474f"; colorActive = paletteList[2]?.active || "#eceff1"; }
-        else if (palette === "red") { colorText = paletteList[3]?.text || "#37474f"; colorActive = paletteList[3]?.active || "#eceff1"; }
-        else if (palette === "pink") { colorText = paletteList[4]?.text || "#37474f"; colorActive = paletteList[4]?.active || "#eceff1"; }
-        else if (palette === "skyblue") { colorText = paletteList[5]?.text || "#37474f"; colorActive = paletteList[5]?.active || "#eceff1"; }
+        const paletteVal = String(palette || "").toLocaleLowerCase();
+        if (paletteVal === "blue") { colorText = paletteList[1]?.text || "#37474f"; colorActive = paletteList[1]?.active || "#eceff1"; }
+        else if (paletteVal === "green") { colorText = paletteList[2]?.text || "#37474f"; colorActive = paletteList[2]?.active || "#eceff1"; }
+        else if (paletteVal === "red") { colorText = paletteList[3]?.text || "#37474f"; colorActive = paletteList[3]?.active || "#eceff1"; }
+        else if (paletteVal === "pink") { colorText = paletteList[4]?.text || "#37474f"; colorActive = paletteList[4]?.active || "#eceff1"; }
+        else if (paletteVal === "skyblue") { colorText = paletteList[5]?.text || "#37474f"; colorActive = paletteList[5]?.active || "#eceff1"; }
         else { colorText = paletteList[0]?.text || "#37474f"; colorActive = paletteList[0]?.active || "#eceff1"; }
         const res = {
             "text" : colorText,
