@@ -324,7 +324,7 @@ Item {
                         font.bold: true
                         verticalAlignment: Text.AlignVCenter
                         horizontalAlignment: Text.AlignHCenter
-                        color: model.dsign < 0 ? "FireBrick" : "Navy"
+                        color: model.dsign < 0 ? "#B22222" : "#000080"   // FireBrick / Navy
                         // color: model.dsign < 0 ? "#d32f2f" : "#2e7d32"
                         text: model.dsign < 0 ? '−' : '＋'
                     }
@@ -502,8 +502,8 @@ Item {
 
                                     // 2. Індивідуальна знижка на позицію товару
                                     Text {
-                                        id: fldRowDsc // ✅ ВИПРАВЛЕНО ID (не конфліктує з головним екраном)
-                                        Layout.fillWidth: true // ✅ ВИПРАВЛЕНО: Layout сам порівну поділить простір
+                                        id: fldRowDsc
+                                        Layout.fillWidth: true
                                         horizontalAlignment: Text.AlignHCenter
                                         verticalAlignment: Text.AlignVCenter
 
@@ -516,7 +516,7 @@ Item {
 
                                     // 3. Нараховані чи списані бонуси на позицію товару
                                     Text {
-                                        id: fldRowBns // ✅ ВИПРАВЛЕНО ID
+                                        id: fldRowBns
                                         Layout.fillWidth: true
                                         horizontalAlignment: Text.AlignHCenter
                                         verticalAlignment: Text.AlignVCenter
@@ -534,7 +534,6 @@ Item {
                         TextField {
                             id: fldAmntEdit
                             anchors.fill: parent
-                            // visible: false // ✅ ВИПРАВЛЕНО: Керуємо видимістю явно через функції, а не через activeFocus
                             focus: true
                             visible: dlgRoot.ListView.view.currentIndex === index;
                             selectByMouse: true
@@ -596,7 +595,7 @@ Item {
                             font.pixelSize: 15
                             color: "#212121"
                             leftPadding: 10
-                            rightPadding: suffix.visible ? 65 : 10 // ✅ ВИПРАВЛЕНО: Фіксований безпечний відступ для суфікса
+                            rightPadding: suffix.visible ? 65 : 10
                             verticalAlignment: TextInput.AlignVCenter
                             placeholderText: "Ціна, курс ..."
 
@@ -747,35 +746,6 @@ Item {
                 }
             }
 
-/*            Button {
-                id: btnAmnt
-                Layout.preferredWidth: 48
-                Layout.preferredHeight: 48
-                Layout.alignment: Qt.AlignVCenter
-
-                background: Rectangle {
-                    color: root.crntAmnt < 0 ? "#ffebee" : "#e3f2fd" // Ніжно-червоний або ніжно-синій фон
-                    radius: 6
-                    // Легка внутрішня тінь для об'єму
-                    border.color: root.crntAmnt < 0 ? "#b71c1c" : "#0d47a1"
-                    border.width: 1
-                }
-
-                // Стилізуємо іконку або текст всередині кнопки проведення
-                contentItem: Text {
-                    text: Number(root.crntAmnt) < 0 ? '−' : '＋'
-                    font.pixelSize: 32
-                    font.bold: true
-                    color: root.crntAmnt < 0 ? "#b71c1c" : "#0d47a1" // Глибокий фінансовий колір
-                    // color: "white"
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
-                onClicked: {
-                    root.crntAmnt = -1 * Number(root.crntAmnt);
-                    fldMainInput.forceActiveFocus();
-                }
-            }*/
             Rectangle {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
@@ -1093,32 +1063,6 @@ Item {
                     text: "✔"
                     toolTip: qsTr("Провести/Записати чек")
                 }
-/*                Button {
-                    id: btnTran
-                    Layout.preferredWidth: 48
-                    Layout.preferredHeight: 48
-                    Layout.alignment: Qt.AlignVCenter
-                    action: tranAutoPrn
-
-                    background: Rectangle {
-                        color: btnTran.pressed ? "#1b5e20" : (btnTran.hovered ? "#2e7d32" : "#4caf50")
-                        radius: 8
-                        // Легка внутрішня тінь для об'єму
-                        border.color: btnTran.pressed ? "#1b5e20" : "#43a047"
-                        border.width: 1
-                    }
-
-                    // Стилізуємо іконку або текст всередині кнопки проведення
-                    contentItem: Text {
-                        text: "✔"
-                        font.pixelSize: 20
-                        font.bold: true
-                        color: "white"
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                }*/
-
                 GridLayout {
                     // id: totalAreaLayout
                     Layout.fillWidth: true

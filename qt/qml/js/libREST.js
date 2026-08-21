@@ -152,7 +152,7 @@ function uploadBalance2(db, tm, callback) {
     const tmVal = Number(tm ?? 0);
     const flt = tmVal > 0 ?
                   `(datetime(dbtupd) > datetime('now', '-${tmVal} minutes') OR datetime(cdtupd) > datetime('now', '-${tmVal} minutes'))`
-                : "abs(beginamnt + turndbt - turncdt) > 0.0001"
+                : "(abs(beginamnt) + abs(turndbt) + abs(turncdt)) > 0.0001"
     const source = LibBal.dbBalance(db, flt);
     const round4 = (num) => Math.round((Number(num) || 0) * 10000) / 10000;
     const cleanData = source.map(v => {

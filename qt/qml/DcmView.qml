@@ -46,7 +46,7 @@ Window {
 
     Action {
         id: nextAction
-        enabled: vw.model !== null && vcrntEdit.text !== "" && (JS.PAGER !== undefined) && parseInt(vcrntEdit.text) < JS.PAGER.length
+        enabled: Number(vcrntEdit.text) < (vcrntEdit.validator ? vcrntEdit.validator.top : dcmViewRootWindow.countPage)
         text: "❯"
         onTriggered: {
             const currentPage = parseInt(vcrntEdit.text) || 1;
@@ -206,7 +206,7 @@ Window {
                         verticalAlignment: Text.AlignVCenter
                         font.bold: true
                         font.pixelSize: 14
-                        color: Number(model.amount || 0) > 0 ?  "Navy" : "FireBrick"
+                        color: Number(model.amount || 0) > 0 ?  "#000080" : "#B22222"
                         // color: Number(model.amount || 0) > 0 ? "#2e7d32" : "#d32f2f"
                         text: Number(model.amount || 0) > 0 ? "＋" : "−"
                     }
@@ -389,7 +389,7 @@ Window {
                         font.pixelSize: 12
                         font.bold: true
                         // Якщо сума повернення (від'ємна) — підсвічуємо червоним
-                        color: (rootSec.infoObj && Number(rootSec.infoObj.amount || 0) < 0) ? "FireBrick" : "Navy"
+                        color: (rootSec.infoObj && Number(rootSec.infoObj.amount || 0) < 0) ? "#B22222" : "#000080"
                         // color: (rootSec.infoObj && Number(rootSec.infoObj.amount || 0) < 0) ? "#d32f2f" : "#2e7d32"
                         text: rootSec.infoObj ? Number(rootSec.infoObj.amount || 0).toLocaleString(Qt.locale(), 'f', 2) : "0.00"
                     }
