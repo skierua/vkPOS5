@@ -324,7 +324,7 @@ Item {
                         font.bold: true
                         verticalAlignment: Text.AlignVCenter
                         horizontalAlignment: Text.AlignHCenter
-                        color: model.dsign < 0 ? "B22222" : "#000080"   // FireBrick / Navy
+                        color: model.dsign < 0 ? "#B22222" : "#000080"   // FireBrick / Navy
                         // color: model.dsign < 0 ? "#d32f2f" : "#2e7d32"
                         text: model.dsign < 0 ? '−' : '＋'
                     }
