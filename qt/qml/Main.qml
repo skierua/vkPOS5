@@ -855,12 +855,6 @@ ApplicationWindow {
         onTriggered: { taxServiceLoader.active = checked; }
     }
 
-    // Action{
-    //     id: syncBalanceAction
-    //     text: "Синхронізувати залишки"
-    //     onTriggered: JS.uploadBalance(Db, "all", logView)
-    // }
-
     Action {
         id: changeDBAction
         enabled: false
@@ -1207,23 +1201,6 @@ ApplicationWindow {
                     Label { text: "Увага! Буде виконано Z-Звіт для ДПС України."; font.pixelSize: 12; color: "#6b7280" }
                 }
             }
-
-/*                Rectangle {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                color: "#f9fafb"
-                radius: 8
-                border.color: "#e5e7eb"
-
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 12
-                    spacing: 4
-                    Label { text: "• Автоматичне службове вилучення готівки"; font.pixelSize: 11; color: "#4b5563" }
-                    Label { text: "• Обнулення оперативних підсумків каси"; font.pixelSize: 11; color: "#4b5563" }
-                    Label { text: "• Відправка фіскального пакету на шлюз ДПС"; font.pixelSize: 11; color: "#4b5563" }
-                }
-            } */
 
             RowLayout {
                 Layout.fillWidth: true

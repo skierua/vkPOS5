@@ -31,14 +31,45 @@ Item {
 
     function textForMenu() { return root.title; }
 
-    function loadTAX(){
-        if (!root.dbDriver) return;
-        console.log(`AppSettings.qml/loadTAX `)
-        TAX.reset(root.dbDriver);
-        editTaxHost.text = TAX.HOST;
-        editTaxApi.text = TAX.API;
-        editTaxCash.text = TAX.CASH;
-        editTaxToken.text = TAX.TOKEN;
+    function refreshRESTConn(){
+        if (editRestHost.text === REST.HOST
+                && editRestApi.text === REST.API
+                && editRestUser.text === REST.USER
+                && editRestPsw.text === REST.PSW){
+            editRestToken.text = REST.TOKEN;
+            restTab.connected = !!REST.isConnected;
+        } else {
+            editRestToken.text = "";
+            restTab.connected = false;
+        }
+    }
+    function populateREST(){
+        editRestHost.text = REST?.HOST || "";
+        editRestApi.text = REST?.API || "";
+        editRestUser.text = REST?.USER || "";
+        editRestPsw.text = REST?.PSW || "";
+        editRestToken.text = REST?.TOKEN || "";
+        restTab.connected = REST?.isConnected || false;
+
+    }
+
+    function refreshTAXConn(){
+        if (editTaxHost.text === TAX.HOST
+                && editTaxApi.text === TAX.API
+                && editTaxCash.text === TAX.CASH
+                && editTaxToken.text === TAX.TOKEN){
+            taxTab.connected = !!TAX.isConnected;
+        } else {
+            taxTab.connected = false;
+        }
+    }
+
+    function populateTAX(){
+        editTaxHost.text = TAX?.HOST || "";
+        editTaxApi.text = TAX?.API || "";
+        editTaxCash.text = TAX?.CASH || "";
+        editTaxToken.text = TAX?.TOKEN || "";
+        taxTab.connected = TAX?.isConnected || false;
     }
 
     function loadAcntTab(acnt){
@@ -88,14 +119,7 @@ Item {
             id: actREST
             text: "REST API"
             onTriggered: {
-                if (!root.dbDriver) return;
-                REST.reset(root.dbDriver);
-                editRestHost.text = REST.HOST;
-                editRestApi.text = REST.API;
-                editRestUser.text = REST.USER;
-                editRestPsw.text = REST.PSW;
-                editRestToken.text = REST.TOKEN;
-
+                populateREST();
                 stack.currentIndex = 1;
             }
         }
@@ -104,7 +128,7 @@ Item {
         id: actTAX
         text: "ПРРО / Фіскалізація"
         onTriggered: {
-            loadTAX();
+            populateTAX();
             // console.log(`AppSettings.qml 23sde`)
             stack.currentIndex = 2;
         }
@@ -353,6 +377,7 @@ Item {
 
             ScrollView {
                 id: restTab
+                property bool connected: false
                 clip: true
                 Layout.fillWidth: true
                 Layout.fillHeight: true
@@ -386,6 +411,7 @@ Item {
                                     Layout.preferredHeight: 56
                                     title: "🔗 Адреса REST сервера (Host URL"
                                     placeholderText: "Введіть REST URL (https://example.com) ..."
+                                    onTextChanged: refreshRESTConn()
                                 }
                                 // Поле: API version
                                 UITextField{
@@ -394,6 +420,7 @@ Item {
                                     Layout.preferredHeight: 56
                                     title: "📦 Версія / Ендпоінт API (API Version)"
                                     placeholderText: "Введіть версію API (api/v1) ..."
+                                    onTextChanged: refreshRESTConn()
                                 }
                             }
 
@@ -409,18 +436,16 @@ Item {
                                     Layout.preferredHeight: 56
                                     title: "👤 Логін (Login)"
                                     placeholderText: "REST login"
+                                    onTextChanged: refreshRESTConn()
                                 }
-
-                                // Поле: Password
-                                ColumnLayout {
+                                UITextField{
+                                    id: editRestPsw;
                                     Layout.fillWidth: true
-                                    spacing: 4
-                                    Label { text: "🔑 Пароль (Password)"; font.pixelSize: 11; font.bold: true; color: "#6b7280" }
-                                    Rectangle {
-                                        Layout.fillWidth: true; height: 38; color: "#f9fafb"; radius: 6;
-                                        border.color: editRestPsw.activeFocus ? "#0288d1" : "#d1d5db"; border.width: editRestPsw.activeFocus ? 2 : 1
-                                        TextField { id: editRestPsw; anchors.fill: parent; leftPadding: 10; font.pixelSize: 13; selectByMouse: true; echoMode: TextInput.Password; background: null; placeholderText: "REST password" }
-                                    }
+                                    Layout.preferredHeight: 56
+                                    title: "🔑 Пароль (Password)"
+                                    echoMode: TextInput.Password;
+                                    placeholderText: "REST password"
+                                    onTextChanged: refreshRESTConn()
                                 }
                             }
 
@@ -433,30 +458,15 @@ Item {
                                 spacing: 8
 
                                 // Кнопка перевірки з'єднання (Connect) - тепер вона на всю ширину і має правильний тач-розмір
-                                Button {
+                                UIBtn{
                                     id: btnConnectREST
-                                    property bool isConnected: REST.isConnected
-                                    text: isConnected ? "⚡ З'єднання встановлено (Перепідключити)" : "🔌 Перевірити з'єднання (Connect)"
-                                    font.pixelSize: 13
-                                    font.bold: true
+                                    palette: restTab.connected ? "green" : ""
+                                    text: restTab.connected ? "⚡ З'єднання встановлено (Перепідключити)" : "🔌 Перевірити з'єднання (Connect)"
                                     Layout.fillWidth: true
-                                    Layout.preferredHeight: 38
-
-                                    background: Rectangle {
-                                        color: btnConnectREST.isConnected ? (btnConnectREST.pressed ? "#1b5e20" : (btnConnectREST.hovered ? "#2e7d32" : "#4caf50"))
-                                                                     : (btnConnectREST.pressed ? "#b0bec5" : (btnConnectREST.hovered ? "#cfd8dc" : "#eaedf0"))
-                                        radius: 6
-                                    }
-
-                                    contentItem: Text {
-                                        text: parent.text; font: parent.font
-                                        color: editRestToken.text !== "" ? "white" : "#37474f"
-                                        horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
-                                    }
-
+                                    Layout.preferredHeight: 44
                                     onClicked: {
                                         editRestToken.text = "";
-                                        btnConnectREST.isConnected = false;
+                                        restTab.connected = false;
                                         REST.setParam(editRestHost.text.trim(),
                                                       editRestApi.text.trim(),
                                                       editRestUser.text.trim(),
@@ -464,35 +474,24 @@ Item {
                                                       editRestToken.text.trim())
 
                                         REST.connect((err, msg) => {
+                                            restTab.connected = REST.isConnected;
+                                            editRestToken.text = REST.TOKEN;
                                             if (!err) {
-                                                editRestToken.text = REST.TOKEN;
                                                 root.vkEvent("info", "З'єднання з REST сервером успішно встановлено!");
                                             } else {
                                                 root.vkEvent("error", "Помилка REST шлюзу: " + String(msg));
                                             }
-                                            btnConnectREST.isConnected = REST.isConnected;
                                         });
                                     }
                                 }
-
-                                // Поле відображення токена (Token)
-                                ColumnLayout {
+                                UITextField{
+                                    id: editRestToken;
                                     Layout.fillWidth: true
-                                    spacing: 4
-                                    Label { text: "🔑 Авторизаційний токен сесії (Bearer Token)"; font.pixelSize: 11; font.bold: true; color: "#6b7280" }
-                                    Rectangle {
-                                        Layout.fillWidth: true; height: 38; color: "#f3f4f6"; radius: 6; // Світло-сірий фон для readOnly поля
-                                        border.color: editRestToken.text !== "" ? "#4caf50" : "#d1d5db"
-                                        border.width: 1
-
-                                        TextField {
-                                            id: editRestToken
-                                            anchors.fill: parent; leftPadding: 10; font.pixelSize: 12; font.family: "monospace"
-                                            selectByMouse: true; readOnly: true; background: null
-                                            color: text !== "" ? "#2e7d32" : "#757575"
-                                            placeholderText: "Токен відсутній. Натисніть 'Connect' для авторизації..."
-                                        }
-                                    }
+                                    Layout.preferredHeight: 56
+                                    title: "🔑 Авторизаційний токен сесії (Bearer Token)"
+                                    readOnly: true
+                                    placeholderText: "Токен відсутній. Натисніть 'Connect' для авторизації..."
+                                    color: "#2e7d32"
                                 }
                             }
                         }
@@ -520,23 +519,50 @@ Item {
                     }
 
                     UIBtn{
-                        id: btnSyncBalanceREST
-                        text: "Синхронізувати баланс з REST"
+                        id: btnRestoreREST
+                        text: "Відновити конфігурацію REST"
                         Layout.fillWidth: true
                         Layout.preferredHeight: 44
 
                         onClicked: {
-                            REST.uploadBalance2(dbDriver, 0,
-                                                (e) => {
-                                                   if (!!e) root.vkEvent("error", e || "REST sync error");
-                                                });
+                            if (!dbDriver) return;
+                            REST.restore(dbDriver);
+                            populateREST();
                         }
                     }
+
+                    RowLayout{
+                        Layout.fillWidth: true
+                        // Layout.preferredHeight: 44
+                        spacing: 10
+                        UIBtn{
+                            id: btnSyncBalanceREST
+                            // Layout.fillWidth: true
+                            Layout.preferredHeight: 44
+                            text: "Синхронізувати баланс з REST"
+
+                            onClicked: {
+                                REST.setBalanceSync();      // reset to ""
+                                REST.uploadBalance(dbDriver,
+                                                    (e) => {
+                                                       if (!!e) root.vkEvent("error", e || "REST sync error");
+                                                    });
+                            }
+                        }
+                        Item{
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 44
+
+                        }
+
+                    }
+
                 }
             }
 
             ScrollView {
                 id: taxTab
+                property bool connected: false
                 clip: true
                 Layout.fillWidth: true
                 Layout.fillHeight: true
@@ -560,64 +586,52 @@ Item {
                             anchors.margins: 16
                             spacing: 14
 
-                            // Поле 1: Host URL фіскального сервера
-                            UITextField{
-                                id: editTaxHost;
+                            RowLayout {
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: 56
-                                title: "🖥 Адреса фіскального сервера (Tax Host URL)"
-                                placeholderText: "Наприклад: http://localhost:8080 або https://check.gov.ua"
+                                spacing: 10
+                                UITextField{
+                                    id: editTaxHost;
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 56
+                                    title: "🖥 Адреса фіскального сервера (Tax Host URL)"
+                                    placeholderText: "Наприклад: http://localhost:8080 або https://check.gov.ua"
+                                    onTextChanged: refreshTAXConn()
+                                }
+
+                                UITextField{
+                                    id: editTaxApi;
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 56
+                                    title: "📦 Шлях до фіскального API (Tax API Endpoint)"
+                                    placeholderText: "Наприклад: api/v1/rro або prro/sign"
+                                    onTextChanged: refreshTAXConn()
+                                }
                             }
 
-                            // Поле 2: API Ендпоінт драйвера РРО
-                            UITextField{
-                                id: editTaxApi;
-                                Layout.fillWidth: true
-                                Layout.preferredHeight: 56
-                                title: "📦 Шлях до фіскального API (Tax API Endpoint)"
-                                placeholderText: "Наприклад: api/v1/rro або prro/sign"
-                            }
-
-                            // Поле 3: Ідентифікатор касового апарату (Cash ID)
                             UITextField{
                                 id: editTaxCash;
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 56
                                 title: "🆔 Номер каси / Фіскальний код ПРРО (Cash ID)"
                                 placeholderText: "Введіть унікальний фіскальний номер каси..."
+                                onTextChanged: refreshTAXConn()
                             }
 
                             Rectangle { Layout.fillWidth: true; height: 1; color: "#e5e7eb"; Layout.topMargin: 4; Layout.bottomMargin: 4 }
 
-                            // Блок авторизації ПРРО та отримання сесійного ключа
                             ColumnLayout {
                                 Layout.fillWidth: true
                                 spacing: 8
 
                                 // Кнопка: Перевірити фіскальне з'єднання (Connect)
-                                Button {
+                                UIBtn{
                                     id: btnConnectTAX
-                                    property bool isConnected: TAX.isConnected
-                                    text: isConnected ? "✅ РРО авторизовано (Перепідключити)" : "⚙ Перевірити зв'язок з ПРРО (Connect)"
-                                    font.pixelSize: 13
-                                    font.bold: true
+                                    palette: taxTab.connected ? "green" : ""
+                                    text: taxTab.connected ? "✅ РРО авторизовано (Перепідключити)" : "⚙ Перевірити зв'язок з ПРРО (Connect)"
                                     Layout.fillWidth: true
-                                    Layout.preferredHeight: 38
-
-                                    background: Rectangle {
-                                        color: btnConnectTAX.isConnected ? (btnConnectTAX.pressed ? "#1b5e20" : (btnConnectTAX.hovered ? "#2e7d32" : "#4caf50"))
-                                                                       : (btnConnectTAX.pressed ? "#b0bec5" : (btnConnectTAX.hovered ? "#cfd8dc" : "#eaedf0"))
-                                        radius: 6
-                                    }
-
-                                    contentItem: Text {
-                                        text: parent.text; font: parent.font
-                                        color: "#37474f"
-                                        horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
-                                    }
-
+                                    Layout.preferredHeight: 44
                                     onClicked: {
-                                        btnConnectTAX.isConnected = false;
+                                        taxTab.connected = false;
                                         TAX.setParam(editTaxHost.text.trim(),
                                                      editTaxApi.text.trim(),
                                                      editTaxCash.text.trim(),
@@ -629,29 +643,19 @@ Item {
                                             } else {
                                                 root.vkEvent("error", "Помилка фіскального шлюзу: " + String(errorMsg));
                                             }
-                                            btnConnectTAX.isConnected = TAX.isConnected;
+                                            taxTab.connected = TAX.isConnected;
                                         });
                                     }
                                 }
 
-                                // Поле 4: Сесійний Фіскальний Токен (Token - ReadOnly)
-                                ColumnLayout {
+                                UITextField{
+                                    id: editTaxToken;
                                     Layout.fillWidth: true
-                                    spacing: 4
-                                    Label { text: "🔑 Фіскальний токен відкритої зміни (Tax Token)"; font.pixelSize: 11; font.bold: true; color: "#6b7280" }
-                                    Rectangle {
-                                        Layout.fillWidth: true; height: 38; color: "#f3f4f6"; radius: 6;
-                                        border.color: editTaxToken.text !== "" ? "#4caf50" : "#d1d5db"
-                                        border.width: 1
-
-                                        TextField {
-                                            id: editTaxToken
-                                            anchors.fill: parent; leftPadding: 10; font.pixelSize: 12; font.family: "monospace"
-                                            selectByMouse: true; background: null
-                                            color: text !== "" ? "#2e7d32" : "#757575"
-                                            placeholderText: "Токен відсутній. Перевірте з'єднання для відкриття фіскальної сесії..."
-                                        }
-                                    }
+                                    Layout.preferredHeight: 56
+                                    title: "🔑 Фіскальний токен сесії (Tax Token)"
+                                    placeholderText: "Токен відсутній. Натисніть 'Connect' для авторизації..."
+                                    color: "#2e7d32"
+                                    onTextChanged: refreshTAXConn()
                                 }
                             }
                         }
@@ -685,7 +689,11 @@ Item {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 44
 
-                        onClicked: loadTAX();
+                        onClicked: {
+                            if (!dbDriver) return;
+                            TAX.restore(dbDriver);
+                            populateTAX();
+                        }
                     }
 
                 }

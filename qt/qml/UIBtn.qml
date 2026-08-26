@@ -23,12 +23,6 @@ Button {
         {"text": "#000080", "active": "#87CEFA"},  // skyblue Navy/LightSkyBlue, for positive Bind amnt
     ]
     property string palette: "basic"
-/*    readonly property var old_crntPalette:{
-        if (palette === "blue") return paletteList[1];
-        else if (palette === "green") return paletteList[2];
-        else if (palette === "red") return paletteList[3];
-        else return paletteList[0];
-    }*/
 
     readonly property var crntPalette:{
         let colorText = "";

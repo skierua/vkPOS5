@@ -3,165 +3,123 @@ import QtQuick.Controls
 // import QtQuick.Controls.Fusion
 import QtQuick.Layouts
 
+import "js/balance.js" as JS;
+
 Window {
-    id: root
+    id: balanceRoot
     width: 720
     height: 720
 
     property var dbDriver: null                 // DataBase driver
-    onDbDriverChanged: {
-        // loadAction.trigger()
-    }
-    property real zero: 0.0000001
+    // property real zero: 0.0000001
 
-    function dbg(str, code ="") {
-        console.log(`[Balance.qml]#${code} ${str}`);
-    }
+    property int countPage: 1
     Action {
         id: previousAction
-        // Безпечне порівняння через валідатор інпуту сторінки
-        enabled: vcrntEdit.validator && Number(vcrntEdit.text) > vcrntEdit.validator.bottom
-        text: "◀" // Стабільна Юнікод-стрілка «назад» (підтримується всіма ОС)
-
+        enabled: Number(vcrntEdit.text) > (vcrntEdit.validator ? vcrntEdit.validator.bottom : 1)
+        text: "❮" // ◀ Стабільна Юнікод-стрілка «назад» (підтримується всіма ОС)
         onTriggered: {
-            let prevPage = Number(vcrntEdit.text) - 1;
-            vcrntEdit.text = String(prevPage);
-            if (vw.model && typeof vw.model.populate === "function") {
-                vw.model.populate(prevPage);
-            }
+            const currentPage = parseInt(vcrntEdit.text) || 1;
+            vcrntEdit.text = String(currentPage - 1);
+            JS?.populate?.(vw.model, vcrntEdit.text);
         }
     }
 
     Action {
         id: nextAction
-        // ✅ ВИПРАВЛЕНО CRASH-БАГ QT6: Захищена перевірка типу масиву через typeof
-        enabled: vw.model !== null
-                 && typeof vw.model.rawData !== "undefined"
-                 && vw.model.rawData !== null
-                 && Number(vcrntEdit.text) < Math.ceil(vw.model.rawData.length / vw.model.pageCapacity)
-        text: "▶" // Стабільна Юнікод-стрілка «вперед»
-
+        enabled: Number(vcrntEdit.text) < (vcrntEdit.validator ? vcrntEdit.validator.top : balanceRoot.countPage)
+        text: "❯" // ▶ Стабільна Юнікод-стрілка «вперед»
         onTriggered: {
-            let nextPage = Number(vcrntEdit.text) + 1;
-            vcrntEdit.text = String(nextPage);
-            if (vw.model && typeof vw.model.populate === "function") {
-                vw.model.populate(nextPage);
-            }
+            const currentPage = parseInt(vcrntEdit.text) || 1;
+            vcrntEdit.text = String(currentPage + 1);
+            JS?.populate?.(vw.model, vcrntEdit.text);
         }
     }
 
- /*   Action {
-        id: previousAction
-        enabled: Number(vcrntEdit.text) > vcrntEdit.validator.bottom
-        text: "❮"
-        onTriggered: {
-            vcrntEdit.text = Number(vcrntEdit.text) -1
-            vw.model.populate(vcrntEdit.text)
-        }
-    }
 
     Action {
-        id: nextAction
-        enabled: vw.model !== null
-                 && vw.model.data !== undefined
-                 && Number(vcrntEdit.text) < Math.ceil(vw.model.data.length / vw.model.pageCapacity)
-        text: "❯"
-        onTriggered: {
-            vcrntEdit.text = Number(vcrntEdit.text) +1
-            vw.model.populate(vcrntEdit.text)
+        id: loadAction
+        onTriggered: source => {
+            const brige = {
+                 bal: source.bal,
+                 setPages: (v) => { balanceRoot.countPage = Number(v || 1);},
+             }
+            headerTitle.text = source?.text || "Unknown"
+            JS.load(dbDriver, vw.model, brige);
         }
-    } */
-
+    }
 
     Action {
         id: loadStockAction
+        property string bal: "300"
         text: qsTr("Stock")
-        onTriggered: {
-            // vfilterEdit.text = ""
-            headerTitle.text = text
-            vw.balAcnt = "300"
-            vw.load()
-        }
+        onTriggered: loadAction.trigger(loadStockAction)
     }
 
     Action {
         id: loadBrackAction
-        text: qsTr("Brack")
-        onTriggered: {
-            // vfilterEdit.text = ""
-            headerTitle.text = text
-            vw.balAcnt = "302"
-            vw.load()
-        }
+        property string bal: "302"
+        text: qsTr("Брак")
+        onTriggered: loadAction.trigger(loadBrackAction)
     }
 
     Action {
         id: loadTradeAction
+        property string bal: "3500"
         text: qsTr("TRADE")
-        onTriggered: {
-            // vfilterEdit.text = ""
-            headerTitle.text = text
-            vw.balAcnt = "3500"
-            vw.load()
-        }
+        onTriggered: loadAction.trigger(loadTradeAction)
     }
 
     Action {
         id: loadBulkAction
+        property string bal: "3501"
         text: qsTr("BULK")
-        onTriggered: {
-            // vfilterEdit.text = ""
-            headerTitle.text = text
-            vw.balAcnt = "3501"
-            vw.load()
-        }
-    }
-
-    Action {
-        id: sortAction
-        onTriggered: source => {
-            vw.sortOrder = source.order
-            vw.load()
-        }
+        onTriggered: loadAction.trigger(loadBulkAction)
     }
 
     Action {
         id: sortByIdAction
-        property string order: "id"
+        property string code: "id"
+        checkable: true
+        checked: vw.sortOrder === sortByIdAction.code || !vw.sortOrder
         text: qsTr("Sort by ID")
-        onTriggered: sortAction.trigger(sortByIdAction)
+        onTriggered: vw.sortOrder = sortByIdAction.code;
     }
 
     Action {
         id: sortByNameAction
-        property string order: "name"
+        property string code: "name"
+        checkable: true
+        checked: vw.sortOrder === sortByNameAction.code
         text: qsTr("Sort by name")
-        onTriggered: sortAction.trigger(sortByNameAction)
+        onTriggered: vw.sortOrder = sortByNameAction.code;
     }
 
     Action {
         id: sortByCostAction
-        property string order: "cost"
+        property string code: "cost"
+        checkable: true
+        checked: vw.sortOrder === sortByCostAction.code
         text: qsTr("Sort by cost")
-        onTriggered: sortAction.trigger(sortByCostAction)
+        onTriggered: vw.sortOrder = sortByCostAction.code;
     }
 
     Action {
         id: sortByDateinAction
-        property string order: "datein"
+        property string code: "datein"
+        checkable: true
+        checked: vw.sortOrder === sortByDateinAction.code
         text: qsTr("Sort by income date")
-        onTriggered: sortAction.trigger(sortByDateinAction)
+        onTriggered: vw.sortOrder = sortByDateinAction.code;
     }
 
     Action {
         id: sortByDateoutAction
-        property string order: "dateout"
+        property string code: "dateout"
+        checkable: true
+        checked: vw.sortOrder === sortByDateoutAction.code
         text: qsTr("Sort by outcome date")
-        onTriggered: sortAction.trigger(sortByDateoutAction)
-    }
-
-    ModelBalance{
-        id: dataModel
+        onTriggered: vw.sortOrder = sortByDateoutAction.code;
     }
 
     Component {
@@ -171,9 +129,8 @@ Window {
             id: headerRoot
 
             width: vw.width
-            height: 32 // Трохи збільшимо висоту для сучасного вигляду
-            color: "#F3F4F6" // Приємний нейтральний сірий фон шапки таблиці (Tailwind Gray 100)
-
+            height: 32
+            color: "#F3F4F6"
             // Тонка роздільна лінія під шапкою
             Rectangle {
                 anchors.bottom: parent.bottom
@@ -263,7 +220,7 @@ Window {
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                     Layout.fillHeight: true
-                    text: qsTr("КУРС")
+                    text: qsTr("ЦІНА")
                     font { pixelSize: 11; bold: true }
                     color: "#4B5563"
 
@@ -382,182 +339,6 @@ Window {
             }
         }
     }
-
-/*    Component {
-        id: vwHeader
-        Rectangle{
-            id : root
-            width: root.ListView.view.width //childrenRect.width;
-            height: 30
-            opacity: 0.7
-            RowLayout{
-                anchors{fill:parent}
-                spacing: 5
-                Item{
-                    // color:"orange"
-                    Layout.preferredWidth: 60
-                    Layout.fillHeight: true
-                    Row{
-                        anchors{centerIn: parent}
-                        // anchors.horizontalCenter: parent.horizontalCenter
-                        // anchors.verticalCenter: parent.verticalCenter
-                        Label{
-                            text: "ID"
-                            // background: Rectangle{color:"khaki"}
-                        }
-                        ToolButton{
-                            width: 20
-                            height: 20
-                            visible: root.ListView.view.sortOrder === "id"
-                            text:"↑"
-                        }
-
-                    }
-                    MouseArea{
-                        anchors.fill: parent
-                        onDoubleClicked: root.ListView.view.sortOrder = "id"
-                    }
-                }
-                Item{
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    Row{
-                        anchors{centerIn: parent}
-                        Label{
-                            text: qsTr("NAME")
-                        }
-                        ToolButton{
-                            width: 20
-                            height: 20
-                            visible: root.ListView.view.sortOrder === "name"
-                            text:"↑"
-                        }
-
-                    }
-                    MouseArea{
-                        anchors.fill: parent
-                        onDoubleClicked: root.ListView.view.sortOrder = "name"
-                    }
-                }
-
-                Label{
-                    Layout.preferredWidth: 60
-                    horizontalAlignment: Text.AlignHCenter
-                    text: "QTY"
-                    // font.bold: true
-                    // background: Rectangle{color:"khaki"}
-                }
-                Label{
-                    Layout.preferredWidth: 60
-                    horizontalAlignment: Text.AlignHCenter
-                    text: "PRICE"
-                    MouseArea{
-                        anchors.fill: parent
-                        hoverEnabled :true
-                        ToolTip{
-                            id: headerPriceToolTip
-                            delay: 1000
-                            timeout: 5000
-                            text: qsTr("Current sell price")
-                        }
-                        onEntered: headerPriceToolTip.visible = true
-                        onExited: headerPriceToolTip.visible = false
-                    }
-                }
-                Item{
-                    Layout.preferredWidth: 60
-                    Layout.fillHeight: true
-                    Row{
-                        anchors{centerIn: parent}
-                        Label{
-                            text: qsTr("COST")
-                        }
-                        ToolButton{
-                            width: 20
-                            height: 20
-                            visible: root.ListView.view.sortOrder === "cost"
-                            text:"↓"
-                        }
-
-                    }
-                    MouseArea{
-                        anchors.fill: parent
-                        onDoubleClicked: root.ListView.view.sortOrder = "cost"
-                        hoverEnabled :true
-                        ToolTip{
-                            id: headerCostToolTip
-                            delay: 1000
-                            timeout: 5000
-                            text: qsTr("Cost in stock")
-                        }
-                        onEntered: headerCostToolTip.visible = true
-                        onExited: headerCostToolTip.visible = false
-                    }
-                }
-                Item{
-                    Layout.preferredWidth: 60
-                    Layout.fillHeight: true
-                    Row{
-                        anchors{centerIn: parent}
-                        Label{
-                            text: qsTr("D-IN")
-                        }
-                        ToolButton{
-                            width: 20
-                            height: 20
-                            visible: root.ListView.view.sortOrder === "datein"
-                            text:"↓"
-                        }
-
-                    }
-                    MouseArea{
-                        anchors.fill: parent
-                        onDoubleClicked: root.ListView.view.sortOrder = "datein"
-                        hoverEnabled :true
-                        ToolTip{
-                            id: headerDinToolTip
-                            delay: 1000
-                            timeout: 5000
-                            text: qsTr("Last income date")
-                        }
-                        onEntered: headerDinToolTip.visible = true
-                        onExited: headerDinToolTip.visible = false
-                    }
-                }
-                Item{
-                    Layout.preferredWidth: 60
-                    Layout.fillHeight: true
-                    Row{
-                        anchors{centerIn: parent}
-                        Label{
-                            text: qsTr("D-OUT")
-                        }
-                        ToolButton{
-                            width: 20
-                            height: 20
-                            visible: root.ListView.view.sortOrder === "dateout"
-                            text:"↓"
-                        }
-
-                    }
-                    MouseArea{
-                        anchors.fill: parent
-                        onDoubleClicked: root.ListView.view.sortOrder = "dateout"
-                        hoverEnabled :true
-                        ToolTip{
-                            id: headerDoutToolTip
-                            delay: 1000
-                            timeout: 5000
-                            text: qsTr("Last outcome date")
-                        }
-                        onEntered: headerDoutToolTip.visible = true
-                        onExited: headerDoutToolTip.visible = false
-                    }
-                }
-            }
-
-        }
-    }*/
 
     Component {
         id: dlg
@@ -683,6 +464,48 @@ Window {
         }
     }
 
+    Component {
+        id: sectDlg
+
+        Rectangle {
+            id: rootSect
+            width: vw.width
+            height: 32
+            color: "#E5E7EB" // Сучасний світло-сірий фон роздільника (Tailwind Gray 200)
+            // readonly property var viewObj: rootSect.ListView.view
+            readonly property var infoObj: JS?.sectInfo?.(section) || null
+            // readonly property var sectName: section.includes("/") ? section.substring(section.lastIndexOf("/") + 1) : section
+
+            RowLayout {
+                anchors {
+                    fill: parent
+                    leftMargin: 12
+                    rightMargin: 12
+                }
+                spacing: 10
+
+                Text {
+                    Layout.fillWidth: true
+                    verticalAlignment: Text.AlignVCenter
+                    // Безпечне відсікання назви каси з рядка секції
+                    text: rootSect.infoObj.name
+                    font { pixelSize: 13; bold: true }
+                    color: "#374151"
+                }
+
+                Text {
+                    Layout.preferredWidth: 120
+                    horizontalAlignment: Text.AlignRight
+                    verticalAlignment: Text.AlignVCenter
+                    // Безпечний виклик підсумку по касі
+                    text: rootSect.infoObj?.totaleq || "0"    // JSON.stringify(rootSect.infoObj)  //
+                    font { pixelSize: 13; bold: true }
+                    color: "#1F2937"
+                }
+            }
+        }
+    }
+
 
     Page{
         anchors.fill: parent
@@ -692,16 +515,23 @@ Window {
 
             ListView{
                 id: vw
-                property string balAcnt
-                // onBalAcntChanged: load()
                 property string sortOrder: "id" // id | name | cost | datein | dateout
-                onSortOrderChanged: load()
+                onSortOrderChanged: {
+                    // console.log(`II: Balance.qml/onSortOrderChanged sortOrder=${sortOrder}`)
+                    vcrntEdit.text = vcrntEdit.validator.bottom;
+                    const brige = {
+                        order: sortOrder,
+                        filter: vfilterEdit.text,
+                        setPages: (v) => { balanceRoot.countPage = Number(v || 1);},
+                     }
+                    JS.setSortId(vw.model, brige)
+
+                }
 
                 anchors.fill: parent
                 spacing: 1
                 clip: true
-                // model: ListModel{ }
-                model: dataModel
+                model: ListModel{ }
                 header: vwHeader
                 delegate: dlg
                 add: Transition {
@@ -721,7 +551,8 @@ Window {
                 }
                 section.property: "bind"
                 section.criteria: ViewSection.FullString
-                section.delegate: Rectangle {
+                section.delegate: sectDlg
+/*                section.delegate: Rectangle {
                                     width: vw.width
                                     height: 32
                                     color: "#E5E7EB" // Сучасний світло-сірий фон роздільника (Tailwind Gray 200)
@@ -755,47 +586,7 @@ Window {
                                             color: "#1F2937"
                                         }
                                     }
-                                }
-/*                section.delegate: Rectangle{
-                    width: vw.width
-                    height: 30  // childrenRect.height   //*1.2
-                    color: "lightgrey" //"silver"
-                    Item {
-                        anchors{fill: parent;}
-                        Row {
-                            anchors{fill: parent;leftMargin: 10; rightMargin: 10}
-                            spacing: 5
-                            Text{
-                                width: parent.width - 100 - parent.spacing
-                                anchors{verticalCenter: parent.verticalCenter;leftMargin: 50}
-                                text:section.substring(section.lastIndexOf("/") +1)
-                //                    font.bold: true
-                                font.pixelSize: 14
-                            }
-                            Text{
-                                width: 100
-                                anchors{verticalCenter: parent.verticalCenter;leftMargin: 50}
-                                horizontalAlignment: Text.AlignRight
-                                text: vw.model.getTotal(section).toLocaleString(Qt.locale(),'f', 0)
-                //                    font.bold: true
-                                font.pixelSize: 14
-                            }
-
-                        }
-
-                    }
-                }
-*/
-                function load() {
-                    vcrntEdit.text = "1";
-                    if (root.dbDriver) {
-                        model.load(root.dbDriver, balAcnt || "300", sortOrder || "", vfilterEdit.text);
-
-                        // ✅ ВИПРАВЛЕНО: Замість застарілого String().arg використовуємо сучасний qsTr().arg
-                        let totalPages = Math.ceil(vw.model.rawData.length / vw.model.pageCapacity) || 1;
-                        footerCount.text = qsTr(" з %1").arg(totalPages);
-                    }
-                }
+                                }*/
                 function humanDate(vdate) {
                     if (!vdate) return "";
 
@@ -847,7 +638,6 @@ Window {
                             text: "☰"
                             flat: true
                             font.pixelSize: 14
-                            // ✅ ВИПРАВЛЕНО: Використовуємо сучасний .popup() без жорстких координат y
                             onClicked: naviMenu.popup()
 
                             Menu {
@@ -858,14 +648,6 @@ Window {
                                 MenuItem { action: loadBulkAction; }
                             }
                         }
-                        UIFindEdit{
-                            id: vfilterEdit
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 32
-                            placeholderText: "Фільтрувати..."
-                            // onTextChanged: vw.load()
-                            onEditingFinished: vw.load()
-                        }
 
                         Label {
                             id: headerTitle
@@ -873,7 +655,7 @@ Window {
                             horizontalAlignment: Qt.AlignHCenter
                             verticalAlignment: Qt.AlignVCenter
                             Layout.fillWidth: true
-                            text: qsTr("Залишки валют")
+                            text: qsTr("Залишки")
                             font { pointSize: 14; bold: true }
                             color: "#1F2937"
                         }
@@ -897,58 +679,6 @@ Window {
                 }
 
 
-/*        header: ToolBar {
-            id: appToolBar
-            height: 32
-            Rectangle{
-                width: parent.width
-                height: childrenRect.height // 30
-
-                RowLayout {
-                    width: parent.width
-                    // anchors.fill: parent
-                    ToolButton {
-                        // action: loadAction
-                        text: "☰"
-                        onClicked: naviMenu.open()
-                        Menu {
-                            id: naviMenu
-                            y: parent.height
-                            MenuItem { action: loadStockAction; }
-                            MenuItem { action: loadBrackAction; }
-                            MenuItem { action: loadTradeAction; }
-                            MenuItem { action: loadBulkAction; }
-                        }
-                    }
-                    Label {
-                        id: headerTitle
-                        elide: Label.ElideRight
-                        horizontalAlignment: Qt.AlignHCenter
-                        verticalAlignment: Qt.AlignVCenter
-                        Layout.fillWidth: true
-                        font.pointSize: 20
-                        // text: stack.currentItem.title
-                    }
-
-                    ToolButton {
-                        // id: contextMenu
-                        text: "⋮"
-                        onClicked: toolMenu.open()
-                        Menu {
-                            id: toolMenu
-                            y: parent.height
-                            MenuItem { action: sortByIdAction; }
-                            MenuItem { action: sortByNameAction; }
-                            MenuItem { action: sortByCostAction; }
-                            MenuItem { action: sortByDateinAction; }
-                            MenuItem { action: sortByDateoutAction; }
-                        }
-                    }
-                }
-            }
-
-        } */
-
         footer: ToolBar {
             id: appFooterBar
             height: 40
@@ -960,18 +690,20 @@ Window {
                   leftMargin: 10
                   rightMargin: 10
               }
-
-/*              TextField {
+              UIFindEdit{
                   id: vfilterEdit
-                  Layout.preferredWidth: 120
-                  Layout.preferredHeight: 28
-                  selectByMouse: true
-                  font.pixelSize: 12
-                  onActiveFocusChanged: if (activeFocus) selectAll()
-                  horizontalAlignment: Text.AlignHCenter
-                  placeholderText: "Пошук/Фільтр"
-                  onEditingFinished: vw.load()
-              }*/
+                  Layout.fillWidth: true
+                  Layout.preferredHeight: 32
+                  placeholderText: "Фільтрувати..."
+                  onAccepted: {
+                      vcrntEdit.text = vcrntEdit.validator.bottom;
+                      const brige = {
+                           filter: text,
+                           setPages: (v) => { balanceRoot.countPage = Number(v || 1);},
+                       }
+                      JS.filterData(vw.model, brige);
+                  }
+              }
 
               Item { Layout.fillWidth: true } // Розпірка
 
@@ -981,21 +713,23 @@ Window {
                       action: previousAction
                       Layout.preferredHeight: 28
                   }
-
                   TextField {
                       id: vcrntEdit
                       Layout.preferredWidth: 45
                       Layout.preferredHeight: 28
                       font.pixelSize: 12
                       selectByMouse: true
-                      validator: IntValidator { bottom: 1; }
+                      validator: IntValidator { bottom: 1; top: balanceRoot.countPage }
+                      // validator: IntValidator { bottom: 1; }
                       onActiveFocusChanged: if (activeFocus) selectAll()
                       horizontalAlignment: Text.AlignHCenter
                       text: "1"
-                      onEditingFinished: {
-                          let maxPage = Math.ceil(vw.model.rawData.length / vw.model.pageCapacity) || 1;
-                          if (Number(text) > maxPage) text = maxPage;
-                          vw.model.populate(Number(text));
+                      onAccepted: {
+                          console.info(`II: Balance.qml#8e6g onAccepted`)
+                          if (!text || text === "") return;
+                          const maxPage = balanceRoot.countPage;
+                          if (Number(text) > maxPage) text = String(maxPage);
+                          JS?.populate?.(vw.model, text);
                       }
                   }
 
@@ -1009,58 +743,10 @@ Window {
                   id: footerCount
                   font.pixelSize: 12
                   color: "#4B5563"
+                  text: ` з ${balanceRoot.countPage}`;
               }
             }
         }
-
-/*        footer: ToolBar {
-            RowLayout {
-                anchors{fill: parent;leftMargin:10; rightMargin:10;}
-                TextField{
-                    id: vfilterEdit
-                    Layout.preferredWidth: 100
-//                    focus: true
-                    selectByMouse: true
-                    onActiveFocusChanged: if (activeFocus) {selectAll()}
-                    horizontalAlignment: Text.AlignHCenter
-                    placeholderText: "filter"
-                    // text: vw.vfilter
-                    // onAccepted: {
-                    onEditingFinished: {
-                        vw.load()
-                    }
-                }
-                Item{
-                    Layout.fillWidth: true
-                }
-                RowLayout {
-                    ToolButton{ action: previousAction; }
-                    TextField{
-                        id: vcrntEdit
-                        Layout.preferredWidth: 50
-    //                    focus: true
-                        selectByMouse: true
-                        validator: IntValidator {bottom: 1; }
-                        onActiveFocusChanged: if (activeFocus) { selectAll(); }
-                        horizontalAlignment: Text.AlignHCenter
-                        text: "1"
-                        // onTextChanged: {
-                        onEditingFinished: {
-                            if (Number(text) > Math.ceil(vw.model.data.length / vw.model.pageCapacity) ) text = Math.ceil(vw.model.data.length / vw.model.pageCapacity)
-                            vw.model.populate(text)
-                        }
-                    }
-                    ToolButton{ action: nextAction; }
-
-                }
-
-
-                Label{
-                    id: footerCount
-                    // text: String(" з %1").arg(vw.model === null ? 0 : Math.ceil(vw.model.data.length / vw.model.pageCapacity))
-                }
-            }
-        } */
     }
 
 }

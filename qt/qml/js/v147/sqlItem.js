@@ -29,7 +29,6 @@ function findItem(id) {
     return itemCache.findIndex((v) => v.id === id);
 }
 
-// ✅ ОПТИМІЗАЦІЯ $O(N)$: Швидка побудова кешу папок через хеш-мапу без вкладених циклів findIndex
 function fillFolderCache(db) {
     folderPathCache = [];
     if (!db) return false;
@@ -53,7 +52,7 @@ function fillFolderCache(db) {
         let vpathid = "/";
         let vpathname = "/";
 
-        let depthLimit = 0; // ✅ ЗАХИСТ ВІД ВІЧНОГО ЦИКЛУ ТА КРАШУ ПАМ'ЯТІ
+        let depthLimit = 0;
 
         while (vpid !== "" && depthLimit < 10) {
             const parent = folderMap[vpid];

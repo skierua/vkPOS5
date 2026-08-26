@@ -41,6 +41,7 @@ Window {
         onTriggered: {
             const currentPage = parseInt(vcrntEdit.text) || 1;
             vcrntEdit.text = String(currentPage - 1);
+            JS?.populate?.(vw.model, vcrntEdit.text);
         }
     }
 
@@ -51,6 +52,7 @@ Window {
         onTriggered: {
             const currentPage = parseInt(vcrntEdit.text) || 1;
             vcrntEdit.text = String(currentPage + 1);
+            JS?.populate?.(vw.model, vcrntEdit.text);
         }
     }
 
@@ -642,16 +644,13 @@ Window {
                         horizontalAlignment: Text.AlignHCenter
                         text: "1"
                         onActiveFocusChanged: if (activeFocus) selectAll();
-                        onTextChanged: {
+                        onAccepted: {
                             if (!text || text === "") return;
                             // const maxPage = (vw.model && JS.PAGER) ? JS.PAGER.length : 1;
 
                             const maxPage = dcmViewRootWindow.countPage;
                             if (Number(text) > maxPage) text = String(maxPage);
                             JS?.populate?.(vw.model, text);
-                            // if (JS && typeof JS.populate === "function") {
-                            //     JS.populate(text);
-                            // }
                         }
                     }
                 }

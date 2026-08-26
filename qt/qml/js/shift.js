@@ -154,13 +154,6 @@ function startShift(db, bind, ui) {
 
       if (bid){
          sendBindToREST(db, jbind, ui);
-         if (typeof LibAcnt.balanceForUpload === "function") {
-             const acntData = LibAcnt.balanceForUpload(db, false);
-             REST.uploadBalance2(db, 0,
-               (err)=>{
-                  // TODO err
-               });
-         }
          ui?.info?.("Успішне проведення балансування TRADE");
          // return bid;
       } else {
@@ -468,19 +461,15 @@ function monProfitForUpload(db, flt){
 }
 
 function sendBindToREST(db, jbind, ui){
-   if (REST.isConnected && typeof REST.uploadBind2 === "function"){
-      REST.uploadBind2(jbind,
+   if (REST.isConnected ){
+      REST?.uploadBalance?.(db,
+        (e)=>{
+           if (!!e) ui?.warn?.(e || "REST sync error");
+        });
+      REST.uploadBind(jbind,
                  (err)=>{
-                    if (!err){
-                             if (typeof REST.uploadBalance2 === "function") {
-                                 REST.uploadBalance2(db, 10,
-                                   (e)=>{
-                                      if (!e) ui?.info?.("REST sync is Ok");
-                                      else ui?.warn?.(e || "REST sync error");
-                                   });
-                             }
-                    } else {
-                     ui?.warn?.(err || "REST sending error");
+                    if (!!err){
+                        ui?.warn?.(err || "REST sending error");
                     }
 
             });

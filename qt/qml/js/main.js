@@ -79,43 +79,33 @@ function handleDbNameChanged(db, prn, container, msg, ui){
     prn.setPrinterName(basicConf?.pos_printer || "")
 
     if (typeof REST !== "undefined") {
-        REST.reset(db);
+        REST.reset();
+        REST.restore(db);
         // console.log(`main.js/handleDbNameChanged usr:${REST.USER} psw:${REST.PSW} h:${REST.HOST} api:${REST.API} t:${REST.TOKEN} `)
         REST.connect((err, errstr) => {
+            ui?.setRateOnline?.(REST.isConnected);
             if (!err) {
                 REST.save(db);
-                if (!!ui && typeof ui.setRateOnline === "function")
-                    ui.setRateOnline(REST.isConnected);
-                if (!!ui && typeof ui.setFooter === "function")
-                    ui.setFooter(` ${String(Conf.TERM || "TEST")}@${String(REST.HOST || "")}`);
+                ui?.setFooter?.(` ${String(REST.USER || "")}@${String(REST.HOST || "")}`);
                 msg.info("З'єднання з REST сервером успішно встановлено!");
             } else {
-                if (!!ui && typeof ui.setRateOnline === "function")
-                    ui.setRateOnline(REST.isConnected);
-                if (!!ui && typeof ui.setFooter === "function")
-                    ui.setFooter(`DISCONNECTED ${String(Conf.TERM || "TEST")}@${String(REST.HOST || "")}`);
+                ui?.setFooter?.(`DISCONNECTED ${String(REST.USER || "")}@${String(REST.HOST || "")}`);
                 msg.warn("Помилка REST шлюзу: " + String(errstr));
             }
         });
     }
     if (typeof TAX !== "undefined") {
-        TAX.reset(db);
-        // if(!!String(TAX.HOST || "")
-        //     && !!String(TAX.API || "")
-        //     && !!String(TAX.CASH || "")
-        //     && !!String(TAX.TOKEN || "")
-        //     && !String(TAX.HOST).startsWith("*")
-        //     ){
-                TAX.connect((err, msg) => {
-                    if (!err) {
-                        if (!!ui && typeof ui.setTaxAction === "function")
-                            ui.setTaxAction(TAX.isConnected);
-                        msg.info("З'єднання з фіскальним сервером успішно встановлено!");
-                    } else {
-                        msg.warn("Помилка фіскального шлюзу: " + String(msg));
-                    }
-                });
-        // }
+        TAX.reset();
+        TAX.restore(db);
+        TAX.connect((err, msg) => {
+            if (!err) {
+                if (!!ui && typeof ui.setTaxAction === "function")
+                    ui.setTaxAction(TAX.isConnected);
+                msg.info("З'єднання з фіскальним сервером успішно встановлено!");
+            } else {
+                msg.warn("Помилка фіскального шлюзу: " + String(msg));
+            }
+        });
     }
 
     if (shft?.shftend !== '') {
