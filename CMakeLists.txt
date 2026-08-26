@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 
 project(vkPOS5
-    VERSION 3.15
+    VERSION 3.16
     LANGUAGES CXX)
 
 
@@ -48,8 +48,6 @@ set(CPP_FILES
 
 set(JS_FILES
     qt/qml/js/v147/config.js
-    # qt/lib.js
-    # qt/libTAX.js
     qt/qml/js/libREST.js
     qt/qml/js/main.js
     qt/qml/js/CashDesk.js
@@ -63,6 +61,7 @@ set(JS_FILES
     qt/qml/js/v147/sqlRepo.js
     qt/qml/js/v147/sqlShift.js
     qt/qml/js/v147/sqlTran.js
+    qt/qml/js/balance.js
     qt/qml/js/bind.js
     qt/qml/js/drawer.js
     qt/qml/js/dcmview.js
@@ -120,7 +119,6 @@ qt_add_qml_module(appvkPOS5
         qt/qml/Stat.qml
         qt/qml/WizardCash.qml
         qt/qml/TaxService.qml
-        qt/qml/ModelBalance.qml
         ${JS_FILES}
     SOURCES
         ${CPP_FILES}

@@ -14,6 +14,7 @@ let USER = "";
 let PSW = "";
 let TOKEN = "";
 let isConnected = false;
+let BALANCE_SYNC = new Date().toISOString();
 
 function setParam(host, api, user, psw, token){
     HOST = !!host ? String(host) : "";
@@ -27,15 +28,21 @@ function setParam(host, api, user, psw, token){
  * Скидання та вичитування актуальних налаштувань підключення з бази SQLite
  * @param {Object} db - Драйвер бази даних
  */
-function reset(db) {
+function reset() {
     isConnected = false;
-    setParam()
+    setParam();
+}
 
+function restore(db) {
     if (!db) return;
 
     const val = Conf.getREST(db);
-    if (!val) return;
-    setParam(val.host, val.api, val.user, val.psw, val.token)
+    if (!!val) setParam(val.host, val.api, val.user, val.psw, val.token);
+    else setParam();
+}
+
+function setBalanceSync(){
+    BALANCE_SYNC = new Date().toISOString();
 }
 
 /**
@@ -130,7 +137,7 @@ function loadRates(req, callback) {
     postRequest("/rates", req, (err, resp) => { callback(err, resp); });
 }
 
-function uploadBind2(bind, callback) {
+function uploadBind(bind, callback) {
     const currentTerm = String(Conf.TERM || "TEST");
     const currentShop = currentTerm;
     const req = { "reqid": "upd", "term": currentTerm, "shop": currentShop, "data": bind }
@@ -144,42 +151,47 @@ function uploadBind2(bind, callback) {
     }
 }
 
-// function uploadBalance2(acntData, deleteOld, callback) {
-function uploadBalance2(db, tm, callback) {
+// is using in: bind.js, shift.js, AppSettings.qml
+function uploadBalance(db, callback) {
     // console.warn(`WW: libREST.js/uploadBalance BLOKKED !!!`); return;
+    console.info(`II: libREST.js/uploadBalance BALANCE_SYNC=${BALANCE_SYNC}`)
     const currentTerm = String(Conf.TERM || "TEST");
     const currentShop = currentTerm;
-    const tmVal = Number(tm ?? 0);
-    const flt = tmVal > 0 ?
-                  `(datetime(dbtupd) > datetime('now', '-${tmVal} minutes') OR datetime(cdtupd) > datetime('now', '-${tmVal} minutes'))`
-                : "(abs(beginamnt) + abs(turndbt) + abs(turncdt)) > 0.0001"
-    const source = LibBal.dbBalance(db, flt);
-    const round4 = (num) => Math.round((Number(num) || 0) * 10000) / 10000;
+    const source = LibBal.balanceForUpload(db, BALANCE_SYNC);
+    const l_round4 = (num) => Math.round((Number(num) || 0) * 10000) / 10000;
     const cleanData = source.map(v => {
         // Створюємо копію об'єкта, сумісну навіть зі старим QML
         const cleanItem = {
                          "acntno": v.acntno,
-                         "amnt": round4(v.total),
+                         "amnt": l_round4(v.total),
                          "articleid": v.itemid,
                          "tm": v.intm < v.outm ? v.outm : v.intm,
-                         "turncdt":  round4(v.outcome),
-                         "turndbt": round4(v.income),
+                         "turncdt":  l_round4(v.outcome),
+                         "turndbt": l_round4(v.income),
                      }
 
         return cleanItem;
     });
+    if (!cleanData.length){ // NOTHING TO DO
+        return;
+    }
 
     const req = { "reqid": "upd",
         "term": currentTerm,
         "shop": currentShop,
-        "del": tmVal > 0 ? "0" : "1",
+        "del": !BALANCE_SYNC ? "1" : "0",
         "data": cleanData }
     if (BAN_SEND) {
     // debug info
-        console.warn("WW: REST.uploadBalance2 is PROHIBITED (BAN_SEND = true) !!!")
-        console.warn(`WW: REST.uploadBalance2 req=${JSON.stringify(req)}`)
+        console.warn("WW: REST.uploadBalance is PROHIBITED (BAN_SEND = true) !!!")
+        console.warn(`WW: REST.uploadBalance req=${JSON.stringify(req)}`)
+        setBalanceSync();
     } else {
         postRequest("/accounts", req, (err, resp) => {
+                        if (!err){
+                            // console.info(`II: REST.uploadBalance#w89 callback  BALANCE_SYNC=${BALANCE_SYNC}`)
+                            setBalanceSync();
+                        }
                         if (typeof callback === "function") callback(err, null);
                     });
     }
@@ -203,47 +215,6 @@ function uploadMonRepo(repo, period, reqid, callback) {
         console.warn(`WW: REST.uploadMonRepo req=${JSON.stringify(repoReq)}`)
         postRequest("/reports", repoReq, (err, resp) => { callback(err); });
     }
-}
-
-function uploadBind(req, callback) {
-    if (BAN_SEND) {
-    // debug info
-        console.warn("WW: REST.uploadBind is PROHIBITED (BAN_SEND = true) !!!")
-        // console.warn(`WW: REST.uploadBind req=${JSON.stringify(req)}`)
-    } else {
-        postRequest("/dcms", req, (err, resp) => { callback(err); });
-    }
-}
-
-function uploadBalance(req, callback) {
-    // console.warn(`WW: libREST.js/uploadBalance BLOKKED !!!`); return;
-    if (BAN_SEND) {
-    // debug info
-        console.warn("WW: REST.uploadBalance is PROHIBITED (BAN_SEND = true) !!!")
-        // console.warn(`WW: REST.uploadBalance req=${JSON.stringify(req)}`)
-    } else {
-        postRequest("/accounts", req, (err, resp) => { callback(err); });
-    }
-
-}
-
-// deprecated
-function uploadBindTran(term, shop, dcms, acnts, callback) {
-    console.warn(`WW: libREST.js/uploadBindTran DEPRECATED BLOKKED !!!`);
-    return;
-    let req = { "term": term, "reqid": "upd", "shop": term, "data": dcms };
-    uploadBind(req, (err) => {
-        if (err === null) {
-            if (acnts !== undefined && acnts.length !== 0) {
-                req = { "term": term, "reqid": "upd", "shop": term, "data": acnts };
-                uploadBalance(req, (berr) => { callback(berr); });
-            } else {
-                callback(err);
-            }
-        } else {
-            callback(err);
-        }
-    });
 }
 
 function postRequest(path, req, callback) {

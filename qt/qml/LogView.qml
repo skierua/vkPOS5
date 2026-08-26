@@ -73,25 +73,23 @@ ListView {
         }
     }
 
-    function getLogColors(msgId) {
-        switch(msgId) {
-            case 16:
-                return { bg: "#FDE8E8", border: "#F8B4B4", text: "#9B1C1C", label: "ПОМИЛКА" };
-            case 4:
-                return { bg: "#FEF08A", border: "#FDE047", text: "#713F12", label: "УВАГА" };
-            case 1:
-                return { bg: "#EBF5FF", border: "#E1EFFE", text: "#1E429F", label: "ІНФО" };
-            default:
-                return { bg: "#F9FAFB", border: "#E5E7EB", text: "#374151", label: "ЛОГ" };
-        }
-    }
-
     delegate: Item {
         id: delegateItem
         width: root.width
         height: Math.max(34, logCard.implicitHeight + 8)
 
-        readonly property var colors: root.getLogColors(msgId)
+        readonly property var rowObj: {
+            switch(msgId) {
+                case 16:
+                    return { bg: "#FDE8E8", border: "#F8B4B4", text: "#9B1C1C", label: "ПОМИЛКА" };
+                case 4:
+                    return { bg: "#FEF08A", border: "#FDE047", text: "#713F12", label: "УВАГА" };
+                case 1:
+                    return { bg: "#EBF5FF", border: "#AACCFF", text: "#1E429F", label: "ІНФО" };
+                default:
+                    return { bg: "#F9FAFB", border: "#E5E7EB", text: "#374151", label: "ЛОГ" };
+            }
+        }
 
         Rectangle {
             id: logCard
@@ -102,18 +100,18 @@ ListView {
                 rightMargin: 8
             }
             radius: 6
-            color: delegateItem.colors.bg
+            color: delegateItem.rowObj?.bg || "#F9FAFB"
             border {
                 width: 1
-                color: delegateItem.colors.border
+                color: delegateItem.rowObj?.border
             }
 
             RowLayout {
-                    id: cardLayout // ✅ Додано id для посилання на координати колонок
+                    id: cardLayout
                     anchors {
                     fill: parent
                     leftMargin: 10
-                    rightMargin: 6 // Зменшено відступ справа, щоб кнопка хрестика стояла акуратно
+                    rightMargin: 6
                     topMargin: 4
                     bottomMargin: 4
                 }
@@ -126,11 +124,11 @@ ListView {
                     width: 65
                     height: 16
                     radius: 4
-                    color: delegateItem.colors.text
+                    color: delegateItem.rowObj?.text
 
                     Text {
                         anchors.centerIn: parent
-                        text: delegateItem.colors.label
+                        text: delegateItem.rowObj?.label || "Unknown"
                         color: "#FFFFFF"
                         font {
                             pixelSize: 9
@@ -143,8 +141,8 @@ ListView {
                 Text {
                     Layout.fillWidth: true
                     Layout.alignment: Qt.AlignVCenter
-                    text: str
-                    color: delegateItem.colors.text
+                    text: str.length < 80 ? str : str.substring(0,80)
+                    color: delegateItem.rowObj?.text
                     wrapMode: Text.Wrap
                     font {
                         pixelSize: 12
@@ -152,23 +150,18 @@ ListView {
                     }
                 }
 
-                // ✅ НОВА КНОПКА: Примусове закриття одного повідомлення касиром
                 ToolButton {
-                    id: closeButton // ✅ Додано id кнопки
+                    id: closeButton
                     Layout.alignment: Qt.AlignTop | Qt.AlignRight
                     Layout.preferredWidth: 20
                     Layout.preferredHeight: 30
-                    flat: true // Робимо кнопку прозорою без сірої рамки
+                    flat: true
 
 
-                    // Налаштовуємо колір хрестика під колір тексту поточної картки
                     contentItem: Text {
-                        // text: parent.text
-                        // font: parent.font
-                        color: delegateItem.colors.text
+                        color: delegateItem.rowObj?.text
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
-                        // Стильний тонкий хрестик
                         text: "✕"
                         font {
                             pixelSize: 12

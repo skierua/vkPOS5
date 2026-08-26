@@ -124,7 +124,7 @@ function sell(db, itemid) {
         return pr[0];
     }
 
-    return dummyPrice();
+    return dummyPrice(itemid);
 }
 
 function buy(db, itemid) {

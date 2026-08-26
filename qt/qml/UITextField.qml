@@ -7,6 +7,10 @@ FocusScope {
     property string title
     property alias text: editor.text
     property alias placeholderText: editor.placeholderText
+    property alias echoMode: editor.echoMode
+    property alias readOnly: editor.readOnly
+    property alias color: editor.color
+    property alias validator: editor.validator
     // property int pixelSize: 13
 
     implicitHeight: mainLayout.implicitHeight

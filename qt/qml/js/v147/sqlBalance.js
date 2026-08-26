@@ -66,41 +66,29 @@ function dbTradeBalance(db, condition = "", order = "") {
 /**
  * Залишки по групі рахунків (напр. по всьому 300)
  * NO reverse, NO sort
+ * balace.js
  */
 function balBalance(db, bal, condition) {
     if (!db || !bal || bal.length < 2) return [];
 
-    const flt = `substr(acntno, 1, ${bal.length}) = '${bal}' AND abs(beginamnt + turndbt - turncdt) > 0.0009`
+    const flt = `substr(acntno, 1, ${bal.length}) = '${bal}' AND (abs(beginamnt) + abs(turndbt) + abs(turncdt)) > 0.0001`
         + (!condition ? "" : ` AND ${condition}`);
 // console.log(`II: sqlAcnt.js/balBalance2 flt = ${flt}`)
     return dbBalance(db, flt);
 }
 
-/*
-function balanceForUpload(db, tm) {
+
+function balanceForUpload(db, tm, ofset) {
     if (!db) return [];
     const tmVal = Number(tm ?? 0);
+    const ofsetVal = `'-${String(ofset || 10)} seconds'`
 
     // Прибрано 'localtime'. Тепер порівняння часу транзакцій
     // з системним 'now' за Гринвічем відбувається безпомилково і миттєво!
     const whereCondition = !!tm
-        ? `datetime(tm) > datetime('now', '-${tm} minutes')`
-        : "abs(beginamnt + turndbt - turncdt) > 0.001";
+        ? `(datetime(dbtupd) > datetime('${tm}', ${ofsetVal} ) OR datetime(cdtupd) > datetime('${tm}', ${ofsetVal}))`
+        : "(abs(beginamnt) + abs(turndbt) + abs(turncdt)) > 0.0001";
+    console.log(`II: sqlBalance/balanceForUpload flt=${whereCondition}`)
 
-    const sql = `
-        SELECT
-            acntno,
-            coalesce(item, '') AS articleid,
-            (beginamnt + turndbt - turncdt) AS amnt,
-            turndbt,
-            turncdt,
-            CASE
-                WHEN coalesce(dbtupd, '') > coalesce(cdtupd, '') THEN dbtupd
-                ELSE cdtupd
-            END AS tm
-        FROM acnt
-        WHERE ${whereCondition};
-    `;
-    console.log(`II: sqlBalance/balanceForUpload sql=${sql}`)
-    return db.dbSelectRowsJSON(sql) || [];
-} */
+    return dbBalance(db, whereCondition);
+}

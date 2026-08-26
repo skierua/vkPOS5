@@ -14,7 +14,7 @@
 // const BAN_SEND = true;
 const BAN_SEND = false;
 
-let HOST = "https://test.cashdesk.com.ua";
+let HOST = "https://web.cashdesk.com.ua";
 let API = "/api/v2";
 let CASH = "";
 let TOKEN = "";
@@ -27,15 +27,17 @@ function setParam(host, api, cash, token){
     TOKEN = token ? String(token) : "";
 }
 
-function reset(db){
+function reset(){
     isConnected = false;
-    setParam()
+    setParam();
+}
 
+function restore(db){
     if (!db) return;
 
     const val = Conf.getTAX(db);
-    if (!val) return;
-    setParam(val.host, val.api, val.cash, val.token)
+    if (!!val) setParam(val.host, val.api, val.cash, val.token)
+    else setParam();
 }
 
 function save(db) {
@@ -232,6 +234,7 @@ function ping(callback) {
     callback(err,resp);
 }
 */
+
 function bindToSale(db, dcmid, payType) {
     let archive = false;
     let bind = LibBind.selDcmById(db, dcmid);

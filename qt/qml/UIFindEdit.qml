@@ -14,15 +14,16 @@ FocusScope {
     implicitHeight: layout.implicitHeight
     implicitWidth: layout.implicitWidth
 
-    RowLayout {
+    Item {
         id: layout
         anchors.fill: parent
         anchors.leftMargin: 6; anchors.rightMargin: 6
-        spacing: 6
+        // spacing: 6
         ToolButton {
             id: btnFindToggle
-            Layout.preferredWidth: 32
-            Layout.preferredHeight: 32
+            width: 32; height: 32;
+            // Layout.preferredWidth: 32
+            // Layout.preferredHeight: 32
             icon.source: "qrc:/icon/find.svg"
             onClicked: rootItem.expanded = !rootItem.expanded
             // onClicked: editor.visible = !editor.visible
@@ -31,9 +32,11 @@ FocusScope {
         }
         TextField {
             id: editor
-            Layout.preferredWidth: 120
-            Layout.preferredHeight: 32
-            Layout.fillWidth: rootItem.fillWidth
+            width: 120; height: 32;
+            anchors.left: btnFindToggle.right
+            // Layout.preferredWidth: 120
+            // Layout.preferredHeight: 32
+            // Layout.fillWidth: rootItem.fillWidth
             topPadding: 0
             bottomPadding: 0
             selectByMouse: true

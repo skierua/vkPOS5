@@ -614,12 +614,13 @@ function createBindForTax_cd(db, dcmid, payType) {
 */
 
 function sendBindToREST(db, jbind, ui){
-   if (REST.isConnected){
-       REST?.uploadBalance2?.(db, 10,
+    console.info(`II: bind.js/sendBindToREST isConnected=${REST.isConnected}`)
+    if (REST.isConnected){
+       REST?.uploadBalance?.(db,
          (e)=>{
             if (!!e) ui?.warn?.(e || "REST sync error");
          });
-      REST.uploadBind2(jbind,
+      REST?.uploadBind?.(jbind,
                  (err)=>{
                     if (!!err){
                         ui?.warn?.(err || "REST sending error");
@@ -629,24 +630,4 @@ function sendBindToREST(db, jbind, ui){
    }
 
 }
-
-/*function sendBindToREST(db, jbind, ui){
-   if (REST.isConnected){
-      REST.uploadBind2(jbind,
-                 (err)=>{
-                    if (!err){
-                       if (typeof REST.uploadBalance2 === "function") {
-                           REST.uploadBalance2(db, 10,
-                             (e)=>{
-                                if (!!e) ui?.warn?.(e || "REST sync error");
-                             });
-                       }
-                    } else {
-                        ui?.warn?.(err || "REST sending error");
-                    }
-
-            });
-   }
-
-}*/
 

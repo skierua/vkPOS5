@@ -150,6 +150,7 @@ function tradeBalance(db, bal = "3500") {
  */
 // DEPRECATED, moved to sqlBalance.js
 function dbBalance(db, flt = "", order = "", reverse = false) {
+    console.warn("WW: sqlAcnt.js/dbBalance DEPRECATED moved to sqlBalance.js !!!")
     // console.log(`26#sqlAcnt.js db=[${db}]`)
     if (!db) return [];
     // console.log(`984#sqlAcnt.js db=[Ok]`)
