@@ -3,16 +3,6 @@ import QtQuick.Controls
 
 Button {
     id: btn
-/*    readonly property var old_paletteList:  // textcolor, active, hovered, pressed
-        [
-        // ["#37474f", "#eaedf0", "#cfd8dc", "#b0bec5"],  // basic
-        ["#37474f", "#eceff1", "#e2e8f0", "#cfd8dc"],  // basic
-        // ["white", "#0288d1", "#0277bd", "#01579b"],  // blue
-        ["white", "#3B82F6", "#3063f0", "#1D4ED8"],  // blue
-        // ["white", "#10B981", "#0da371", "#047857"],  // green
-        ["white", "#4caf50", "#2e7d32", "#1b5e20"],  // green
-        ["white", "#EF4444", "#db3d3d", "#B91C1C"],  // red
-    ]*/
     readonly property var paletteList:  // textcolor, active, hovered, pressed
         [
         {"text": "#37474f", "active": "#eceff1"},  // basic
@@ -27,23 +17,31 @@ Button {
     readonly property var crntPalette:{
         let colorText = "";
         let colorActive = "";
-        const paletteVal = String(palette || "").toLocaleLowerCase();
-        if (paletteVal === "blue") { colorText = paletteList[1]?.text || "#37474f"; colorActive = paletteList[1]?.active || "#eceff1"; }
-        else if (paletteVal === "green") { colorText = paletteList[2]?.text || "#37474f"; colorActive = paletteList[2]?.active || "#eceff1"; }
-        else if (paletteVal === "red") { colorText = paletteList[3]?.text || "#37474f"; colorActive = paletteList[3]?.active || "#eceff1"; }
-        else if (paletteVal === "pink") { colorText = paletteList[4]?.text || "#37474f"; colorActive = paletteList[4]?.active || "#eceff1"; }
-        else if (paletteVal === "skyblue") { colorText = paletteList[5]?.text || "#37474f"; colorActive = paletteList[5]?.active || "#eceff1"; }
-        else { colorText = paletteList[0]?.text || "#37474f"; colorActive = paletteList[0]?.active || "#eceff1"; }
-        const res = {
-            "text" : colorText,
-            "active" : colorActive,
-            "hovered": Qt.darker(colorActive, 1.1),
-            "pressed": Qt.darker(colorActive, 1.4),
+        if (btn.enabled){
+            const paletteVal = String(palette || "").toLocaleLowerCase();
+            if (paletteVal === "blue") { colorText = paletteList[1]?.text || "#37474f"; colorActive = paletteList[1]?.active || "#eceff1"; }
+            else if (paletteVal === "green") { colorText = paletteList[2]?.text || "#37474f"; colorActive = paletteList[2]?.active || "#eceff1"; }
+            else if (paletteVal === "red") { colorText = paletteList[3]?.text || "#37474f"; colorActive = paletteList[3]?.active || "#eceff1"; }
+            else if (paletteVal === "pink") { colorText = paletteList[4]?.text || "#37474f"; colorActive = paletteList[4]?.active || "#eceff1"; }
+            else if (paletteVal === "skyblue") { colorText = paletteList[5]?.text || "#37474f"; colorActive = paletteList[5]?.active || "#eceff1"; }
+            else { colorText = paletteList[0]?.text || "#37474f"; colorActive = paletteList[0]?.active || "#eceff1"; }
+            return {
+                "text" : colorText,
+                "active" : colorActive,
+                "hovered": Qt.darker(colorActive, 1.1),
+                "pressed": Qt.darker(colorActive, 1.4),
+            }
+        } else {
+            return {
+                "text" : Qt.lighter("#37474f",1.8),
+                "active" : "#eceff1",
+                "hovered": "#eceff1",
+                "pressed": Qt.darker("#eceff1", 1.2),
+            }
         }
-        return res;
     }
     property string toolTip
-    hoverEnabled: true; // !!toolTip
+    hoverEnabled: enabled ? true : false; // !!toolTip
     ToolTip{ visible: !!toolTip && parent.hovered; delay: 800; timeout: 4000; text: btn.toolTip; }
 
     // text: ""

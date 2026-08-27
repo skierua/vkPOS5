@@ -31,18 +31,59 @@ Item {
 
     function textForMenu() { return root.title; }
 
+    function isBasicTabChanged(){
+        const id = editTerm.text.trim();
+        const appmode = modeGroup.currentModeid;
+        const name = editTermName.text.trim();
+        const amnt_sign = editCheckAmnt.text.trim();
+        const pos_printer = editPrinter.text.trim();
+        const auto_print = switchAutoPrint.checked ? "1" : "0";
+        const print_dcm = editCheckPrintDcm.text.trim();
+        return String(basicTab.dataObj?.id || "TEST") !== id
+            || String(basicTab.dataObj?.name || "") !== name
+            || String(basicTab.dataObj?.pos_printer || "") !== pos_printer
+            || String(basicTab.dataObj?.amnt_sign || "1") !== amnt_sign
+            || String(basicTab.dataObj?.auto_print || "0") !== auto_print
+            || String(basicTab.dataObj?.print_dcm || "check") !== print_dcm
+            || Number(basicTab.dataObj?.appmode || 3) !== appmode;
+    }
+
+    function populateBasicTab(jval){
+        basicTab.dataObj = jval;
+        btnSaveSettings.enabled = false;
+        modeGroup.currentModeid = Number(jval?.appmode || 3);
+        editTerm.text = String(jval?.id || "TEST");
+        editTermName.text = String(jval?.name || "");
+        editPrinter.text = String(jval?.pos_printer || "");
+        editCheckAmnt.text = String(jval?.amnt_sign || "1");
+
+        if (typeof switchAutoPrint !== "undefined") {
+            switchAutoPrint.checked = String(jval?.auto_print || "0") === "1";
+        }
+        editCheckPrintDcm.text = String(jval?.print_dcm || "check");
+    }
+
     function refreshRESTConn(){
-        if (editRestHost.text === REST.HOST
-                && editRestApi.text === REST.API
-                && editRestUser.text === REST.USER
-                && editRestPsw.text === REST.PSW){
+        const host = editRestHost.text.trim();
+        const api = editRestApi.text.trim();
+        const user = editRestUser.text.trim();
+        const psw = editRestPsw.text.trim();
+        if (host === REST.HOST
+                && api === REST.API
+                && user === REST.USER
+                && psw === REST.PSW){
             editRestToken.text = REST.TOKEN;
             restTab.connected = !!REST.isConnected;
+            btnSaveREST.enabled = false
+            btnRestoreREST.enabled = false
         } else {
             editRestToken.text = "";
             restTab.connected = false;
+            btnSaveREST.enabled = true
+            btnRestoreREST.enabled = true
         }
     }
+
     function populateREST(){
         editRestHost.text = REST?.HOST || "";
         editRestApi.text = REST?.API || "";
@@ -54,13 +95,21 @@ Item {
     }
 
     function refreshTAXConn(){
-        if (editTaxHost.text === TAX.HOST
-                && editTaxApi.text === TAX.API
-                && editTaxCash.text === TAX.CASH
-                && editTaxToken.text === TAX.TOKEN){
+        const host = editTaxHost.text.trim();
+        const api = editTaxApi.text.trim();
+        const cash = editTaxCash.text.trim();
+        const token = editTaxToken.text.trim();
+        if (host === TAX.HOST
+                && api === TAX.API
+                && cash === TAX.CASH
+                && token === TAX.TOKEN){
             taxTab.connected = !!TAX.isConnected;
+            btnSaveTAX.enabled = false
+            btnRestoreTAX.enabled = false
         } else {
             taxTab.connected = false;
+            btnSaveTAX.enabled = true
+            btnRestoreTAX.enabled = true
         }
     }
 
@@ -72,25 +121,27 @@ Item {
         taxTab.connected = TAX?.isConnected || false;
     }
 
-    function loadAcntTab(acnt){
-        if (!root.dbDriver || !acnt){
-            root.vkEvent("error", "Помилка вхідних параметрів рахунку");
-            return;
-        }
-        const valList = LibAcnt.dbAcntbal(dbDriver, `acntno = '${acnt}'`);
-        // console.log(`II: AppSettings.qml#q6t3 valList=${JSON.stringify(valList)}`)
-        if (!valList || !valList.length) {
-            root.vkEvent("error", "Помилка заватаження рахунку");
-            return;
-        }
+    function isAcntTabChanged(){
+        const noteVal = editAcntTabNote.text.trim();
+        const maskVal = (editAcntTabMaskDomestic.checked ? 1 : 0)
+        + (editAcntTabMaskForeign.checked ? 2 : 0)
+        + (editAcntTabMaskArticles.checked ? 4 : 0)
+        const tradeVal = editAcntTabTrade.checked ? 1 : 0;
 
-        const v = valList[0];
-        editAcntTabNote.text = v.note;
-        editAcntTabMaskDomestic.checked = (Number(v.mask || 0) & 1) === 1;
-        editAcntTabMaskForeign.checked = (Number(v.mask || 0) & 2) === 2;
-        editAcntTabMaskArticles.checked = (Number(v.mask || 0) & 4) === 4;
-        editAcntTabTrade.checked = (Number(v.trade || 0) === 1);
+        return acntTab.dataObj.note !== noteVal
+            || acntTab.dataObj.mask !== maskVal
+            || acntTab.dataObj.trade !== tradeVal;
+    }
 
+    function populateAcntTab(acnt){
+        acntTab.dataObj = acnt;
+        btnSaveAcntTab.enabled = false;
+        btnAcntTabCrntAcnt.text = `${acnt.acntno} - ${acnt.note || ("[" + acnt.name + "]")} ${acnt.clname || ""}`;
+        editAcntTabNote.text = acnt.note;
+        editAcntTabMaskDomestic.checked = (Number(acnt.mask || 0) & 1) === 1;
+        editAcntTabMaskForeign.checked = (Number(acnt.mask || 0) & 2) === 2;
+        editAcntTabMaskArticles.checked = (Number(acnt.mask || 0) & 4) === 4;
+        editAcntTabTrade.checked = (Number(acnt.trade || 0) === 1);
     }
 
     // --- Блок логіки вкладок ---
@@ -98,20 +149,10 @@ Item {
         id: actBasic
         text: "Базові"
         onTriggered: {
-            const val = JS.getBasic(dbDriver);
-
-            modeGroup.currentModeid = Number(val?.appmode || 3);
-            editTerm.text = String(val?.id || "TEST");
-            editTermName.text = String(val?.name || "");
-            editPrinter.text = String(val?.pos_printer || "");
-            editCheckAmnt.text = String(val?.amnt_sign || "1");
-
-            if (typeof switchAutoPrint !== "undefined") {
-                switchAutoPrint.checked = String(val?.auto_print || "0") === "1";
-            }
-            editCheckPrintDcm.text = String(val?.print_dcm || "check");
-
             stack.currentIndex = 0;
+            const val = JS.getBasic(dbDriver);
+            populateBasicTab(val);
+
         }
     }
 
@@ -119,8 +160,8 @@ Item {
             id: actREST
             text: "REST API"
             onTriggered: {
-                populateREST();
                 stack.currentIndex = 1;
+                populateREST();
             }
         }
 
@@ -133,37 +174,66 @@ Item {
             stack.currentIndex = 2;
         }
     }
+    function populateDfltAcntTab(jval){
+
+        const cashStr = String(jval?.cash || "");
+        const tradeStr = String(jval?.trade || "");
+        const bulkStr = String(jval?.bulk || "");
+        const incasStr = String(jval?.incas || "");
+        const profitStr = String(jval?.profit || "");
+
+        const cashSuffix = cashStr.substring(Math.min(cashStr.length, (JS.glCashPrefix || "30").length));
+        const tradeSuffix = tradeStr.substring(Math.min(tradeStr.length, (JS.glTradePrefix || "35").length));
+        const bulkSuffix = bulkStr.substring(Math.min(bulkStr.length, (JS.glTradePrefix || "35").length));
+        const incasSuffix = incasStr.substring(Math.min(incasStr.length, (JS.glCashPrefix || "30").length));
+        const profitSuffix = profitStr.substring(Math.min(profitStr.length, (JS.glDepoPrefix || "36").length));
+
+        // Відсікаємо префікси, захищаючи довжину рядка
+        dfltAcntTab.dataObj = {
+            cash: cashSuffix,
+            trade: tradeSuffix,
+            bulk: bulkSuffix,
+            incas: incasSuffix,
+            profit: profitSuffix,
+        }
+        editAcntCash.text = cashSuffix;
+        editAcntTrade.text = tradeSuffix;
+        editAcntBulk.text = bulkSuffix;
+        editAcntIncas.text = incasSuffix;
+        editAcntProfit.text = profitSuffix;
+        btnSaveDfltAcntTab.enabled = false;
+        btnRestoreDfltAcntTab.enabled = false;
+    }
+
+    function refreshDfltAcntTab(){
+        const cashTxt = editAcntCash.text.trim();
+        const tradeTxt = editAcntTrade.text.trim();
+        const bulkTxt = editAcntBulk.text.trim();
+        const incasTxt = editAcntIncas.text.trim();
+        const profitTxt = editAcntProfit.text.trim();
+
+        if (dfltAcntTab.dataObj.cash !== cashTxt
+            || dfltAcntTab.dataObj.trade !== tradeTxt
+        || dfltAcntTab.dataObj.bulk !== bulkTxt
+        || dfltAcntTab.dataObj.incas !== incasTxt
+        || dfltAcntTab.dataObj.profit !== profitTxt){
+            btnSaveDfltAcntTab.enabled = true;
+            btnRestoreDfltAcntTab.enabled = true;
+        } else {
+            btnSaveDfltAcntTab.enabled = false;
+            btnRestoreDfltAcntTab.enabled = false;
+        }
+    }
+
 
     Action {
         id: actDfltAccounts
         text: "Тирові рахунки"
         onTriggered: {
+            stack.currentIndex = 3; // Перемикаємо StackLayout на вкладку №4
             if (!root.dbDriver) return;
             const val = JS.getAcntList(dbDriver);
-            // if (!val) {
-            //     editAcntCash.text = val?.cash.substring(2) || "";
-            //     editAcntTrade.text = val?.trade.substring(2) || "";
-            //     editAcntBulk.text = val?.bulk.substring(2) || "";
-            //     editAcntIncas.text = val?.incas.substring(2) || "";
-            //     editAcntProfit.text = val?.profit.substring(2) || "";
-            //     stack.currentIndex = 3;
-            //     return;
-            // }
-
-            const cashStr = String(val?.cash || "");
-            const tradeStr = String(val?.trade || "");
-            const bulkStr = String(val?.bulk || "");
-            const incasStr = String(val?.incas || "");
-            const profitStr = String(val?.profit || "");
-
-            // Відсікаємо префікси, захищаючи довжину рядка
-            editAcntCash.text = cashStr.substring(Math.min(cashStr.length, (JS.glCashPrefix || "30").length));
-            editAcntTrade.text = tradeStr.substring(Math.min(tradeStr.length, (JS.glTradePrefix || "35").length));
-            editAcntBulk.text = bulkStr.substring(Math.min(bulkStr.length, (JS.glTradePrefix || "35").length));
-            editAcntIncas.text = incasStr.substring(Math.min(incasStr.length, (JS.glCashPrefix || "30").length));
-            editAcntProfit.text = profitStr.substring(Math.min(profitStr.length, (JS.glDepoPrefix || "36").length));
-
-            stack.currentIndex = 3; // Перемикаємо StackLayout на вкладку №4
+            populateDfltAcntTab(val);
         }
     }
     Action {
@@ -171,17 +241,10 @@ Item {
         text: "Параметри рахунків"
         onTriggered: {
             stack.currentIndex = 4;
-            const val = LibAcnt.dbAcntbal(dbDriver);
-            const sortVal = val.sort((a,b)=> a.acntno.localeCompare(b.acntno))
-            .map(v => {
-                 return { "code": v.acntno,
-                     "name": `${v.acntno} - ${v.note || ("[" + v.name + "]")} ${v.clname || ""}`
-                 }})
-            for (let v of sortVal) acntTabCombo.model.append(v)
-            if (!!acntTabCombo.count ) acntTabCombo.currentIndex = 0
+            const acnt = LibAcnt.DfltAcnt.cash(dbDriver);
+            populateAcntTab(acnt);
         }
     }
-    // ✨ ФОН ВСЬОГО ЕКРАНА (М'який трендовий студійний сірий)
     Rectangle {
         anchors.fill: parent
         color: "#f3f4f6" // Ultra-clean gray background
@@ -204,7 +267,7 @@ Item {
             }
             Label {
                 text: stack.currentIndex === 0 ? "Базові параметри каси" :
-                      stack.currentIndex === 1 ? "Синхронізація REST API" :
+                      stack.currentIndex === 1 ? "REST API" :
                       stack.currentIndex === 2 ? "Фіскалізація та ПРРО" :
                       stack.currentIndex === 3 ? "Типові рахунки" : "Параметри рахунків"
                 font.pixelSize: 18
@@ -221,6 +284,7 @@ Item {
 
             ScrollView {
                 id: basicTab
+                property var dataObj
                 clip: true
                 Layout.fillWidth: true
                 Layout.fillHeight: true
@@ -257,6 +321,7 @@ Item {
                                                 currentModeid = checkedButton.modeid
                                                 // console.log("II: AppSettings.qml#w5t Активний тип:", currentModeid)
                                             }
+                                            btnSaveSettings.enabled = isBasicTabChanged();
                                         }
                                     }
 
@@ -296,6 +361,7 @@ Item {
                                 Layout.preferredHeight: 56
                                 title: "Ідентифікатор (Код терміналу)"
                                 placeholderText: "Введіть унікальний код каси..."
+                                onTextChanged: btnSaveSettings.enabled = isBasicTabChanged();
                             }
                             // Поле: Назва терміналу
                             UITextField{
@@ -304,6 +370,7 @@ Item {
                                 Layout.preferredHeight: 56
                                 title: "Ідентифікатор (Назва терміналу)"
                                 placeholderText: "Введіть назву каси..."
+                                onTextChanged: btnSaveSettings.enabled = isBasicTabChanged();
                             }
                             // Поле: POS Принтер
                             UITextField{
@@ -312,6 +379,7 @@ Item {
                                 Layout.preferredHeight: 56
                                 title: "Мережеве ім'я POS-принтера чеків"
                                 placeholderText: "Наприклад: POSprn"
+                                onTextChanged: btnSaveSettings.enabled = isBasicTabChanged();
                             }
                             // Поле: Знак операції
                             UITextField{
@@ -320,6 +388,7 @@ Item {
                                 Layout.preferredHeight: 56
                                 title: "Математичний знак суми (Amount Sign)"
                                 placeholderText: "-1 (витратний чек) | 1 (прибутковий)"
+                                onTextChanged: btnSaveSettings.enabled = isBasicTabChanged();
                             }
                             // Поле: Шаблон друку
                             UITextField{
@@ -328,6 +397,7 @@ Item {
                                 Layout.preferredHeight: 56
                                 title: "Дефолтний шаблон друку документа"
                                 placeholderText: "Наприклад: check або check_knt"
+                                onTextChanged: btnSaveSettings.enabled = isBasicTabChanged();
                             }
 
                             RowLayout {
@@ -342,7 +412,7 @@ Item {
                                 Switch {
                                     id: switchAutoPrint
                                     Layout.alignment: Qt.AlignVCenter
-                                    // Стилізація Switch під колірну гаму каси (опціонально для Material/Fusion)
+                                    onClicked: btnSaveSettings.enabled = isBasicTabChanged();
                                 }
                             }
                         }
@@ -350,7 +420,8 @@ Item {
 
                     UIBtn{
                         id: btnSaveSettings
-                        palette: "blue"
+                        enabled: false
+                        palette: enabled ? "blue" : ""
                         text: "💾 Зберегти зміни"
                         Layout.fillWidth: true
                         Layout.preferredHeight: 44
@@ -366,6 +437,8 @@ Item {
                             };
                             const ok = JS.setBasic(dbDriver, val);
                             if (ok) {
+                                const val = JS.getBasic(dbDriver);
+                                if (!!val) populateBasicTab(val);
                                 root.vkEvent("modeidChanged", modeGroup.currentModeid);
                                 root.vkEvent("info", "Конфігурацію успішно збережено");
                             } else root.vkEvent("error", "Помилка збереження конфігурації")
@@ -498,6 +571,7 @@ Item {
                     }
                     UIBtn{
                         id: btnSaveREST
+                        enabled: false
                         palette: "blue"
                         text: "💾 Зберегти зміни REST API"
                         Layout.fillWidth: true
@@ -520,6 +594,7 @@ Item {
 
                     UIBtn{
                         id: btnRestoreREST
+                        enabled: false
                         text: "Відновити конфігурацію REST"
                         Layout.fillWidth: true
                         Layout.preferredHeight: 44
@@ -663,6 +738,7 @@ Item {
 
                     UIBtn{
                         id: btnSaveTAX
+                        enabled: false
                         palette: "blue"
                         text: "💾 Зберегти конфігурацію РРО / ПРРО"
                         Layout.fillWidth: true
@@ -685,6 +761,7 @@ Item {
 
                     UIBtn{
                         id: btnRestoreTAX
+                        enabled: false
                         text: "Відновити конфігурацію РРО / ПРРО"
                         Layout.fillWidth: true
                         Layout.preferredHeight: 44
@@ -701,6 +778,7 @@ Item {
 
             ScrollView {
                 id: dfltAcntTab
+                property var dataObj
                 clip: true
                 Layout.fillWidth: true
                 Layout.fillHeight: true
@@ -731,21 +809,11 @@ Item {
                                 RowLayout {
                                     spacing: 6
                                     Rectangle { width: 36; height: 38; color: "#e3f2fd"; radius: 6; border.color: "#bbdefb"; Label { text: JS.glCashPrefix || "30"; font.bold: true; color: "#1565c0"; anchors.centerIn: parent } }
-                                    Rectangle {
-                                        Layout.fillWidth: true; height: 38; radius: 6
-                                        color: editAcntCash.text !== "" ? "#ffffff" : "#f3f4f6"
-                                        border.color: editAcntCash.activeFocus ? "#0288d1" : (editAcntCash.text !== "" ? "#9ca3af" : "#d1d5db")
-                                        border.width: editAcntCash.activeFocus ? 2 : 1
-                                        TextField { id: editAcntCash;
-                                            anchors.fill: parent;
-                                            leftPadding: 10;
-                                            font.pixelSize: 13;
-                                            font.bold: text !== "";
-                                            color: "#1f2937";
-                                            selectByMouse: true;
-                                            background: null; placeholderText: "00";
-                                            placeholderTextColor: "#9ca3af"
-                                        }
+                                    UITextField{
+                                        id: editAcntCash
+                                        Layout.fillWidth: true
+                                        placeholderText: "00"
+                                        onTextChanged: refreshDfltAcntTab()
                                     }
                                 }
                             }
@@ -758,22 +826,11 @@ Item {
                                 RowLayout {
                                     spacing: 6
                                     Rectangle { width: 36; height: 38; color: "#fff3e0"; radius: 6; border.color: "#ffe0b2"; Label { text: JS.glTradePrefix || "35"; font.bold: true; color: "#e65100"; anchors.centerIn: parent } }
-                                    Rectangle {
-                                        Layout.fillWidth: true; height: 38; radius: 6
-                                        color: editAcntTrade.text !== "" ? "#ffffff" : "#f3f4f6"
-                                        border.color: editAcntTrade.activeFocus ? "#0288d1" : (editAcntTrade.text !== "" ? "#9ca3af" : "#d1d5db")
-                                        border.width: editAcntTrade.activeFocus ? 2 : 1
-                                        TextField { id: editAcntTrade;
-                                            anchors.fill: parent;
-                                            leftPadding: 10;
-                                            font.pixelSize: 13;
-                                            font.bold: text !== "";
-                                            color: "#1f2937";
-                                            selectByMouse: true;
-                                            background: null;
-                                            placeholderText: "00";
-                                            placeholderTextColor: "#9ca3af"
-                                        }
+                                    UITextField{
+                                        id: editAcntTrade
+                                        Layout.fillWidth: true
+                                        placeholderText: "00"
+                                        onTextChanged: refreshDfltAcntTab()
                                     }
                                 }
                             }
@@ -786,22 +843,11 @@ Item {
                                 RowLayout {
                                     spacing: 6
                                     Rectangle { width: 36; height: 38; color: "#fff3e0"; radius: 6; border.color: "#ffe0b2"; Label { text: JS.glTradePrefix || "35"; font.bold: true; color: "#e65100"; anchors.centerIn: parent } }
-                                    Rectangle {
-                                        Layout.fillWidth: true; height: 38; radius: 6
-                                        color: editAcntBulk.text !== "" ? "#ffffff" : "#f3f4f6"
-                                        border.color: editAcntBulk.activeFocus ? "#0288d1" : (editAcntBulk.text !== "" ? "#9ca3af" : "#d1d5db")
-                                        border.width: editAcntBulk.activeFocus ? 2 : 1
-                                        TextField { id: editAcntBulk;
-                                            anchors.fill: parent;
-                                            leftPadding: 10;
-                                            font.pixelSize: 13;
-                                            font.bold: text !== "";
-                                            color: "#1f2937";
-                                            selectByMouse: true;
-                                            background: null;
-                                            placeholderText: "01";
-                                            placeholderTextColor: "#9ca3af"
-                                        }
+                                    UITextField{
+                                        id: editAcntBulk
+                                        Layout.fillWidth: true
+                                        placeholderText: "00"
+                                        onTextChanged: refreshDfltAcntTab()
                                     }
                                 }
                             }
@@ -814,22 +860,11 @@ Item {
                                 RowLayout {
                                     spacing: 6
                                     Rectangle { width: 36; height: 38; color: "#e3f2fd"; radius: 6; border.color: "#bbdefb"; Label { text: JS.glCashPrefix || "30"; font.bold: true; color: "#1565c0"; anchors.centerIn: parent } }
-                                    Rectangle {
-                                        Layout.fillWidth: true; height: 38; radius: 6
-                                        color: editAcntIncas.text !== "" ? "#ffffff" : "#f3f4f6"
-                                        border.color: editAcntIncas.activeFocus ? "#0288d1" : (editAcntIncas.text !== "" ? "#9ca3af" : "#d1d5db")
-                                        border.width: editAcntIncas.activeFocus ? 2 : 1
-                                        TextField { id: editAcntIncas;
-                                            anchors.fill: parent;
-                                            leftPadding: 10;
-                                            font.pixelSize: 13;
-                                            font.bold: text !== "";
-                                            color: "#1f2937";
-                                            selectByMouse: true;
-                                            background: null;
-                                            placeholderText: "03";
-                                            placeholderTextColor: "#9ca3af"
-                                        }
+                                    UITextField{
+                                        id: editAcntIncas
+                                        Layout.fillWidth: true
+                                        placeholderText: "00"
+                                        onTextChanged: refreshDfltAcntTab();
                                     }
                                 }
                             }
@@ -842,22 +877,11 @@ Item {
                                 RowLayout {
                                     spacing: 6
                                     Rectangle { width: 36; height: 38; color: "#e8f5e9"; radius: 6; border.color: "#c8e6c9"; Label { text: JS.glDepoPrefix || "36"; font.bold: true; color: "#2e7d32"; anchors.centerIn: parent } }
-                                    Rectangle {
-                                        Layout.fillWidth: true; height: 38; radius: 6
-                                        color: editAcntProfit.text !== "" ? "#ffffff" : "#f3f4f6"
-                                        border.color: editAcntProfit.activeFocus ? "#0288d1" : (editAcntProfit.text !== "" ? "#9ca3af" : "#d1d5db")
-                                        border.width: editAcntProfit.activeFocus ? 2 : 1
-                                        TextField { id: editAcntProfit;
-                                            anchors.fill: parent;
-                                            leftPadding: 10;
-                                            font.pixelSize: 13;
-                                            font.bold: text !== "";
-                                            color: "#1f2937";
-                                            selectByMouse: true;
-                                            background: null;
-                                            placeholderText: "07-55";
-                                            placeholderTextColor: "#9ca3af"
-                                        }
+                                    UITextField{
+                                        id: editAcntProfit
+                                        Layout.fillWidth: true
+                                        placeholderText: "00"
+                                        onTextChanged: refreshDfltAcntTab();
                                     }
                                 }
                             }
@@ -865,7 +889,8 @@ Item {
                     }
 
                     UIBtn{
-                        id: btnSaveAccounts
+                        id: btnSaveDfltAcntTab
+                        enabled: false
                         palette: "blue"
                         text: "💾 Зберегти аналітичні рахунки"
                         Layout.fillWidth: true
@@ -889,9 +914,24 @@ Item {
 
                             if (ok) {
                                 root.vkEvent("info", "Конфігурацію рахунків обліку успішно збережено в базі каси");
+                                const val = JS.getAcntList(dbDriver);
+                                populateDfltAcntTab(val);
                             } else {
                                 root.vkEvent("error", "Помилка збереження плану рахунків у SQLite");
                             }
+                        }
+                    }
+
+                    UIBtn{
+                        id: btnRestoreDfltAcntTab
+                        enabled: false
+                        text: "Відновити збережені аналітичні рахунки"
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 44
+
+                        onClicked: {
+                            const val = JS.getAcntList(dbDriver);
+                            populateDfltAcntTab(val);
                         }
                     }
                 }
@@ -899,6 +939,7 @@ Item {
 
             ScrollView {
                 id: acntTab
+                property var dataObj
                 clip: true
                 Layout.fillWidth: true
                 Layout.fillHeight: true
@@ -909,13 +950,29 @@ Item {
                     RowLayout{
                         Layout.fillWidth: true
                         Label { text: qsTr("Рахунок:"); font { pixelSize: 11; bold: true } color: "#4B5563" }
-                        ComboBox {
-                            id: acntTabCombo
-                            textRole: "name"
-                            valueRole: "code"
-                            model:ListModel{}
+                        UIBtn{
+                            id: btnAcntTabCrntAcnt
+                            // property var acnt
+                            // palette: "blue"
+                            text: "Acnt"
                             Layout.fillWidth: true
-                            onCurrentValueChanged: loadAcntTab(currentValue);
+                            Layout.preferredHeight: 44
+                            onClicked: {
+                                const acntSource = LibAcnt.dbAcntbal(dbDriver);
+                                const acntLlist = acntSource
+                                .sort((a,b) => a.acntno.localeCompare(b.acntno) )
+                                .map(v => {
+                                    return {
+                                       "id": v.acntno,
+                                       "name": v.note || v.name,
+                                       "fullname": v.name,
+                                       "code" : "acntno",
+                                       "sect": qsTr("Рахунки")
+                                    };
+                               })
+                                selectPopup.jsdata = acntLlist
+                                selectPopup.open()
+                            }
                         }
                     }
                     UITextField{
@@ -924,6 +981,7 @@ Item {
                         Layout.preferredHeight: 56
                         title: "Опис, примітка"
                         placeholderText: "Введіть короткий опис або примітку..."
+                        onTextChanged: btnSaveAcntTab.enabled = isAcntTabChanged();
                     }
                     RowLayout {
                         Layout.fillWidth: true
@@ -938,16 +996,19 @@ Item {
                             id: editAcntTabMaskDomestic
                             text: "НАЦ.ВАЛЮТА"
                             font.pixelSize: 14
+                            onClicked: btnSaveAcntTab.enabled = isAcntTabChanged();
                         }
                         CheckBox {
                             id: editAcntTabMaskForeign
                             text: "ІНОЗ.ВАЛЮТА"
                             font.pixelSize: 14
+                            onClicked: btnSaveAcntTab.enabled = isAcntTabChanged();
                         }
                         CheckBox {
                             id: editAcntTabMaskArticles
                             text: "ТОВАРИ"
                             font.pixelSize: 14
+                            onClicked: btnSaveAcntTab.enabled = isAcntTabChanged();
                         }
                     }
 
@@ -963,11 +1024,13 @@ Item {
                         Switch {
                             id: editAcntTabTrade
                             Layout.alignment: Qt.AlignVCenter
+                            onClicked: btnSaveAcntTab.enabled = isAcntTabChanged();
                         }
                     }
                     UIBtn{
                         id: btnSaveAcntTab
-                        palette: "blue"
+                        enabled: false
+                        palette: enabled ? "blue" : ""
                         text: "💾 Зберегти зміни"
                         Layout.fillWidth: true
                         Layout.preferredHeight: 44
@@ -983,18 +1046,39 @@ Item {
                             + (editAcntTabMaskArticles.checked ? 4 : 0)
                             const tradeVal = editAcntTabTrade.checked ? 1 : 0
                             // console.log(`II: AppSettings.qml#q6t3 noteVal=${noteVal} maskVal=[${maskVal}] tradeVal=[${tradeVal}]`)
+                            const acntno = acntTab.dataObj.acntno || ""
+                            if (!acntno){
+                                root.vkEvent("error", "Відсутній номер рахуунку");
+                                return;
+                            }
 
-                            const ok = LibAcnt.updAcntbal(root.dbDriver, acntTabCombo.currentValue, noteVal, maskVal, tradeVal)
+                            const ok = LibAcnt.updAcntbal(root.dbDriver, acntno, noteVal, maskVal, tradeVal)
                             if (ok) {
                                 root.vkEvent("info", "Рахунок успішно оновлено");
-                                loadAcntTab(acntTabCombo.currentValue)
+                                const acnt = LibAcnt.acntbal(dbDriver, acntno);
+                                if (!!acnt) populateAcntTab(acnt);
                             } else root.vkEvent("error", "Помилка оновлення рахунку");
                         }
                     }
                 }
             }
         }
+
+        UIPopupSelect{
+            id: selectPopup
+            // width: 360
+            height: root.height * 0.85
+            x: (root.width - width) / 2
+            y: (root.height - height) / 2 // Центруємо також по вертикалі
+            onSelected: (code, id) => {
+                const acnt = LibAcnt.acntbal(dbDriver, id);
+                if (!!acnt) populateAcntTab(acnt);
+                selectPopup.close()
+            }
+        }
     }
+
+
 }
 
 

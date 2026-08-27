@@ -44,7 +44,7 @@ INSERT INTO "balname" ("bal","balname","articlemask","trade") VALUES ( '38', 'Б
 INSERT INTO "balname" ("bal","balname","articlemask","trade") VALUES ( '42', 'Капітал', 1, 0 );
 INSERT INTO "balname" ("bal","balname","articlemask","trade") VALUES ( '44', 'Дохід', 1, 0 );
 INSERT INTO "balname" ("bal","balname","articlemask","trade") VALUES ( 'eq', 'Торг.Еквівалент', 6, 0 );
-INSERT INTO "balname" ("bal","balname","articlemask","trade") VALUES ( 'rs', 'Торг.Дохід', 1, 0 );
+INSERT INTO "balname" ("bal","balname","articlemask","trade") VALUES ( 'rs', 'Торг.Результат', 1, 0 );
 INSERT INTO "balname" ("bal","balname","articlemask","trade") VALUES ( '80', 'Витрати', 1, 0 );
 INSERT INTO "balname" ("bal","balname","articlemask","trade") VALUES ( 'te', 'Транзитний', 7, 0 );
 
@@ -53,7 +53,7 @@ INSERT INTO "acntbal" ("acntno","client","acntnote","mask","trade") VALUES ( '36
 INSERT INTO "acntbal" ("acntno","client","acntnote","mask","trade") VALUES ( '4200', NULL, 'Капітал', 0, 0 );
 INSERT INTO "acntbal" ("acntno","client","acntnote","mask","trade") VALUES ( '3000', NULL, NULL, 7, 0 );
 INSERT INTO "acntbal" ("acntno","client","acntnote","mask","trade") VALUES ( '3500', NULL, NULL, 14, 1 );
-INSERT INTO "acntbal" ("acntno","client","acntnote","mask","trade") VALUES ( 'rslt', NULL, 'ЕКВІВАЛЕНТ доходу', 1, 0 );
+INSERT INTO "acntbal" ("acntno","client","acntnote","mask","trade") VALUES ( 'rslt', NULL, 'ТОРГ.РЕЗУЛЬТАТ', 1, 0 );
 INSERT INTO "acntbal" ("acntno","client","acntnote","mask","trade") VALUES ( '3501', NULL, 'ТОРГ-ГУРТ(HURT)', 0, 1 );
 INSERT INTO "acntbal" ("acntno","client","acntnote","mask","trade") VALUES ( 'temp', NULL, NULL, 0, 0 );
 
