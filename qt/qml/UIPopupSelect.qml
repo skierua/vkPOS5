@@ -197,6 +197,7 @@ Popup{
         UIFindEdit{
             id: filter
             Layout.fillWidth: true
+            Layout.preferredHeight: 24
             placeholderText: 'Пошук за назвою, ID чи штрихкодом...'
             fillWidth: true
             expanded: true

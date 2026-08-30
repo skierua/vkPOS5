@@ -201,7 +201,8 @@ Item {
                 setAcnt: (v) => { root.crntAcnt = v; },
                 // state: root.state
             };
-            JS.handleStartBindAction(dbDriver, bindModel, uiBridge)
+            JS.handleStartBindAction(dbDriver, bindModel, uiBridge);
+            vkEvent("clientChanged", null);
             newRowAction.trigger();
         }
     }

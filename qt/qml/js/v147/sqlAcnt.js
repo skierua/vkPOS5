@@ -46,7 +46,7 @@ const DfltAcnt = ( () => {
         cash(db) {
             if (dfltCashAcnt) return dfltCashAcnt;
             DfltAcnt.acnts(db);
-            dfltCashAcnt = acntbal(db, dfltAcnts?.trade || "", true);
+            dfltCashAcnt = acntbal(db, dfltAcnts?.cash || "", true);
             return dfltCashAcnt;
         },
         cashAcntNo(db){

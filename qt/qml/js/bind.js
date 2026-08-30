@@ -338,7 +338,7 @@ function handleFind(db, str, popup, ui) {
         res.push(...atcllist)
 
         const cashAcntNo = LibAcnt.DfltAcnt.cashAcntNo(db);
-        const acntSource = LibAcnt.acntbalClientList(db, ui.clid, cleanText)
+        const acntSource = LibAcnt.acntbalClientList(db, ui.clid, cleanText);
         const acntLlist = acntSource
         .filter(v => v.acntno !== cashAcntNo)
         .sort((a,b) => 0 - (Number(a.trade)-Number(b.trade))
