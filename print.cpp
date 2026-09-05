@@ -49,7 +49,8 @@ int Print::paintCheck(const QVariantMap &bind, int mode, int isCopy){
 
     int yoffset = 0;
     QString fontFamily = QStringLiteral("Arial");
-    int fontStretch = 70;
+    int fontStretch = QFont::SemiCondensed;
+    // int fontStretch = 70;
     int fontSize = 10;
 
     QFont f = painter.font();
@@ -176,9 +177,8 @@ int Print::paintCheck(const QVariantMap &bind, int mode, int isCopy){
     painter.drawText(QRect(0, yoffset += 25, 75, 14), (totalAmount >= 0 ? QStringLiteral("+") : QStringLiteral("-")) + tr(" Готівка:"));
     painter.drawText(QRect(80, yoffset, 90, 14), Qt::AlignRight, locale.toString(qAbs(totalAmount), 'f', 2));
 
-    // Підвал чека (Метадані)
     painter.drawText(QRect(0, yoffset += 25, 100, 14), tr("Id:") + bind.value(QStringLiteral("id")).toString().rightJustified(6, '0'));
-    painter.drawText(QRect(0, yoffset += 14, 150, 14), tr("TermId: ") + m_termCode + QStringLiteral(" ( ") + m_termUser + QStringLiteral(" )"));
+    painter.drawText(QRect(0, yoffset += 14, 150, 14), tr("TermId: ") + m_termCode); // + QStringLiteral(" ( ") + m_termUser + QStringLiteral(" )"));
     painter.drawText(QRect(0, yoffset += 14, 150, 14), tr("Time: ") + bind.value(QStringLiteral("dcmtime")).toString().left(16));
 
     f.setPointSize(12);

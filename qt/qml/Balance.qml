@@ -354,7 +354,7 @@ Window {
                 color: (index % 2 === 0) ? "#FFFFFF" : "#F9FAFB"
                 clip: true
 
-                // Тонка роздільна лінія між рядками валют
+                // Тонка роздільна лінія між рядками
                 Rectangle {
                     anchors.bottom: parent.bottom
                     width: parent.width
@@ -373,7 +373,7 @@ Window {
                     // --- КОЛОНКА ID (напр. код валюти USD/EUR) ---
                     Text {
                         Layout.preferredWidth: 60
-                        text: item && item.id !== undefined ? item.id : ""
+                        text: itemid
                         font.pixelSize: 12
                         color: "#4B5563"
                         verticalAlignment: Text.AlignVCenter
@@ -382,7 +382,7 @@ Window {
                     // --- КОЛОНКА NAME (Назва валюти) ---
                     Text {
                         Layout.fillWidth: true
-                        text: item && item.itemchar !== undefined ? item.itemchar : ""
+                        text: itemchar
                         clip: true
                         font { pixelSize: 12; bold: true }
                         color: "#1F2937"
@@ -396,11 +396,7 @@ Window {
                         verticalAlignment: Text.AlignVCenter
 
                         // Безпечне форматування чисел відповідно до точності валюти (unitprec)
-                        text: {
-                            let totalNum = Number(total || 0);
-                            let precision = item ? Number(item.unitprec || 0) : 0;
-                            return Math.abs(totalNum).toLocaleString(Qt.locale(), 'f', precision);
-                        }
+                        text: Math.abs(total).toLocaleString(Qt.locale(), 'f', itemprec);
 
                         // Якщо мінус на залишку — підсвічуємо чітким червоним кольором
                         color: Number(total || 0) < 0 ? "#DC2626" : "#111827"
@@ -412,10 +408,7 @@ Window {
                         Layout.preferredWidth: 65
                         horizontalAlignment: Text.AlignRight
                         verticalAlignment: Text.AlignVCenter
-                        text: {
-                            let priceNum = Number(price || 0);
-                            return priceNum.toFixed(priceNum < 10 ? 2 : 0);
-                        }
+                        text: price.toFixed(price < 10 ? 2 : 0);
                         font.pixelSize: 12
                         color: "#4B5563"
                         clip: true
@@ -427,12 +420,7 @@ Window {
                         horizontalAlignment: Text.AlignRight
                         verticalAlignment: Text.AlignVCenter
                         text: Math.abs(eq).toLocaleString(Qt.locale(), 'f', 0);
-                        // {
-                        //     let priceNum = Number(price || 0);
-                        //     let totalNum = Number(total || 0);
-                        //     return Math.abs(priceNum * totalNum).toLocaleString(Qt.locale(), 'f', 0);
-                        // }
-                        color: (Number(price || 0) * Number(total || 0)) < 0 ? "#DC2626" : "#111827"
+                        color: (Number(price) * Number(total)) < 0 ? "#DC2626" : "#111827"
                         font { pixelSize: 12; bold: true }
                         clip: true
                     }

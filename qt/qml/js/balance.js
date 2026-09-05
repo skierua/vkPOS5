@@ -121,10 +121,14 @@ function filterData(model, ui){
     PROXY_DATA.splice(0, PROXY_DATA.length);
     SECTION_CACHE.clear();
     const fltVal = (ui?.filter || "").trim().toLowerCase();
-    for (let i = 0; i < ROW_CACHE.length; ++ i){
-        const bindVal = ((SORT_ID || "id") === "id") ? String(ROW_CACHE[i].balname || "") : String(ROW_CACHE[i].item.pathname || "");
-        ROW_CACHE[i].bind = bindVal;
+    // for (let i = 0; i < ROW_CACHE.length; ++i){
+    //     const bindVal = ((SORT_ID || "id") === "id") ? String(ROW_CACHE[i].balname || "") : String(ROW_CACHE[i].item.pathname || "");
+    //     ROW_CACHE[i].bind = bindVal;
+    // }
 
+    for (let row of ROW_CACHE){
+        const bindVal = ((SORT_ID || "id") === "id") ? String(row.balname || "") : String(row.item.pathname || "");
+        row.bind = bindVal;
     }
 
     // let rows = 0;
@@ -158,6 +162,20 @@ function populate(model, page =1){
     let endIndex = pageNum * PAGE_CAPACITY;
 
     for (let offset = startIndex; offset < PROXY_DATA.length && offset < endIndex; ++offset) {
-        model.append(ROW_CACHE[PROXY_DATA[offset]]);
+        // model.append(ROW_CACHE[PROXY_DATA[offset]]);
+        const sourceRow = ROW_CACHE[PROXY_DATA[offset]];
+        if (!sourceRow) continue;
+        const row = {
+            "bind": sourceRow.bind || "",
+            "itemid": sourceRow.item?.id || "",
+            "itemchar": sourceRow.item?.itemchar || "N/A",
+            "itemprec": sourceRow.item?.unitprec || 0,
+            "total": sourceRow.total || 0,
+            "eq": sourceRow.eq || 0,
+            "price": sourceRow.price || 0,
+            "intm": sourceRow.intm || "",
+            "outm": sourceRow.outm || "",
+        }
+        model.append(row);
     }
 }
