@@ -1,18 +1,21 @@
 .import "v147/sqlAcnt.js" as LibAcnt
 .import "v147/sqlBind.js" as LibBind
+.import "v147/sqlClient.js" as LibClient
 .import "v147/sqlItem.js" as LibItem
 
 const ROW_CACHE = []
 const SECTION_CACHE = new Map();
 const PAGE_CAPACITY = 25;
 const PAGER = [];
+const CLIENT_CACHE = new Map();
+const ACNT_CACHE = new Map();
 
 function bindCount(){
     return SECTION_CACHE.size;
 }
 
-function sectInfo(sect) {
-    return SECTION_CACHE.get(String(sect || ""));
+function sectInfo(code) {
+    return SECTION_CACHE.get(String(code || ""));
 }
 
 function load(db, model, condition = "", ui) {
@@ -26,7 +29,19 @@ function load(db, model, condition = "", ui) {
     const joinSource = source1.concat(source2);
     // console.log(`II: dcmview.js source: ${JSON.stringify(joinSource)}`);
     const bindList = joinSource.filter(v => v.pid === "");
-    for (let v of bindList) SECTION_CACHE.set(String(v.dcmid), v);
+    for (let v of bindList) {
+        const clid = v.clid || "";
+        if (!!clid){
+            if (!CLIENT_CACHE.has(String(clid))){
+                const client = LibClient.client(db, clid);
+                CLIENT_CACHE.set(clid, client);
+            }
+            // console.info(`II: dcmview,js/load clid=${clid}`)
+            v.clname = CLIENT_CACHE.get(String(clid || ""))?.name || clid;
+        } else v.clname = "";
+
+        SECTION_CACHE.set(String(v.dcmid), v);
+    }
 
     const dcmList = joinSource
     .filter(v => v.pid !== "")
@@ -36,9 +51,19 @@ function load(db, model, condition = "", ui) {
         ((b.shftid - a.shftid) || (b.pid - a.pid) || (a.dcmid - b.dcmid))
     )
     .map(function(v) {
+        const acntno = String(v.acntcdt || "");
+        if (!ACNT_CACHE.has(String(acntno))){
+            const acnt = LibAcnt.acntbal(db, acntno);
+            ACNT_CACHE.set(String(acntno || ""), acnt);
+        }
             // Створюємо копію об'єкта v та додаємо jarticle
+        const cdtacnt = ACNT_CACHE.get(String(acntno || ""))
+        const acntclnt = cdtacnt?.clname || "";
+        const acntname = cdtacnt?.note || `[${cdtacnt?.name}]` || "N/A";
+        // console.info(`II: dcmview.js/load#9ie ${JSON.stringify(cdtacnt)}`, `${acntclnt}:${acntname}:${v.acntcdt}` )
             return Object.assign({}, v, {
                 jarticle: LibItem.getItemById(db, v.itemid),
+                cdtacntname: `${acntclnt}:${acntname}:${v.acntcdt}`,
                 flt: true
             });
         });
@@ -54,6 +79,7 @@ function isAllowed(row, flt) {
     const dcm = ROW_CACHE[row];
     const filterLower = flt.toLowerCase();
     const noteStr = String(dcm.dcmnote || "").toLowerCase();
+    const acntStr = String(dcm.cdtacntname || "").toLowerCase();
     const atclStr = String(dcm.jarticle?.itemchar || "").toLowerCase();
     const atclFStr = String(dcm.jarticle?.itemname || "").toLowerCase();
 
@@ -61,6 +87,7 @@ function isAllowed(row, flt) {
             || noteStr.includes(filterLower)
             || (dcm.jarticle?.scancode || "").includes(filterLower)
             || (dcm.acntcdt || "") === filterLower
+            || acntStr.includes(filterLower)
             || atclStr.includes(filterLower)
             || atclFStr.includes(filterLower)
             );
@@ -116,6 +143,16 @@ function addNew(model, row, idx){
     if (!model || !row) return;
     const idxVal = (!!idx ? idx : model.count);
     const isTrade = row.eqamount !== 0 || row.dcmtype.startsWith("trade:");
+    const noteStr = String(row.dcmnote || "");
+    let noteVal = "";
+    if (isTrade) {
+        const hashIdx = noteStr.indexOf("#");
+        if (hashIdx === -1) {
+            noteVal = `[${row.itemid || ""}] ${row.jarticle.itemchar || "???"}`;
+        } else {
+            noteVal = noteStr.substring(0, hashIdx).trim();
+        }
+    } else noteVal = `[${row.itemid || ""}] ${row.jarticle.itemchar || "???"} ${noteStr}`;
     const dcm = {
         "dcmid": row.dcmid
         , "pid": row.pid
@@ -126,11 +163,12 @@ function addNew(model, row, idx){
         , "eqamount": row.eqamount
         , "discount": row.discount
         , "bonus": row.bonus
-        , "dcmnote": row.dcmnote
-        , "itemid": row.itemid
-        , "itemchar": row.jarticle.itemchar
+        , "dcmnote": noteVal
+        // , "itemid": row.itemid
+        // , "itemchar": row.jarticle.itemchar
         , "unitprec": row.jarticle.unitprec
         , "isTrade": isTrade
+        , "cdtacntname": row.cdtacntname
         , "flt": row.flt
         ,
     };

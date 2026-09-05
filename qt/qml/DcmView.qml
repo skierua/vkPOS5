@@ -226,18 +226,7 @@ Window {
                             color: "#212121"
                             elide: Text.ElideRight
 
-                            text: {
-                                const noteStr = String(model.dcmnote || "");
-                                if (rootDlg.isTrade) {
-                                    const hashIdx = noteStr.indexOf("#");
-                                    if (hashIdx === -1) {
-                                        return '[' + (model.itemid || "?") + '] ' + noteStr;
-                                    } else {
-                                        return noteStr.substring(0, hashIdx).trim();
-                                    }
-                                }
-                                return noteStr;
-                            }
+                            text: model.dcmnote
                         }
 
                         RowLayout {
@@ -249,7 +238,8 @@ Window {
                                 color: "gray"
                             }
                             Label {
-                                text: "[" + String(model.acntcdt || "") + "]"
+                                text: model.cdtacntname
+                                // text: "[" + String(model.acntcdt || "") + "]"
                                 font.pixelSize: 9
                                 font.italic: !model.flt
                                 color: "gray"
@@ -425,7 +415,7 @@ Window {
                     color: "#546e7a"
                     horizontalAlignment: Text.AlignHCenter
                     elide: Text.ElideRight
-                    text: (rootSec.infoObj && rootSec.infoObj.clid) ? "👤 ID: " + String(rootSec.infoObj.clid) : ""
+                    text: (rootSec.infoObj && rootSec.infoObj.clid) ? "👤" + String(rootSec.infoObj.clname) : ""
                 }
 
                 // Колонка 4: Дата та час фіксації ордера (з виправленим безпечним UTC-парсингом)
@@ -688,7 +678,7 @@ Window {
             } else {
                 vkEvent("warn", "SelectPopup bad code, nothing to do")
             }
-            btnDbSelect.text = `${name} [${id}]`;
+            btnDbSelect.text = !id ? name : `${name} [${id}]`;
             selectPopup.close()
 
         }
