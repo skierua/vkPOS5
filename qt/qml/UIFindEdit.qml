@@ -25,8 +25,9 @@ FocusScope {
             // Layout.preferredWidth: 32
             // Layout.preferredHeight: 32
             icon.source: "qrc:/icon/find.svg"
-            onClicked: rootItem.expanded = !rootItem.expanded
-            // onClicked: editor.visible = !editor.visible
+            onClicked: {
+                rootItem.expanded = !rootItem.expanded
+            }
             // hovered: true
             ToolTip{ visible: parent.hovered; delay: 800; timeout: 4000; text: qsTr("Фільтр"); }
         }
@@ -52,7 +53,12 @@ FocusScope {
 
             onVisibleChanged: {
                 if (visible) forceActiveFocus();
-                else text = '';
+                else {
+                    if (!!text){
+                        text = '';
+                        rootItem.accepted();
+                    }
+                }
             }
             // onTextChanged: dataModel.populate(text)
             onAccepted: rootItem.accepted()
