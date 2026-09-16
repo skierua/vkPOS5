@@ -88,7 +88,7 @@ function balanceForUpload(db, tm, ofset) {
     const whereCondition = !!tm
         ? `(datetime(dbtupd) > datetime('${tm}', ${ofsetVal} ) OR datetime(cdtupd) > datetime('${tm}', ${ofsetVal}))`
         : "(abs(beginamnt) + abs(turndbt) + abs(turncdt)) > 0.0001";
-    console.log(`II: sqlBalance/balanceForUpload flt=${whereCondition}`)
+    // console.log(`II: sqlBalance/balanceForUpload flt=${whereCondition}`)
 
     return dbBalance(db, whereCondition);
 }

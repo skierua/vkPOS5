@@ -172,12 +172,14 @@ ListModel {
         // const dnote = `${String(atcl.itemchar || "")}${Number(acnt.trade || 0) !== 0
         //             ? "" : ` [${acnt.clname || ""}/${acnt.note || ""}]`} ${dtag}`;
         const idx = 0;
+        const absAmnt = Math.abs(Number(amnt || 0));
+        const rndAmnt = Number.isInteger(absAmnt) ? absAmnt : Math.round(absAmnt * 1000) / 1000;
         let dcm = {
             "dsign": Number(amnt || 0) < 0 ? -1 : 1,
             "dcode": type,
             "darticle": atcl,
             "dacnt": acnt,
-            "damnt": Math.abs(Number(amnt || 0)),
+            "damnt": Math.abs(Number(rndAmnt || 0)),
             "dnote": note,
             "retfor": ""
         };

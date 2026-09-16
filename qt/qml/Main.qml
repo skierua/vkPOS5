@@ -404,7 +404,7 @@ ApplicationWindow {
 
                         onClicked: {
                             const codeid = compContainer.currentItem.codeid;
-                            if (codeid === "bind") {
+                            if (codeid === "bind" && typeof compContainer.currentItem.selectClientAction !== "undefined") {
                                 compContainer.currentItem.selectClientAction.trigger()
                             }
                         }

@@ -260,6 +260,7 @@ Item {
     }
 
     function setCrntClient(clnt){
+        root.crntAcnt = JS.getAcnt(dbDriver)    // set default account
         root.crntClient = (!!clnt ? clnt : null);
         newRowAction.trigger();
         vkEvent("clientChanged", clnt)
@@ -568,11 +569,11 @@ Item {
                                 const inputVal = Number(text);
                                 if (inputVal !== 0 && dlgRoot.ListView.view && dlgRoot.ListView.view.model) {
                                     const currentModel = dlgRoot.ListView.view.model;
-
+                                    const rndAmnt = Number.isInteger(inputVal) ? inputVal : Math.round(inputVal * 1000) / 1000;
                                     if (typeof currentModel.setProperty === "function") {
-                                        currentModel.setProperty(index, "damnt", inputVal);
+                                        currentModel.setProperty(index, "damnt", rndAmnt);
                                     } else {
-                                        model.damnt = inputVal;
+                                        model.damnt = rndAmnt;
                                     }
 
                                     currentModel.setDcmTradeData(index);
@@ -775,7 +776,7 @@ Item {
 
                         onAccepted: {
                             let cleanText = text.trim();
-                            if (cleanText === "") return;
+                            // if (cleanText === "") return;
 
                             // Обробка гарячих команд швидкого друку транзакцій
                             if (cleanText === '*') {
@@ -836,24 +837,6 @@ Item {
                         toolTip: qsTr("Створити документ у НАЦ.ВАЛЮТІ")
                     }
 
-/*                    Button {
-                        id: btnGrnShortcut
-                        Layout.preferredWidth: 50
-                        Layout.preferredHeight: 32
-                        Layout.alignment: Qt.AlignVCenter
-                        visible: (Number(root.crntAcnt?.mask ?? 0) & 1) === 1 // Перевірка фіскальної маски
-
-                        background: Rectangle {
-                            color: btnGrnShortcut.pressed ? "#e0e0e0" : "#f5f5f5"
-                            radius: 4
-                            border.color: "#e0e0e0"
-                        }
-
-                        text: 'ГРН'
-                        font.pixelSize: 12
-                        font.bold: true
-                        onClicked: root.newDcm();
-                    }*/
                 }
             }
 
@@ -878,33 +861,6 @@ Item {
                     action: resetAcntAction
                     toolTip: qsTr("Поврнути до типового рахунку")
                 }
-
-/*                Button {
-                    id: btnCreditAcnt
-                    Layout.fillHeight: true
-                    Layout.preferredWidth: Math.max(100, implicitWidth) // Захист від занадто вузької кнопки
-                    font.pixelSize: 14
-                    action: selectAcntAction
-                    background: Rectangle {
-                        color: btnCreditAcnt.pressed ? "#cfd8dc" : (btnCreditAcnt.hovered ? "#e2e8f0" : "#eceff1")
-                        radius: 6
-                        border{color: "#b0bec5"; width: 1}
-                    }
-                }*/
-
- /*               Button {
-                    id: btnCreditAcntReset
-                    Layout.preferredWidth: 40
-                    Layout.fillHeight: true
-                    font.pixelSize: 16
-                    visible: (root.crntAcnt?.acntno || "").substring(0, 2) !== '35'
-                    action: resetAcntAction
-                    background: Rectangle {
-                        color: btnCreditAcntReset.pressed ? "#cfd8dc" : (btnCreditAcntReset.hovered ? "#e2e8f0" : "#eceff1")
-                        radius: 6
-                        border{color: "#b0bec5"; width: 1}
-                    }
-                }*/
             }
         }
 
@@ -953,7 +909,7 @@ Item {
                 anchors.rightMargin: 12
                 spacing: 10
 
-                // 1. ЛІВА ЧАСТИНА: Список балансу валют (тепер вони обгорнуті в гарні мікро-плашки)
+                // ЛІВА ЧАСТИНА: Список балансу валют (тепер вони обгорнуті в гарні мікро-плашки)
                 Row {
                     Layout.fillWidth: true
                     Layout.alignment: Qt.AlignVCenter
@@ -993,7 +949,7 @@ Item {
                     }
                 }
 
-                // 2. ПРАВА ЧАСТИНА: Лічильник кількості унікальних позицій (товарів) у чеку
+                // ПРАВА ЧАСТИНА: Лічильник кількості унікальних позицій (товарів) у чеку
                 Rectangle {
                     Layout.alignment: Qt.AlignVCenter
                     Layout.preferredWidth: itemsCountRow.implicitWidth + 12
@@ -1341,29 +1297,7 @@ Item {
                     text: "⌂" // Або іконка скриньки
                     toolTip: qsTr("Швидкі залишки")
                 }
-
-/*                Button {
-                    id: btnDrawer
-                    Layout.preferredWidth: 48
-                    Layout.preferredHeight: 48
-                    Layout.alignment: Qt.AlignVCenter
-                    action: drawerAction
-                    background: Rectangle {
-                        color: btnDrawer.pressed ? "#cfd8dc" : (btnDrawer.hovered ? "#e2e8f0" : "#eceff1")
-                        radius: 8
-                        border.color: "#b0bec5"
-                        border.width: 1
-                    }
-                    contentItem: Text {
-                        text: "⌂" // Або іконка скриньки
-                        font.pixelSize: 22
-                        color: "#455a64"
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                }*/
             }
-
         }
     }
 
@@ -1375,7 +1309,7 @@ Item {
         y: (root.height - height) / 2 // Центруємо також по вертикалі
         onSelected: (code, id) => {
             if (code==="client"){                  // client
-                root.crntAcnt = JS.getAcnt(dbDriver)    // set default account
+                // root.crntAcnt = JS.getAcnt(dbDriver)    // set default account
                 const clnt = JS.getClient(dbDriver, id);
                 root.crntClient = clnt;
                 setCrntClient(clnt);
@@ -1393,277 +1327,6 @@ Item {
 
         }
     }
-/*
-    Popup{
-        id: selectPopup
-        property var jsdata: [] // [{id, name, fullname, code, sect}]
-        width: 360
-        height: root.height * 0.85
-        x: (root.width - width) / 2
-        y: (root.height - height) / 2 // Центруємо також по вертикалі
-        // width:300
-        // height: root.height*0.8
-        // x: (root.width-width)/2
-        modal: true
-        dim: true // Додає гарне затемнення заднього плану
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-        background: Rectangle {
-            color: "#ffffff"
-            radius: 12
-            border.color: "#e0e0e0"
-            border.width: 1
-
-            // Імітація легкої тіні (Drop Shadow)
-            Rectangle {
-                anchors.fill: parent
-                anchors.margins: -2
-                color: "transparent"
-                border.color: "#0a000000"
-                border.width: 2
-                radius: 14
-                z: -1
-            }
-        }
-        onVisibleChanged: {
-            if (visible) {
-                selectPopupFilter.text = "";
-                selectPopupView.vpopulate("");
-                selectPopupFilter.forceActiveFocus();
-            }
-        }
-        ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: 12 // Внутрішні відступи самого попапу
-            spacing: 12
-            // RowLayout {
-            //     Layout.fillWidth: true
-
-            //     Label {
-            //         text: selectPopup.currentMode === "client" ? "👤 Вибір клієнта" :
-            //               selectPopup.currentMode === "acntno" ? "💳 Вибір рахунку" : "📦 Вибір товару"
-            //         font.pixelSize: 16
-            //         font.bold: true
-            //         color: "#212121"
-            //         Layout.fillWidth: true
-            //     }
-
-            //     ToolButton {
-            //         text: "✕"
-            //         font.pixelSize: 14
-            //         font.bold: true
-            //         onClicked: selectPopup.close()
-            //         background: Rectangle { color: "transparent" }
-            //     }
-            // }
-            ListView{
-                    id: selectPopupView
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    clip: true
-                    currentIndex: -1
-                    spacing: 4
-
-                    model: ListModel {}
-                    ScrollBar.vertical: ScrollBar {
-                        policy: ScrollBar.AsNeeded
-                        anchors.right: selectPopupView.right
-                        contentItem: Rectangle {
-                            implicitWidth: 6
-                            radius: 3
-                            color: parent.pressed ? "#757575" : "#bdbdbd"
-                        }
-                    }
-                    delegate: Rectangle{
-                        id: rowDelegate
-                          width: selectPopupView.width - 8 // Залишаємо місце для скроллбару
-                          height: 40
-                          radius: 8
-
-                          // Інтерактивна зміна кольору при наведенні або натисканні
-                          color: mouseArea.pressed ? "#e1f5fe" : (mouseArea.containsMouse ? "#f5f5f5" : "#ffffff")
-                          border.color: mouseArea.containsMouse ? "#b3e5fc" : "#f0f0f0"
-                          border.width: 1
-
-                          Item {
-                              anchors.fill: parent
-                              anchors.margins: 4
-
-                              // Назва (Головний текст)
-                              Label {
-                                  id: nameLabel
-                                  text: model.name || ""
-                                  font.bold: true
-                                  font.pixelSize: 14
-                                  color: "#212121"
-                                  anchors.top: parent.top
-                                  anchors.left: parent.left
-                                  anchors.right: parent.right
-                                  elide: Text.ElideRight
-                              }
-
-                              // ID / Код
-                              Label {
-                                  id: idLabel
-                                  text: "ID: " + model.id
-                                  color: "#757575"
-                                  font.pixelSize: 11
-                                  font.family: "monospace" // Моноширинний для кодів виглядає акуратніше
-                                  anchors.bottom: parent.bottom
-                                  anchors.left: parent.left
-                              }
-
-                              // Повна назва / Опис
-                              Label {
-                                  text: model.fullname || ""
-                                  color: "#9e9e9e"
-                                  font.pixelSize: 11
-                                  anchors.bottom: parent.bottom
-                                  anchors.left: idLabel.right
-                                  anchors.leftMargin: 12
-                                  anchors.right: parent.right
-                                  elide: Text.ElideRight
-                              }
-                          }
-                        MouseArea{
-                            id: mouseArea
-                            anchors.fill: parent
-                            onClicked: {
-                                const entityId = model.id;
-                                const entityCode = model.code;
-                                if (entityCode==="client"){                  // client
-                                    root.crntAcnt = JS.getAcnt(dbDriver)    // set default account
-                                    const clnt = JS.getClient(dbDriver, entityId);
-                                    root.crntClient = clnt;
-                                    setCrntClient(clnt);
-                                    // console.log(`w82j$Bind.qml HERE 1111`)
-                                    // newRowAction.trigger();
-                                } else if (entityCode === "acntno") {        // acntno
-                                    root.crntAcnt = JS.getAcnt(dbDriver, entityId)
-                                    newRowAction.trigger();
-                                } else if (entityCode==="article") {        // acntno
-                                    newDcm(entityId);
-                                } else {
-                                    vkEvent("warn", "[Bind] selectPopup bad code, nothing to do")
-                                }
-                                selectPopup.close()
-                            }
-                        }
-                    }
-                    section.property: "sect"
-                    section.criteria: ViewSection.FullString
-                    section.delegate: Item {
-                        width: selectPopupView.width
-                        height: 32
-
-                        Label {
-                            text: section ? section.toUpperCase() : "" // Категорії у верхньому регістрі
-                            font.bold: true
-                            font.pixelSize: 11
-                            font.letterSpacing: 1 // Гарний розряджений текст
-                            color: "#0288d1" // Акцентний синій колір
-                            anchors { left: parent.left; leftMargin: 4; verticalCenter: parent.verticalCenter }
-                        }
-                    }
-                    function vpopulate(vfilter) {
-                        model.clear();
-                        const dataArray = selectPopup.jsdata;
-                        if (!Array.isArray(dataArray)) return;
-
-                        const searchStr = String(vfilter || "").toLowerCase().trim();
-
-                        for (let i = 0; i < dataArray.length; i++) {
-                            const item = dataArray[i];
-                            if (!item) continue;
-
-                            // Якщо фільтр порожній — додаємо всі елементи
-                            if (searchStr === "") {
-                                model.append(item);
-                                continue;
-                            }
-
-                            // Безпечне приведення фінансових полів до рядків для захисту від crash
-                            const itemId = String(item.id || "").toLowerCase();
-                            const itemName = String(item.name || "").toLowerCase();
-                            const itemFullname = String(item.fullname || "").toLowerCase();
-                            const itemScan = String(item.scancode || "").toLowerCase();
-
-                            if (itemId.includes(searchStr) ||
-                                itemName.includes(searchStr) ||
-                                itemFullname.includes(searchStr) ||
-                                itemScan.includes(searchStr)) {
-
-                                model.append(item);
-                            }
-                        }
-                    }
-                }
-
-            UIFindEdit{
-                id: selectPopupFilter
-                Layout.fillWidth: true
-                placeholderText: 'Пошук за назвою, ID чи штрихкодом...'
-                fillWidth: true
-                expanded: true
-                onTextChanged: selectPopupView.vpopulate(text)
-                onAccepted: selectPopupView.vpopulate(text)
-            }
-
-            // Rectangle {
-            //      Layout.fillWidth: true
-            //      height: 40
-            //      color: "#f5f5f5"
-            //      radius: 8
-            //      border.color: selectPopupFilter.activeFocus ? "#0288d1" : "#e0e0e0"
-            //      border.width: selectPopupFilter.activeFocus ? 2 : 1
-
-            //      RowLayout {
-            //          anchors.fill: parent
-            //          anchors.leftMargin: 8
-            //          anchors.rightMargin: 4
-            //          spacing: 6
-
-            //          // Іконка пошуку (символьна для простоти, можна замінити на SVG)
-            //          Label {
-            //              text: "🔍"
-            //              font.pixelSize: 14
-            //              color: "#9e9e9e"
-            //          }
-
-            //          TextField {
-            //              id: selectPopupFilter
-            //              Layout.fillWidth: true
-            //              placeholderText: 'Пошук за назвою, ID чи штрихкодом...'
-            //              font.pixelSize: 13
-            //              selectByMouse: true
-
-            //              // Прибираємо стандартний фон TextField, бо ми намалювали свій гарний Rectangle
-            //              background: null
-
-            //              onTextChanged: selectPopupView.vpopulate(text)
-            //              onAccepted: selectPopupView.vpopulate(text)
-            //          }
-
-            //          // Кнопка швидкого очищення фільтра
-            //          ToolButton {
-            //              text: "✕"
-            //              visible: selectPopupFilter.text !== ""
-            //              Layout.preferredWidth: 28
-            //              Layout.preferredHeight: 28
-            //              onClicked: selectPopupFilter.text = ""
-            //              background: Rectangle { color: "transparent" }
-            //          }
-            //      }
-            // }
-
-
-
-
-        }
-
-
-    }
-*/
-
     // Component.onCompleted: {
     //     startBindAction.trigger();
     // }
