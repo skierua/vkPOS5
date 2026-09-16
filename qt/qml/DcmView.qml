@@ -58,6 +58,28 @@ Window {
 
     Action {
             id: loadAction
+            property var filter: null   //{"code":"", "val":""}
+            icon.source: "qrc:/icon/reload.svg"
+            onTriggered: {
+                const ui = {
+                    dbFilter: loadAction.filter,
+                    dbFrom: findInterval.currentValue ?? "",
+                    setPages: (v) => { dcmViewRootWindow.countPage = Number(v || 1);},
+                    setBinds: (v) => { dcmViewRootWindow.countBind = Number(v || 0);},
+                }
+                vfilterEdit.text = "";
+                // console.info(`II: DcmView.qml/loadAction dbDriver=${dbDriver}`)
+                if (dcmViewRootWindow.dbDriver !== undefined && dcmViewRootWindow.dbDriver !== null) {
+                    JS.load_2(dcmViewRootWindow.dbDriver, vw.model, ui)
+                } else {
+                    // console.warn("Драйвер бази даних відсутній")
+                    logView.error("Драйвер бази даних відсутній");
+                }
+            }
+        }
+
+    Action {
+            id: old_loadAction
             icon.source: "qrc:/icon/reload.svg"
             onTriggered: {
                 const ui = {
@@ -235,14 +257,14 @@ Window {
                                 text: "ID: " + String(model.dcmid || "")
                                 font.pixelSize: 9
                                 font.italic: !model.flt
-                                color: "gray"
+                                color: "dimgray"
                             }
                             Label {
                                 text: model.cdtacntname
                                 // text: "[" + String(model.acntcdt || "") + "]"
                                 font.pixelSize: 9
                                 font.italic: !model.flt
-                                color: "gray"
+                                color: "dimgray"
                             }
                         }
                     }
@@ -436,7 +458,7 @@ Window {
                         Layout.fillWidth: true
                         horizontalAlignment: Text.AlignRight
                         font.pixelSize: 9
-                        color: "gray"
+                        color: "dimgray"
                         text: isNaN(rootSec.dateObj.getTime()) ? "0000-00-00" : rootSec.dateObj.toLocaleDateString(Qt.locale(), "yyyy-MM-dd");
                     }
                 }
@@ -549,18 +571,29 @@ Window {
 
                     // Фільтри адаптовані під новий ISO-UTC формат нашої міграції 147 версії
                     model: ListModel {
-                        ListElement { text: "За поточну зміну"; table: "docum"; filter: "shftid = 0" }
-                        ListElement { text: "Останні 2 тижні"; table: "documall"; filter: "datetime(dcmtime) >= datetime('now', 'localtime', '-14 day')" }
-                        ListElement { text: "За останній місяць"; table: "documall"; filter: "datetime(dcmtime) >= datetime('now', 'localtime', '-1 month')" }
-                        ListElement { text: "За поточний квартал"; table: "documall"; filter: "datetime(dcmtime) >= datetime('now', 'localtime', '-3 month')" }
-                        ListElement { text: "За весь рік"; table: "documall"; filter: "datetime(dcmtime) >= datetime('now', 'localtime', '-1 year')" }
-                        ListElement { text: "З початку місяця"; table: "documall"; filter: "datetime(dcmtime) >= datetime('now', 'localtime', 'start of month')" }
-                        ListElement { text: "З початку року"; table: "documall"; filter: "datetime(dcmtime) >= datetime('now', 'localtime', 'start of year')" }
-                        ListElement { text: "Весь період (архів)"; table: "documall"; filter: "" }
+                        ListElement { text: "За поточну зміну"; table: "docum"; filter: "" }
+                        ListElement { text: "Останні 2 тижні"; table: "documall"; filter: "last2Week" }
+                        ListElement { text: "За останній місяць"; table: "documall"; filter: "last1Month" }
+                        ListElement { text: "За ост.3 місяці"; table: "documall"; filter: "last3Month" }
+                        ListElement { text: "За останній рік"; table: "documall"; filter: "last1Year" }
+                        ListElement { text: "З початку місяця"; table: "documall"; filter: "startOfMonth" }
+                        ListElement { text: "З початку року"; table: "documall"; filter: "startOfYear" }
+                        ListElement { text: "Весь період (архів)"; table: "documall"; filter: "all" }
                     }
+                    // model: ListModel {
+                    //     ListElement { text: "За поточну зміну"; table: "docum"; filter: "shftid = 0" }
+                    //     ListElement { text: "Останні 2 тижні"; table: "documall"; filter: "datetime(dcmtime) >= datetime('now', 'localtime', '-14 day')" }
+                    //     ListElement { text: "За останній місяць"; table: "documall"; filter: "datetime(dcmtime) >= datetime('now', 'localtime', '-1 month')" }
+                    //     ListElement { text: "За поточний квартал"; table: "documall"; filter: "datetime(dcmtime) >= datetime('now', 'localtime', '-3 month')" }
+                    //     ListElement { text: "За весь рік"; table: "documall"; filter: "datetime(dcmtime) >= datetime('now', 'localtime', '-1 year')" }
+                    //     ListElement { text: "З початку місяця"; table: "documall"; filter: "datetime(dcmtime) >= datetime('now', 'localtime', 'start of month')" }
+                    //     ListElement { text: "З початку року"; table: "documall"; filter: "datetime(dcmtime) >= datetime('now', 'localtime', 'start of year')" }
+                    //     ListElement { text: "Весь період (архів)"; table: "documall"; filter: "" }
+                    // }
 
                     textRole: 'text'
                     valueRole: 'filter'
+                    // onCurrentValueChanged: loadAction.trigger();
                     onCurrentValueChanged: if (dcmViewRootWindow.dbDriver !== undefined && dcmViewRootWindow.dbDriver !== null) loadAction.trigger();
                 }
 
@@ -584,7 +617,6 @@ Window {
             }
         }
 
-        // 🏷 НИЖНЯ ПАНЕЛЬ: Пагінація сторінок журналу (Pager)
         footer: ToolBar {
             background: Rectangle { color: "#f8f9fa"; border.color: "#e0e0e0"; border.width: 1 }
 
@@ -664,23 +696,31 @@ Window {
         x: (dcmViewRootWindow.width - width) / 2
         y: (dcmViewRootWindow.height - height) / 2 // Центруємо також по вертикалі
         onSelected: (code, id, name) => {
-            if (code==="default"){                  // client
-                dcmViewRootWindow.dbFilter = null
+            if (code==="default"){
+                loadAction.filter = null;
+                // loadAction.filter = {"code":"", "val":""}
+                // dcmViewRootWindow.dbFilter = null
             } else if (code === "acntno") {        // acntno
-                dcmViewRootWindow.dbFilter = `(pid IS NULL OR pid ='' OR acntcdt = '${id}')`
+                loadAction.filter = {"code":"acntno", "val":id}
+                // dcmViewRootWindow.dbFilter = `(pid IS NULL OR pid ='' OR acntcdt = '${id}')`
             } else if (code==="currency") {
-                const crnFilter = !id ? "itemid IS NULL OR itemid = ''"
-                                      : `itemid = '${id}'`
-                dcmViewRootWindow.dbFilter = `(pid IS NULL OR pid ='' OR ${crnFilter})`
+                loadAction.filter = {"code":"article", "val":id}
+                // const crnFilter = !id ? "itemid IS NULL OR itemid = ''"
+                //                       : `itemid = '${id}'`
+                // dcmViewRootWindow.dbFilter = `(pid IS NULL OR pid ='' OR ${crnFilter})`
                 // console.info(`II: DcmView.qml#7eh dbFilter=${dbFilter}`)
             } else if (code==="article") {
-                dcmViewRootWindow.dbFilter = `(pid IS NULL OR pid ='' OR itemid = '${id}')`
+                loadAction.filter = {"code":"article", "val":id}
+                // dcmViewRootWindow.dbFilter = `(pid IS NULL OR pid ='' OR itemid = '${id}')`
+            } else if (code==="client") {
+                loadAction.filter = {"code":"client", "val":id}
             } else {
+                loadAction.filter = null;
                 vkEvent("warn", "SelectPopup bad code, nothing to do")
             }
             btnDbSelect.text = !id ? name : `${name} [${id}]`;
+            loadAction.trigger();
             selectPopup.close()
-
         }
     }
 

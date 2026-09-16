@@ -13,6 +13,7 @@ function tranBind(db, jbind) {
     if (!db || !jbind || !jbind.dcms) return 0;
     const shift = LibShift.crntShift(db);
     const isShiftActive = shift?.shftend === "";
+    // console.info(`II:#397- sqlTran.js/tranBind jbind=${JSON.stringify(jbind)}`);
     // console.log(`3dj9#ModelBind.qml ${JSON.stringify(shift)}`)
     if (!isShiftActive) {
         // lastError = "Немає відкритої зміни!";

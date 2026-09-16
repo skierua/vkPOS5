@@ -102,7 +102,7 @@ function selStmt(archive) {
     // LEFT JOIN itemunit ON (defunit = itemunit.pkey)
 }
 
-// 2. Безпечний пошук одного документа
+// Безпечний пошук одного документа
 function selDcmById(db, dcmid, archive) {
     if (!db) return null;
     const isArchive = !!archive;
@@ -114,7 +114,7 @@ function selDcmById(db, dcmid, archive) {
     return db.dbSelectRow(vsql);
 }
 
-// 3. Безпечний вибір масиву рядків за Parent ID
+// Безпечний вибір масиву рядків за Parent ID
 function selDcmsByPid(db, pid, archive) {
     if (!db) return null;
     const isArchive = !!archive;
@@ -126,16 +126,116 @@ function selDcmsByPid(db, pid, archive) {
     return db.dbSelectRowsJSON(vsql);
 }
 
-// 4. Пошук за кастомною SQL-умовою
+// Пошук за кастомною SQL-умовою
 function dbDocum(db, condition, archive) {
     if (!db) return null;
     const isArchive = !!archive;
 
     const whereCondition = condition ? `WHERE ${condition}` : "";
     const vsql = `${selStmt(isArchive)} ${whereCondition}`;
+    // console.info(`II:sqlBind.js/dbDocum ${vsql}` );
     return db.dbSelectRowsJSON(vsql);
 }
-// }
+
+// client, acntno, article
+// tmFrom
+// dcmview.js
+function selList(db, bindOnly,  param){
+    // console.info(`II:#7yy sqlBind.js/selBindList param=${JSON.stringify(param)}`);
+    const crntVal = !bindOnly ? "parentid" : "id";
+    const strgVal = !bindOnly ? "parentid" : "dcmid";
+    let dataFilter = "";
+    let timeFilter = "";
+    let archive = true;
+    let crntTblFilter = "";
+    let strgTblFilter = "";
+    let whereCondition = "";
+    // if (String(param?.shft || )
+
+    if (param.tmFrom !== undefined && param.tmFrom !== null){
+        if (param.tmFrom === "last2Week") timeFilter = "date(dcmtime) >= date('now', '-14 day')";
+        else if (param.tmFrom === "last1Month") timeFilter = "date(dcmtime) >= date('now', '-1 month')";
+        else if (param.tmFrom === "last3Month") timeFilter = "date(dcmtime) >= date('now', '-3 month')";
+        else if (param.tmFrom === "last1Year") timeFilter = "date(dcmtime) >= date('now', '-1 year')";
+        else if (param.tmFrom === "startOfMonth") timeFilter = "date(dcmtime) >= date('now', 'start of month')";
+        else if (param.tmFrom === "startOfYear") timeFilter = "date(dcmtime) >= date('now', 'start of year')";
+        else if (param.tmFrom === "all") timeFilter = "";
+        else archive = false;
+    } else archive = false;
+
+    if (param.acntno) {
+        whereCondition = `WHERE (acntcdt = '${param.acntno}') ${!!timeFilter ? 'AND' : ''} ${timeFilter}`;
+        crntTblFilter = `
+            ${crntVal} IN (
+            SELECT DISTINCT parentid
+            FROM docum
+            ${whereCondition}
+            )`;
+        strgTblFilter = `
+            ${strgVal} IN (
+            SELECT DISTINCT parentid
+            FROM strgdocum
+            ${whereCondition}
+            )`;
+    } else if (param.article !== undefined){
+        // console.info(`II: sqlBind.js/selBindList ATCL is defined`);
+        dataFilter = !String(param?.article ?? "") ? "(item IS NULL OR item = '')"
+                              : `(item = '${String(param.article)}')`;
+        whereCondition = `WHERE ${dataFilter} ${!!timeFilter ? 'AND' : ''} ${timeFilter}`;
+        crntTblFilter = `
+            ${crntVal} IN (
+            SELECT DISTINCT parentid
+            FROM docum
+            ${whereCondition}
+            )`;
+        strgTblFilter = `
+            ${strgVal} IN (
+            SELECT DISTINCT parentid
+            FROM strgdocum
+            ${whereCondition}
+            )`;
+    } else if (param.client !== undefined){
+        const clid = param.client ?? "";
+        crntTblFilter = `
+            ${crntVal} IN (
+        SELECT DISTINCT parentid FROM docum WHERE acntcdt IN (SELECT acntno FROM acntbal WHERE client = '${clid}')
+         ${!!timeFilter ? 'AND' : ''} ${timeFilter}
+        UNION
+        SELECT dcmid FROM docum WHERE (parentid IS NULL OR parentid = '') AND client = '${clid}' ${!!timeFilter ? 'AND' : ''} ${timeFilter}
+            )`;
+
+        strgTblFilter = `
+            ${strgVal} IN (
+        SELECT DISTINCT parentid FROM strgdocum WHERE acntcdt IN (SELECT acntno FROM acntbal WHERE client = '${clid}')
+         ${!!timeFilter ? 'AND' : ''} ${timeFilter}
+        UNION
+        SELECT dcmid FROM strgdocum WHERE (parentid IS NULL OR parentid = '') AND client = '${clid}' ${!!timeFilter ? 'AND' : ''} ${timeFilter}
+            )`;
+
+    } else {
+        if (!bindOnly){
+            crntTblFilter = `(parentid IS NOT NULL AND parentid != '') ${!!timeFilter ? 'AND' : ''} ${timeFilter}`;
+            strgTblFilter = crntTblFilter;
+        } else {
+            crntTblFilter = `(parentid IS NULL OR parentid = '') ${!!timeFilter ? 'AND' : ''} ${timeFilter}`;
+            strgTblFilter = crntTblFilter;
+        }
+    }
+
+    // console.info(`II: sqlBind.js/selBindList dataFilter=${crntTblFilter}`);
+    const source1 = dbDocum(db, crntTblFilter, false);
+    if (archive){
+        // console.info(`II: sqlBind.js/selBindList dataFilter=${strgTblFilter}`);
+        const source2 = dbDocum(db, strgTblFilter, true);
+        if (source2.length > 65000) {
+            const res = source1.concat(source2);
+            return res ?? [];
+        }
+        source1.push(...source2);
+    }
+    return source1 ?? [];
+}
+
 
 function updDocum(db, dcmid, updateFields, archive) {
     if (!db || !dcmid || !updateFields) return false;

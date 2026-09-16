@@ -187,6 +187,8 @@ function handleTranAction(db, prn, model, ui) {
         "tm": utcTimeStamp,
         "dcms": dcmList
     }
+    // console.info(`II:#397- bind.js/handleTranAction jbind=${JSON.stringify(jbind)}`);
+    // return 1;
     const bid = LibTran.tranBind(db, jbind);
     if (!bid) {
         ui?.error?.("Критична помилка: Фінансовий документ не проведено базою даних!");
@@ -273,6 +275,17 @@ function getAcnt(db, acntNo){
 function handleSelectAcntAction(db, popup, ui){
     popup.jsdata = [];
     const cashAcntNo = LibAcnt.DfltAcnt.cashAcntNo(db);
+    const tradeAcnt = LibAcnt.DfltAcnt.trade(db);
+    if (!!tradeAcnt){
+        popup.jsdata.push({
+                              "id": tradeAcnt.acntno,
+                              "name": tradeAcnt.note || tradeAcnt.name,
+                              "fullname": tradeAcnt.name,
+                              "code" : "acntno",
+                              "sect": ""
+                           });
+    }
+
     const source = LibAcnt.acntbalClientList(db, ui.clid)
     const list = source
     .filter(v => (v.acntno !== cashAcntNo && !v.acntno.startsWith("rslt")))
@@ -284,7 +297,7 @@ function handleSelectAcntAction(db, popup, ui){
            "name": v.note || v.name,
            "fullname": v.name,
            "code" : "acntno",
-           "sect": qsTr("Рахунки")
+           "sect": qsTr("Рахунки клієнта")
         };
    })
     // console.log(`jw8#bind.js source=${JSON.stringify(source)} \n list=${JSON.stringify(list)}`)
@@ -442,7 +455,7 @@ function handleFind(db, str, popup, ui) {
                 // handleClientChanged(db, res[0].id)
                 const clnt = getClient(db, res[0].id);
                 ui.setClient(clnt || null);
-                ui.vkEvent("clientChanged", clnt)
+                // ui.vkEvent("clientChanged", clnt)
             } else if (res[0].code === "acntno") {        // acntno
                 const acnt = getAcnt(db, res[0].id);
                 ui.setAcnt(acnt || null)
@@ -614,7 +627,7 @@ function createBindForTax_cd(db, dcmid, payType) {
 */
 
 function sendBindToREST(db, jbind, ui){
-    console.info(`II: bind.js/sendBindToREST isConnected=${REST.isConnected}`)
+    // console.info(`II: bind.js/sendBindToREST isConnected=${REST.isConnected}`)
     if (REST.isConnected){
        REST?.uploadBalance?.(db,
          (e)=>{
