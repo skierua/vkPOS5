@@ -62,6 +62,7 @@ function parse(raw){
 }
 
 function connect(callback) {
+    // console.log(`II:#9u CashDesk.js`)
     isConnected = false;
     if(!String(HOST || "")
         || !String(API || "")
