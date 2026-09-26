@@ -198,21 +198,21 @@ ListModel {
         return true;
     }
 
-    function addRefused(dcm, datcl, dacnt) {
+    function addRefused(dcm, atcl, acnt) {
         if (!dcm) return false;
-        // console.log(`ModelBind/addRefused 111`)
+        console.log(`ModelBind/addRefused 111`)
 
         const dtype = String(dcm.dcmtype || "");
         const damnt = 0 - Number(dcm.amount || 0);
-        if (!isCorrect(datcl, dacnt, dtype, damnt)) {
+        if (!isCorrect(atcl, acnt, dtype, damnt)) {
             mRoot.lastError = `Непідтримувані параметри документу.\nДані: ${JSON.stringify(dcm)}`;
             return false;
         }
         let refused = {
             "dsign": damnt < 0 ? -1 : 1,
             "dcode": dtype,
-            "darticle": datcl,
-            "dacnt": dacnt,
+            "darticle": atcl,
+            "dacnt": acnt,
             "damnt": Math.abs(damnt),
             "dnote": `${String(dcm?.dcmnote || "")} #ПОВЕРНЕННЯ!`,
             "retfor": String(dcm.dcmid || "")

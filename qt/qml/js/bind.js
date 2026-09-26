@@ -139,7 +139,7 @@ function handleTranAction(db, prn, model, ui) {
     const l_isTaxCorrect = () => {
         let ok = true;
         for (let i = 0; ok && i < model.count; ++i){
-            const dcm = get(i);
+            const dcm = model.get(i);
             ok &= (dcm.dcode || "") === "trade:sell"
             && Number(dcm.dsign || 0) < 0
             && Number(dcm.darticle?.mask || 0) === 4;
@@ -519,10 +519,10 @@ function handleNewDcm(db, model, ui){
 function handleNewRefuse(db, model, dcm){
     if (!db) return false;
     if (!model || !dcm) return false;
-    const datcl = LibItem.getItemById(db, String(dcm.itemid || ""));
-    const dacnt = LibAcnt.acntbal(db, String(dcm.acntcdt || ""));
+    const atcl = LibItem.getItemById(db, String(dcm.itemid || ""));
+    const acnt = LibAcnt.acntbal(db, String(dcm.acntcdt || ""));
     // console.log(`bind.js#wlp0/handleNewRefuse dcm=${JSON.stringify(dcm)}`)
-    const res = model.addRefused(dcm, datcl, dacnt);
+    const res = model.addRefused(dcm, atcl, acnt);
     // console.log(`bind.js#wlp0/handleNewRefuse res=[${res}]`)
     return res;
 

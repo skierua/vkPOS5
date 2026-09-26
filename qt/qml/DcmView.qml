@@ -79,27 +79,6 @@ Window {
         }
 
     Action {
-            id: old_loadAction
-            icon.source: "qrc:/icon/reload.svg"
-            onTriggered: {
-                const ui = {
-                    setPages: (v) => { dcmViewRootWindow.countPage = Number(v || 1);},
-                    setBinds: (v) => { dcmViewRootWindow.countBind = Number(v || 0);},
-                }
-                vfilterEdit.text = "";
-                // console.info(`II: DcmView.qml/loadAction dbDriver=${dbDriver}`)
-                if (dcmViewRootWindow.dbDriver !== undefined && dcmViewRootWindow.dbDriver !== null) {
-                    const activeFilter = (findInterval.currentValue !== undefined ? String(findInterval.currentValue) : "shftid = 0")
-                                       + (!dbFilter ? "" : ` AND ${dbFilter}`);
-                    JS.load(dcmViewRootWindow.dbDriver, vw.model, activeFilter, ui)
-                } else {
-                    // console.warn("Драйвер бази даних відсутній")
-                    logView.error("Драйвер бази даних відсутній");
-                }
-            }
-        }
-
-    Action {
         id: bindModeAction
         text: qsTr("Bind")
         checkable: true
@@ -529,17 +508,19 @@ Window {
 
         // 🏢 ВЕРХНЯ ПАНЕЛЬ: Інтервальний фільтр архіву
         header: ToolBar {
+            // width: parent.width
+            // height: 30
             background: Rectangle { color: "#f8f9fa"; border.color: "#e0e0e0"; border.width: 1 }
 
             RowLayout {
                 anchors.fill: parent
-                anchors.leftMargin: 12; anchors.rightMargin: 12
+                anchors.leftMargin: 6; anchors.rightMargin: 6
                 spacing: 12
-
                 ToolButton {
                     action: loadAction
                     font.bold: true
                 }
+
                 UIBtn{
                     id: btnDbSelect
                     Layout.fillHeight: true
@@ -553,16 +534,6 @@ Window {
                     }
                 }
                 Item { Layout.fillWidth: true } // Розпірка простору
-                // Label {
-                //     id: headerTitle
-                //     elide: Label.ElideRight
-                //     font.bold: true
-                //     font.pixelSize: 14
-                //     color: "#263238"
-                //     horizontalAlignment: Qt.AlignHCenter
-                //     verticalAlignment: Qt.AlignVCenter
-                //     Layout.fillWidth: true
-                // }
 
                 ComboBox {
                     id: findInterval
@@ -580,23 +551,12 @@ Window {
                         ListElement { text: "З початку року"; table: "documall"; filter: "startOfYear" }
                         ListElement { text: "Весь період (архів)"; table: "documall"; filter: "all" }
                     }
-                    // model: ListModel {
-                    //     ListElement { text: "За поточну зміну"; table: "docum"; filter: "shftid = 0" }
-                    //     ListElement { text: "Останні 2 тижні"; table: "documall"; filter: "datetime(dcmtime) >= datetime('now', 'localtime', '-14 day')" }
-                    //     ListElement { text: "За останній місяць"; table: "documall"; filter: "datetime(dcmtime) >= datetime('now', 'localtime', '-1 month')" }
-                    //     ListElement { text: "За поточний квартал"; table: "documall"; filter: "datetime(dcmtime) >= datetime('now', 'localtime', '-3 month')" }
-                    //     ListElement { text: "За весь рік"; table: "documall"; filter: "datetime(dcmtime) >= datetime('now', 'localtime', '-1 year')" }
-                    //     ListElement { text: "З початку місяця"; table: "documall"; filter: "datetime(dcmtime) >= datetime('now', 'localtime', 'start of month')" }
-                    //     ListElement { text: "З початку року"; table: "documall"; filter: "datetime(dcmtime) >= datetime('now', 'localtime', 'start of year')" }
-                    //     ListElement { text: "Весь період (архів)"; table: "documall"; filter: "" }
-                    // }
 
                     textRole: 'text'
                     valueRole: 'filter'
                     // onCurrentValueChanged: loadAction.trigger();
                     onCurrentValueChanged: if (dcmViewRootWindow.dbDriver !== undefined && dcmViewRootWindow.dbDriver !== null) loadAction.trigger();
                 }
-
                 ToolButton {
                     text: "⋮"
                     font.pixelSize: 16

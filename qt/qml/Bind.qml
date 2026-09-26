@@ -256,6 +256,7 @@ Item {
             vkEvent("error", bindModel.lastError);
             return;
         }
+        bindView.currentIndex = -1
         newRowAction.trigger();
     }
 

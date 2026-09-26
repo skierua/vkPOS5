@@ -18,7 +18,7 @@ function sectInfo(code) {
     return SECTION_CACHE.get(String(code || ""));
 }
 
-function load(db, model, condition = "", ui) {
+/*function load(db, model, condition = "", ui) {
     ROW_CACHE.splice(0, ROW_CACHE.length);
     SECTION_CACHE.clear();
 
@@ -70,7 +70,7 @@ function load(db, model, condition = "", ui) {
     ROW_CACHE.push(...dcmList);
 
     filterData(model, ui)
-}
+} */
 
 function load_2(db, model, ui) {
     ROW_CACHE.splice(0, ROW_CACHE.length);
@@ -130,7 +130,7 @@ function load_2(db, model, ui) {
                  flt: true
              });
          });
-    if (dcmList.length < 65000) ROW_CACHE.push(...dcmList);
+    if (dcmList.length < 60000) ROW_CACHE.push(...dcmList);
     else for (let row of dcmList) { ROW_CACHE.push(row); };
     // ROW_CACHE.push(...dcmList);
 
@@ -232,7 +232,7 @@ function addNew(model, row, idx){
         , "discount": row.discount
         , "bonus": row.bonus
         , "dcmnote": noteVal
-        // , "itemid": row.itemid
+        , "itemid": row.itemid
         // , "itemchar": row.jarticle.itemchar
         , "unitprec": row.jarticle.unitprec
         , "isTrade": isTrade
@@ -275,7 +275,7 @@ function bindForPrint(db, pid){
 function dcmForRefuse(dcm){
     if (!dcm) return null;
     const clidVar = Number(dcm.bonus || 0) === 0 ? "" : (sectInfo(dcm.pid)?.clnt || "");
-
+// console.info(`II:#98d dcmview.js dcm=${JSON.stringify(dcm)}`);
     const res =
         {
          "dcmid": dcm.dcmid

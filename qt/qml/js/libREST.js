@@ -8,6 +8,16 @@
 // const BAN_SEND = true;
 const BAN_SEND = false;
 
+// REST API
+// POST
+// /auth
+// /accounts upd
+// /dcms upd
+// /rates sel
+// /reports updprofit?
+
+// GET
+
 let HOST = "https://test.kantorfk.com";
 let API = "/api/v5";
 let USER = "";
@@ -322,7 +332,7 @@ function getRequest(url, path, query, callback) {
 }
 
 function postRequest2(url, req, callback) {
-    console.log("REST postRequest2 using noticed")
+    console.log("WW: DEPRECATED REST postRequest2 using noticed")
     let request = new XMLHttpRequest();
     let  err = null, resp = null;
 

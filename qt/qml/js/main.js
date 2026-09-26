@@ -94,16 +94,18 @@ function handleDbNameChanged(db, prn, container, msg, ui){
             }
         });
     }
+    // console.info('WW:#97h main.js REMOVE on production')
+    //             ui.setTaxAction(true);
     if (typeof TAX !== "undefined") {
         TAX.reset();
         TAX.restore(db);
-        TAX.connect((err, msg) => {
+        TAX.connect((err, errstr) => {
             if (!err) {
                 if (!!ui && typeof ui.setTaxAction === "function")
                     ui.setTaxAction(TAX.isConnected);
                 msg.info("З'єднання з фіскальним сервером успішно встановлено!");
             } else {
-                msg.warn("Помилка фіскального шлюзу: " + String(msg));
+                msg.warn("Помилка фіскального шлюзу: " + String(errstr));
             }
         });
     }
