@@ -1,22 +1,25 @@
 .pragma library
 
-function monProfit(db, flt) {
+function monProfit(db, vdate) {
     if (!db) return [];
-    const period =  (!flt || flt.length < 7)
+    const vdateT = !!vdate ? vdate.trim() : "";
+    const period =  (!vdateT || !Date.parse(vdateT) || vdateT.length < 7)
                  ? new Date().toISOString().substring(0, 7)
-                 : flt.substring(0, 7);
-    const whereCondition = `WHERE substr(acntcdt,1,7)='rslt.35' AND substr(dcmtime,1,7) = '${period}'`;
+                 : vdateT.substring(0, 7);
+    const params = [];
+    params.push(period)
+    const whereCondition = `WHERE substr(acntcdt,1,7)='rslt.35' AND dcmnote LIKE '%reval%' AND dcmtime LIKE (? || '%')`;
+    // const whereCondition = `WHERE substr(acntcdt,1,7)='rslt.35' AND dcmnote LIKE '%reval%' AND dcmtime LIKE '${period}%'`;
     const vsql = `
     SELECT
         substr(dcmtime,1,7) AS tm,
         acntcdt AS acnt,
-        p.client AS cshr,
+        dcmaker AS cshr,
         sum(amount) AS amnt
-    FROM strgdocum AS d JOIN
-        (SELECT dcmid, client  FROM strgdocum WHERE dcmtype='folder' AND acntcdt='rslt') AS p
-        ON (d.parentid=p.dcmid)
+    FROM strgdocum
     ${whereCondition}
-    GROUP BY acntcdt, tm, p.client;
+    GROUP BY acntcdt, tm, dcmaker;
     `
-    return db.dbSelectRowsJSON(vsql);
+    return db.dbSelectRows(vsql, params) || [];
 }
+

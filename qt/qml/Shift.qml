@@ -6,7 +6,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 import "js/shift.js" as JS
-import "js/v147/sqlAcnt.js" as LibAcnt
+// import "js/v147/sqlAcnt.js" as LibAcnt
 
 Window {
     id: root

@@ -1,164 +1,179 @@
 .import "libREST.js" as REST
-.import "v147/config.js" as Conf
 .import "v147/sqlItem.js" as LibItem
 .import "v147/sqlPrice.js" as LibPrice
 
+const CURRENCY = new Map();
+const LOCAL_RATE = new Map();
+const WEB_RATE = new Map();
+
 function loadCurrencies(db, model) {
     if (!db || !model) return;
-    model.clear();
-
-    const cur = LibItem.dbItems(db, "(itemmask & 2) AND itemnote IS NOT NULL AND itemnote != ''");
+    CURRENCY.clear();
+    LOCAL_RATE.clear();
+    // WEB_RATE.clear();
     // console.log(`ModelRates cur ${JSON.stringify(cur)} `)
+    const rawCur = LibItem.itemList(db, 2);
+    if (!rawCur || rawCur.length === 0) return;
 
-    if (!cur || cur.length === 0) return;
-
-    cur.sort((a, b) => Number(a.itemnote || 0) - Number(b.itemnote || 0));
-
-    // 3. Наповнюємо модель
-    for (let r = 0; r < cur.length; ++r) {
-        model.append({
-            "curid": String(cur[r].id || ""),
-            "qty": Number(cur[r].qty || 1),
-            "curchar": String(cur[r].itemchar || ""),
-            "curname": String(cur[r].itemname || ""),
-            "bid": 0.0, "ask": 0.0,
-            "lbid": 0.0, "lask": 0.0,
-            "lbidid": "", "laskid": "",
-            "dfltbid": 0.0, "dfltask": 0.0
-        });
-    }
-// console.log(`ModelRates got ${count} currencies`)
+    for (let v of rawCur){
+        if (String(v.itemnote || "") !== "")
+            CURRENCY.set(String(v.id), v);
+    };
     populateLocalRates(db, model);
 }
 
+function buildLocalKey(curid, ba){
+    return `${String(curid || "")} ${String(ba || "")}`;
+}
+
 function populateLocalRates(db, model) {
-    if (!db || (model?.count || 0) === 0) return;
+    if (!db || !model) return;
+    model.clear();
 
-    const jdata = LibPrice.currencyRates(db) || [];
-    // console.log(`rate.js/populateLocalRates ${JSON.stringify(jdata)}`)
+    const rawRate = LibPrice.currencyRates(db) || [];
+    // console.log(`II: 971d#rate.js rawRate ${JSON.stringify(rawRate)} `)
+    for (let r of rawRate){
+            LOCAL_RATE.set(buildLocalKey(r.item, r.prbidask), r);
+    };
 
-    // ОПТИМІЗАЦІЯ $O(N)$: Швидка мапа індексів замість важкого вкладеного циклу for
-    let indexMap = {};
-    for (let i = 0; i < model.count; ++i) {
-        indexMap[model.get(i).curid] = i;
-    }
-
-    for (let r = 0; r < jdata.length; ++r) {
-
-        let localRate = jdata[r];
-        let idx = indexMap[localRate.item];
-        // if (r < 2){
-        //     console.log(`ModelRates populateLocalRates idx=${idx} ${JSON.stringify( jdata[r])}`)
-
-        // }
-
-        if (idx !== undefined) {
-            let localQty = Number(model.get(idx).qty || 1);
-            let rateQty = Number(localRate.qty || 1);
-            let vprice = Number(localRate.price || 0);
-
-            // Корекція кратності номіналу
-            if (rateQty !== localQty && rateQty !== 0) {
-                vprice = (localQty * vprice) / rateQty;
-            }
-
-            // Розкладаємо дані по полях купівлі/продажу на основі вашого знаку ba (1 або -1)
-            if (String(localRate.prbidask) === "1") {
-                model.setProperty(idx, "lbid", vprice);
-                model.setProperty(idx, "dfltbid", vprice);
-                model.setProperty(idx, "lbidid", String(localRate.id || ""));
-            } else {
-                model.setProperty(idx, "lask", vprice);
-                model.setProperty(idx, "dfltask", vprice);
-                model.setProperty(idx, "laskid", String(localRate.id || ""));
-            }
+    const curs = [...CURRENCY.values()]
+    .sort((a, b) => Number(a.itemnote || 99) - Number(b.itemnote || 99));
+    // console.log(`II: 6st3#rate.js cur ${JSON.stringify(curs)} `);
+    for ( let cur of curs){
+        const curQty = Number(cur.qty || 1);
+        let bidVal = 0.0;
+        let bidId = 0;
+        const bidKey = buildLocalKey(cur.id, 1);
+        if (LOCAL_RATE.has(bidKey)){
+            const bidRate = LOCAL_RATE.get(bidKey);
+            const bidQty = bidRate.qty;
+            bidVal = Number(bidRate.price || 0.0);
+            bidId = Number(bidRate.id || 0);
+            if (curQty !== bidQty && curQty !== 0) bidVal *= (bidQty / curQty)
+            // console.log(`II: ya61#rate.js`, bidKey, curQty, bidQty, bidVal);
         }
-    }
+        let askVal = 0.0;
+        let askId = 0;
+        const askKey = buildLocalKey(cur.id, -1);
+        if (LOCAL_RATE.has(askKey)){
+            const askRate = LOCAL_RATE.get(askKey);
+            const askQty = askRate.qty;
+            askVal = Number(askRate.price || 0.0)
+            askId = Number(askRate.id || 0);
+            if (curQty !== askQty && curQty !== 0) askVal *= (askQty / curQty)
+            // console.log(`II: ya61#askrate.js`, askKey, curQty, askQty, askVal);
+        }
+
+        model.append({
+            "curid": String(cur.id || ""),
+            "qty": Number(cur.qty || 1),
+            "curchar": String(cur.itemchar || ""),
+            "curname": String(cur.itemname || ""),
+            "bidDisplay": bidVal, "askDisplay": askVal,
+            "bidEdited": bidVal, "askEdited": askVal,
+            "bidId": bidId, "askId": askId,
+        });
+    };
+    // console.log(`II: ya61#rate.js count=${model.count} `);
 }
 
-function updateLocalRate(db, model, msg, row, amnt, ba) {
-    // console.info(`II: rate.js/updateLocalRate`)
-    if (!db || row < 0 || row >= model.count) {
-        if (!!msg && typeof msg.error === "function") msg.error("Помилка параметрів");
-        return ;
-    }
+function populateWebRates(model, msg) {
+    WEB_RATE.clear();
 
-    const targetAmount = (amnt === undefined || amnt === "") ? 0.0 : Number(amnt);
-    const currentItem = model.get(row);
-    const rowId = Number(ba || 1) > 0 ? currentItem.lbidid : currentItem.laskid;
-    // Викликаємо функцію з правильним аліасом LibPrice
-    const ok = LibPrice.updRate(db, targetAmount, currentItem.qty, rowId, currentItem.curid, ba);
-    if (ok) {
-        if (Number(ba) > 0) {
-            model.setProperty(row, "lbid", targetAmount);
+    const l_populate = (jdata) => {
+        const rates = jdata
+            .filter(v => !v.pricecode)
+            .map(r => Object.assign({}, r, {
+                "qty": Number(r.qty || 1),
+                "bid": Number(r.bid || 0),
+                "ask": Number(r.ask || 0),
+            }));
+
+        for (let r of rates) {
+            WEB_RATE.set(String(r.atclcode || ""), r);
+        }
+
+        for (let i = 0; i < model.count; ++i) {
+            const row = model.get(i);
+
+            if (WEB_RATE.has(String(row.curid || ""))) {
+                const webRate = WEB_RATE.get(row.curid);
+
+                const localQty = Number(row.qty || 1);
+                const webQty = webRate.qty;
+
+                // Розраховуємо коефіцієнт (якщо номінали відрізняються)
+                const qtyCoef = (webQty !== 0 && localQty !== webQty) ? (localQty / webQty) : 1;
+
+                model.setProperty(i, "bidEdited", qtyCoef * webRate.bid);
+                model.setProperty(i, "askEdited", qtyCoef * webRate.ask);
+            }
+        }
+        return;
+    };
+
+    REST.loadRates((err, resp) => {
+        if (err === null) {
+            l_populate(resp);
+            msg.info(`Ok ${resp.length}-s loaded`);
         } else {
-            model.setProperty(row, "lask", targetAmount);
+            msg.error(err);
         }
-    } else
-        if (!!msg && typeof msg.error === "function") msg.error("Помилка поновлення курсу");
-
+    });
 }
 
+/*function old_populateWebRates(model, msg){
+    // console.log(`II: 273#rate.js/populateWebRates`)
 
-function loadWebRates(model, msg, ui){
-    // const basicConf = Conf.getBasic(db);
-    const req = {
-        "term": Conf.TERM ?? "TEST",
-        "reqid": "sel",
-        "shop": Conf.TERM ?? "TEST"
-    }
-    REST.loadRates(req, (err, resp) => {
+    WEB_RATE.clear();
+    const l_populate = (jdata) =>
+    {
+        const rates = jdata
+        .filter(v => !v.pricecode)
+        .map(r => {
+                 return Object.assign({}, r, {
+                     "qty": Number(r.qty || 1),
+                     "bid": Number(r.bid || 0),
+                     "ask": Number(r.ask || 0),
+                 });
+             });
+        // console.log(`II: 827#rate.js ${JSON.stringify(rates)}`)
+
+        for (let r of rates){
+                WEB_RATE.set(r.atclcode, r);
+        };
+
+        for (let i =0; i < model.count; ++i){
+            const row = model.get(i);
+            if (WEB_RATE.has(row.curid)){
+                const webRate = WEB_RATE.get(row.curid);
+                const qtyCoef = Number(webRate.qty || 1) !== 0
+                                && row.qty !== Number(webRate.qty || 1) ?
+                                row.qty / Number(webRate.qty || 1) : 1;
+                if (qtyCoef !== 1){
+                    model.setProperty(i,"bidEdited", qtyCoef * Number(webRate.bid || 0))
+                    model.setProperty(i,"askEdited", qtyCoef * Number(webRate.ask || 0))
+                } else {
+                    model.setProperty(i,"bidEdited", Number(webRate.bid || 0))
+                    model.setProperty(i,"askEdited", Number(webRate.ask || 0))
+                }
+            }
+        }
+
+        return;
+    };
+
+    REST.loadRates((err, resp) => {
                        if (err === null){
-                           // console.log("#278 ModelRates "+JSON.stringify(resp))
-                           const actionEnabled = (ui.online && (resp.length > 0));
-                           ui.setActionEnabled(actionEnabled);
-                           populateWebRates(model, resp)
+                           // console.log("#278 rate.js/populateWebRates "+JSON.stringify(resp))
+                           l_populate(resp);
+                           // populateWebRates(model, resp)
                            msg.info(`Ok ${resp.length}-s loaded`)
                        } else {
-                          msg.error(err.text)
+                          msg.error(err)
                        }
   });
-}
-
-
-function populateWebRates(model, jdata) {
-    if (!jdata || jdata.length === 0 || (model?.count || 0) === 0){
-        return;
-    }
-    // ОПТИМІЗАЦІЯ $O(N)$: Будуємо швидку індексну мапу для моментального пошуку валюти за 1 крок
-    let indexMap = {};
-    for (let i = 0; i < model.count; ++i) {
-        indexMap[model.get(i).curid] = i;
-    }
-
-    // let refresh = false;
-
-    for (let r = 0; r < jdata.length; ++r) {
-        const serverRate = jdata[r];
-        const idx = indexMap[serverRate.atclcode];
-
-        // Якщо така валюта активована в нашій касі
-        if (idx !== undefined) {
-            const localQty = Number(model.get(idx).qty || 1);
-            const serverQty = Number(serverRate.rqty || 1);
-
-            let vbid = Number(serverRate.bid || 0);
-            let vask = Number(serverRate.ask || 0);
-
-            // Коррегуємо курс, якщо кратність на сайті та на касі відрізняється
-            if (serverQty !== localQty && serverQty !== 0) {
-                vbid = (localQty * vbid) / serverQty;
-                vask = (localQty * vask) / serverQty;
-            }
-
-            // Зберігаємо курси як чисті точні числа
-            model.setProperty(idx, "bid", vbid);
-            model.setProperty(idx, "ask", vask);
-
-            // refresh |= (vbid !== model.get(idx).lbid || vask !== model.get(idx).lask);
-        }
-    }
-}
+}*/
 
 function updateLocalRates(db, model, msg, zero = 0.0000001) {
     if (!(db) || model.count === 0) return;
@@ -172,41 +187,42 @@ function updateLocalRates(db, model, msg, zero = 0.0000001) {
         const currentItem = model.get(i);
 
         // 1. Перевіряємо зміну курсу КУПІВЛІ (Bid)
-        let serverBid = Number(currentItem.bid || 0);
-        let localBid = Number(currentItem.lbid || 0);
+        let dBid = Number(currentItem.bidDisplay || 0);
+        let eBid = Number(currentItem.bidEdited || 0);
 
-        if (!!serverBid && Math.abs(serverBid - localBid) > zero) {
+        if (Math.abs(dBid - eBid) > zero) {
             refreshLocal = true;
-            let res = LibPrice.updRate((db), serverBid, currentItem.qty, currentItem.lbidid, currentItem.curid, "1");
+            let res = LibPrice.updRate((db), eBid, currentItem.qty, currentItem.bidId, currentItem.curid, 1);
             if (res === 0) ok = false; // Якщо запит повернув помилку (0), фіксуємо збій
         }
 
         // 2. Перевіряємо зміну курсу ПРОДАЖУ (Ask)
-        let serverAsk = Number(currentItem.ask || 0);
-        let localAsk = Number(currentItem.lask || 0);
+        let dAsk = Number(currentItem.askDisplay || 0);
+        let eAsk = Number(currentItem.askEdited || 0);
 
-        if (!!serverAsk && Math.abs(serverAsk - localAsk) > zero) {
+        if (Math.abs(dAsk - eAsk) > zero) {
             refreshLocal = true;
-            let res = LibPrice.updRate((db), serverAsk, currentItem.qty, currentItem.laskid, currentItem.curid, "-1");
-            if (res === 0) ok = false;
+            let res = LibPrice.updRate((db), eAsk, currentItem.qty, currentItem.askId, currentItem.curid, 1);
+            if (res === 0) ok = false; // Якщо запит повернув помилку (0), фіксуємо збій
         }
     }
 
     // --- ФІНАЛІЗАЦІЯ ТРАНЗАКЦІЇ ---
     if (ok) {
-        // Якщо ВСІ запити пройшли бездоганно — фіксуємо дані на диск одним махом!
         (db).dbCommit();
 
         if (refreshLocal) {
             // console.log(`II: rate.js/updateLocalRates populateLocalRates`)
             populateLocalRates(db, model);
             if(!!msg && typeof msg.info === "function")
-                msg.info("Курси успішно оновлені та зафіксовані в БД.");
+                msg.info("Курси успішно оновлені.");
         }
     } else {
-        // Якщо стався бодай ОДИН збій (наприклад, база виявилась LOCKED) — скасовуємо все оновлення повністю.
         (db).dbRollback();
         if(!!msg && typeof msg.error === "function")
             msg.error("Критична помилка запису! Оновлення скасовано.");
     }
 }
+
+
+

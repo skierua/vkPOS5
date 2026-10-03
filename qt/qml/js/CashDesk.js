@@ -243,7 +243,6 @@ function bindToSale(db, dcmid, payType) {
         archive = true;
         bind = LibBind.selDcmById(db, dcmid, archive);
     }
-    // console.log(`id82#CashDesk ${JSON.stringify(bind)}`);
     if (!bind || bind?.errid || null) {
         return null;
     }
@@ -251,6 +250,7 @@ function bindToSale(db, dcmid, payType) {
     if (!dcmSource || dcmSource?.errid || null) {
         return null;
     }
+    // console.log(`II: 83yg#CashDesk ${JSON.stringify(dcmSource)}`);
     let ok = (bind?.dcmtype || "") === "check";
     let articles = [];
     let total_eq = 0;

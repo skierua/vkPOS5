@@ -1,6 +1,7 @@
 .pragma library
 .import "v147/config.js" as Conf
 .import "v147/sqlBalance.js" as LibBal
+.import "v147/sqlRepo.js" as LibRepo
 
 // sending is prohibited for debugging purposes
 // sending uploadBind, uploadBalance is prohibited
@@ -23,7 +24,8 @@ let API = "/api/v5";
 let USER = "";
 let PSW = "";
 let TOKEN = "";
-let isConnected = false;
+let IS_CONNECTED = false;
+let isConnected = false;    // DEPRECATED, use IS_CONNECTED instead
 let BALANCE_SYNC = new Date().toISOString();
 
 function setParam(host, api, user, psw, token){
@@ -39,6 +41,7 @@ function setParam(host, api, user, psw, token){
  * @param {Object} db - Драйвер бази даних
  */
 function reset() {
+    IS_CONNECTED = false;
     isConnected = false;
     setParam();
 }
@@ -76,6 +79,7 @@ function save(db) {
 
 function connect(callback) {
     TOKEN = "";
+    IS_CONNECTED = false;
     isConnected = false;
     if(!String(HOST || "")
         || !String(API || "")
@@ -90,6 +94,7 @@ function connect(callback) {
     loginRequest(USER, PSW, (err, token) => {
         if (!err) {
             TOKEN = token;
+            IS_CONNECTED = true;
             isConnected = true;
             if (typeof callback === "function") callback(false, null);
             return true;
@@ -142,22 +147,28 @@ function loginRequest(usr, psw, callback) {
     request.send("data=" + encodeURIComponent(v64));
 }
 
-function loadRates(req, callback) {
-    // console.info(`II: libREST.js req=${req}`)
-    postRequest("/rates", req, (err, resp) => { callback(err, resp); });
+// rate.js
+function loadRates(callback) {
+    const req = {
+        "term": Conf.TERM ?? "TEST",
+        "reqid": "selrate",
+        "shop": Conf.TERM ?? "TEST"
+    }
+    // console.info(`II: libREST.js req=${JSON.stringify(req)}`)
+    postRequest("/app_api", req, (err, resp) => { callback(err, resp); });
 }
 
 function uploadBind(bind, callback) {
     const currentTerm = String(Conf.TERM || "TEST");
     const currentShop = currentTerm;
-    const req = { "reqid": "upd", "term": currentTerm, "shop": currentShop, "data": bind }
+    const req = { "reqid": "upddcm", "term": currentTerm, "shop": currentShop, "data": bind }
     if (BAN_SEND) {
     // debug info
-        console.warn("WW: REST.uploadBind2 is PROHIBITED (BAN_SEND = true) !!!")
-        // console.warn(`WW: REST.uploadBind2 req=${JSON.stringify(req)}`)
+        console.warn("WW: REST.uploadBind is PROHIBITED (BAN_SEND = true) !!!")
+        // console.warn(`WW: REST.uploadBind req=${JSON.stringify(req)}`)
         callback(null);
     } else {
-        postRequest("/dcms", req, (err, resp) => { callback(err); });
+        postRequest("/app_api", req, (err, resp) => { callback(err); });
     }
 }
 
@@ -186,7 +197,7 @@ function uploadBalance(db, callback) {
         return;
     }
 
-    const req = { "reqid": "upd",
+    const req = { "reqid": "updacnt",
         "term": currentTerm,
         "shop": currentShop,
         "del": !BALANCE_SYNC ? "1" : "0",
@@ -197,7 +208,8 @@ function uploadBalance(db, callback) {
         console.warn(`WW: REST.uploadBalance req=${JSON.stringify(req)}`)
         setBalanceSync();
     } else {
-        postRequest("/accounts", req, (err, resp) => {
+        // postRequest("/accounts", req, (err, resp) => {
+        postRequest("/app_api", req, (err, resp) => {
                         if (!err){
                             // console.info(`II: REST.uploadBalance#w89 callback  BALANCE_SYNC=${BALANCE_SYNC}`)
                             setBalanceSync();
@@ -208,13 +220,30 @@ function uploadBalance(db, callback) {
 
 }
 
-function uploadMonRepo(repo, period, reqid, callback) {
-    if (!repo || !repo.length) return;
-    const currentTerm = String(Conf.TERM || "TEST");
-    const currentShop = currentTerm;
-    const repoReq = { "reqid": reqid || "updprofit",
-        "term": currentTerm,
-        "shop": currentShop,
+function uploadMonRepo(db, vdate = new Date().toISOString(), callback) {
+    if (!db) return [];
+    const vdateT = !!vdate ? vdate.trim() : "";
+    const period =  (!vdateT || !Date.parse(vdateT) || vdateT.length < 7)
+                 ? new Date().toISOString().substring(0, 7)
+                 : vdateT.substring(0, 7);
+    const source = LibRepo.monProfit(db, period);
+    const repo = source.map(v => {
+           const parts = v.acnt.split(/\.|\//);
+           if (!parts[1] || !parts[2] ) return null;
+           return {
+              "itemid": parts[2] || "",
+              "acnt": parts[1] || "",
+              "amnt": Math.round(v.amnt),
+              "cshr": v.cshr || ""}
+        });
+    if (!repo || !repo.length) {
+        callback("Nothing to upload");
+        return;
+    };
+    const crnterm = String(Conf.TERM || "TEST");
+    const repoReq = { "reqid": "updprofit",
+        "term": crnterm,
+        "shop": crnterm,
         "period": period,
         "data": repo }
     if (BAN_SEND) {
@@ -222,9 +251,11 @@ function uploadMonRepo(repo, period, reqid, callback) {
         console.warn("WW: REST.uploadMonRepo is PROHIBITED (BAN_SEND = true) !!!")
         console.warn(`WW: REST.uploadMonRepo req=${JSON.stringify(repoReq)}`)
     } else {
-        console.warn(`WW: REST.uploadMonRepo req=${JSON.stringify(repoReq)}`)
-        postRequest("/reports", repoReq, (err, resp) => { callback(err); });
+        // console.warn(`WW: REST.uploadMonRepo req=${JSON.stringify(repoReq)}`)
+        postRequest("/app_api", repoReq, (err, resp) => { callback(err); });
+        // postRequest("/reports", repoReq, (err, resp) => { callback(err); });
     }
+
 }
 
 function postRequest(path, req, callback) {
@@ -243,8 +274,8 @@ function postRequest(path, req, callback) {
 // console.log(`libREST url=${url}\nreq=${JSON.stringify(req)}`)
     request.onreadystatechange = () => {
         if (request.readyState === XMLHttpRequest.DONE) {
-            // console.log(`libREST request.status=${request.status}`)
-            console.log(`libREST request.status=${request.response}`)
+            // console.log(`libREST/postRequest request.status=${request.status}`)
+            // console.log(`libREST#5er request.status=${request.response}`)
             if (request.status === 200) {
                 const presp = parse(request.response);
                 if (presp) {
@@ -265,7 +296,7 @@ function postRequest(path, req, callback) {
             } else {
                 err = `EE: URL: ${url}\nRequest: ${JSON.stringify(req)}\nResponse: ${request.response}`;
             }
-            // console.log(`libREST resp=${JSON.stringify(resp)}`)
+            // console.log(`libREST#7et3 err=${err} resp=${JSON.stringify(resp)}`)
             callback(err, resp);
         }
     };

@@ -604,9 +604,10 @@ ApplicationWindow {
     Action {
         id: testAction
         text: "TEST"
-        enabled: false
+        enabled: true
         onTriggered: {
-            JS.fix_acnt_item_980(Db, logView);
+            JS.testAction_handled(Db);
+            // JS.fix_acnt_item_980(Db, logView);
             // JS.feya_feature_fix(Db, logView);
             // popupCloseShift.open()
             // testLoader.active = checked;

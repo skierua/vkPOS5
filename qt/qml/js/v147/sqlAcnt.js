@@ -192,6 +192,7 @@ function dbBalance(db, flt = "", order = "", reverse = false) {
  */
 // DEPRECATED, moved to sqlBalance.js
 function dbTradeBalance(db, condition = "", order = "") {
+    console.warn("WW: sqlAcnt.js/dbTradeBalance DEPRECATED moved to sqlBalance.js !!!")
     if (!db) return [];
     const whereCondition = (condition === "" ? "" : `WHERE ${condition}`)
     const sortCondition = (order === "" ? "" : `ORDER BY ${order}`)

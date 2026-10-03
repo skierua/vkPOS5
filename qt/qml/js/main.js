@@ -4,9 +4,14 @@
 .import "v147/config.js" as Conf
 .import "v147/sqlAcnt.js" as LibAcnt
 .import "v147/sqlBind.js" as LibBind
-.import "v147/sqlItem.js" as LibItem
+// .import "v147/sqlItem.js" as LibItem
 .import "v147/sqlPrice.js" as LibPrice
 .import "v147/sqlShift.js" as LibShift
+
+// FOR TEST
+// .import "v147/sqlRepo.js" as LibTest
+.import "v147/sqlItem.js" as LibItem
+
 
 function handleDbNameChanged(db, prn, container, msg, ui){
     if (!db) return false;
@@ -83,19 +88,19 @@ function handleDbNameChanged(db, prn, container, msg, ui){
         REST.restore(db);
         // console.log(`main.js/handleDbNameChanged usr:${REST.USER} psw:${REST.PSW} h:${REST.HOST} api:${REST.API} t:${REST.TOKEN} `)
         REST.connect((err, errstr) => {
-            ui?.setRateOnline?.(REST.isConnected);
+            ui?.setRateOnline?.(REST.IS_CONNECTED || false);
             if (!err) {
                 REST.save(db);
-                ui?.setFooter?.(` ${String(REST.USER || "")}@${String(REST.HOST || "")}`);
+                ui?.setFooter?.(` ${String(Conf.TERM || "")}@${String(REST.HOST || "")}`);
+                // ui?.setFooter?.(` ${String(REST.USER || "")}@${String(REST.HOST || "")}`);
                 msg.info("З'єднання з REST сервером успішно встановлено!");
             } else {
-                ui?.setFooter?.(`DISCONNECTED ${String(REST.USER || "")}@${String(REST.HOST || "")}`);
+                ui?.setFooter?.(`DISCONNECTED ${String(Conf.TERM || "")}@${String(REST.HOST || "")}`);
+                // ui?.setFooter?.(`DISCONNECTED ${String(REST.USER || "")}@${String(REST.HOST || "")}`);
                 msg.warn("Помилка REST шлюзу: " + String(errstr));
             }
         });
     }
-    // console.info('WW:#97h main.js REMOVE on production')
-    //             ui.setTaxAction(true);
     if (typeof TAX !== "undefined") {
         TAX.reset();
         TAX.restore(db);
@@ -109,6 +114,8 @@ function handleDbNameChanged(db, prn, container, msg, ui){
             }
         });
     }
+    // console.info('WW:110 main.js REMOVE on production')
+    //             ui.setTaxAction(true);
 
     if (shft?.shftend !== '') {
         // Зміна вже закрита — відкриваємо вікно менеджменту змін
@@ -269,6 +276,20 @@ function fix_acnt_item_980(db, msg){
         db.dbSelectRowsJSON("PRAGMA foreign_keys = ON;");
     }
     return ok;
+}
+
+function testAction_handled(db){
+    ["840", "", "978","200111", "124", "840", "200111"]
+    .forEach(v =>
+         {
+            const q = LibItem.new_getItemById(db, v);
+            console.info(`II: e7ge#maim.js ${Date.now()} \n${JSON.stringify(q)}`)
+         })
+
+    // REST.uploadMonRepo(db, new Date().toISOString(),
+    //                    (err)=>{})
+    // const t = LibTest.monProfit(db)
+    // console.info(`II: 63gt#main.js/testAction_handled \n ${JSON.stringify(t)}`)
 }
 
 // NOT USED
