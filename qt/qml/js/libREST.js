@@ -54,8 +54,9 @@ function restore(db) {
     else setParam();
 }
 
-function setBalanceSync(){
-    BALANCE_SYNC = new Date().toISOString();
+function setBalanceSync(tm){
+    const tmVal = String(tm || "");
+    BALANCE_SYNC = tmVal;
 }
 
 /**
@@ -175,7 +176,7 @@ function uploadBind(bind, callback) {
 // is using in: bind.js, shift.js, AppSettings.qml
 function uploadBalance(db, callback) {
     // console.warn(`WW: libREST.js/uploadBalance BLOKKED !!!`); return;
-    console.info(`II: libREST.js/uploadBalance BALANCE_SYNC=${BALANCE_SYNC}`)
+    // console.info(`II: libREST.js/uploadBalance BALANCE_SYNC=${BALANCE_SYNC}`)
     const currentTerm = String(Conf.TERM || "TEST");
     const currentShop = currentTerm;
     const source = LibBal.balanceForUpload(db, BALANCE_SYNC);
@@ -206,13 +207,13 @@ function uploadBalance(db, callback) {
     // debug info
         console.warn("WW: REST.uploadBalance is PROHIBITED (BAN_SEND = true) !!!")
         console.warn(`WW: REST.uploadBalance req=${JSON.stringify(req)}`)
-        setBalanceSync();
+        setBalanceSync(new Date().toISOString());
     } else {
         // postRequest("/accounts", req, (err, resp) => {
         postRequest("/app_api", req, (err, resp) => {
                         if (!err){
                             // console.info(`II: REST.uploadBalance#w89 callback  BALANCE_SYNC=${BALANCE_SYNC}`)
-                            setBalanceSync();
+                            setBalanceSync(new Date().toISOString());
                         }
                         if (typeof callback === "function") callback(err, null);
                     });
