@@ -588,8 +588,9 @@ bool DbDriver4::dbDelete(const QString &sql)
 }
 
 // DEPRECATED
+// sqlTran.js
 QVariantMap DbDriver4::dbSelectRow(const QString &sql){
-    qDebug()<< "WW: DEPRECATED dbdriver4/dbSelectRow !!!";
+    // qDebug()<< "WW: DEPRECATED dbdriver4/dbSelectRow !!! \n" << sql;
     QVariantMap ret;
 
     if (!openConnection()) {

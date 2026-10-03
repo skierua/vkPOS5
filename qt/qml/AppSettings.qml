@@ -588,6 +588,7 @@ Item {
                             } else {
                                 root.vkEvent("error", "Помилка запису мережевих налаштувань у базу SQLite");
                             }
+                            refreshRESTConn();
                         }
 
                     }
@@ -756,6 +757,7 @@ Item {
                             } else {
                                 root.vkEvent("error", "Помилка запису фіскальної конфігурації у локальну базу SQLite");
                             }
+                            refreshTAXConn();
                         }
                     }
 

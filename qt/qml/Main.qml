@@ -131,7 +131,7 @@ ApplicationWindow {
                         // syncBalanceAction,
                         changeDBAction,
                         { isSeparator: true },  // ✂️ роздільник
-                        testAction,
+                        // testAction,
                         winShiftAction,
                         { isSeparator: true },  // ✂️ роздільник
                         quitAction
@@ -318,10 +318,10 @@ ApplicationWindow {
                             onTriggered: naviMenu.close()
                         }
                     }
-                    MenuItem {
-                        action: testAction
-                        onTriggered: naviMenu.close()
-                    }
+                    // MenuItem {
+                    //     action: testAction
+                    //     onTriggered: naviMenu.close()
+                    // }
 
                     MenuSeparator { topPadding: 2; bottomPadding: 2 }
 
@@ -604,7 +604,7 @@ ApplicationWindow {
     Action {
         id: testAction
         text: "TEST"
-        enabled: true
+        enabled: false
         onTriggered: {
             JS.testAction_handled(Db);
             // JS.fix_acnt_item_980(Db, logView);

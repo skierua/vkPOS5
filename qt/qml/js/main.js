@@ -279,6 +279,14 @@ function fix_acnt_item_980(db, msg){
 }
 
 function testAction_handled(db){
+    const d = new Date();
+    const dd = new Date(d);
+    dd.setSeconds(dd.getSeconds()-10);
+    const ddIso = dd.toISOString();
+    console.info(`II: e7ge#maim.js ${Date.now()} d=${d} ddIso=${ddIso}`)
+    console.info(`II: e7ge#maim.js ${Date.now()} d=${d} ddIso=${ddIso}`)
+    return;
+
     ["840", "", "978","200111", "124", "840", "200111"]
     .forEach(v =>
          {

@@ -1,5 +1,33 @@
 .pragma library
 
+const SQL_STMT = `
+SELECT
+    id,
+    acntno,
+    coalesce(item, '') itemid,
+    (beginamnt+turndbt-turncdt) as total,
+    coalesce(turndbt, '') income,
+    coalesce(turncdt, '') outcome,
+    coalesce(dbtupd, '') intm,
+    coalesce(cdtupd, '') outm,
+    coalesce(client, '') clid,
+    coalesce(acntbal.acntnote,'') note,
+    coalesce(acntbal.mask,1) mask,
+    coalesce(acntbal.trade,0) trade,
+    balname
+FROM acnt
+    LEFT JOIN acntbal using(acntno)
+    LEFT JOIN balname ON (substr(acntno,1,2) = bal)
+`;
+
+function buildWhereClause(conditionsArray) {
+    if (!conditionsArray || conditionsArray.length === 0) {
+        return "";
+    }
+    // Склеюємо умови через AND з правильними пробілами
+    return "WHERE " + conditionsArray.join(" AND ");
+}
+
 
 /**
  * ГЕНЕРАТОР ЗАПИТІВ БАЛАНСУ (Головна функція, повністю оптимізована)
@@ -77,9 +105,33 @@ function balBalance(db, bal, condition) {
     return dbBalance(db, flt);
 }
 
-
+// libREST.js
 function balanceForUpload(db, tm, ofset) {
     if (!db) return [];
+    const param = [];
+    const cond = [];
+
+    if (!!tm){
+        const ofsetVal = Number(ofset || 10);
+        const tmVal = new Date(tm);
+        tmVal.setSeconds(tmVal.getSeconds() - ofsetVal);
+        const tmISO = tmVal.toISOString();
+        param.push(tmISO);
+        param.push(tmISO);
+        cond.push(`(dbtupd > ? OR cdtupd > ? )`)
+    } else {
+        cond.push("(abs(beginamnt) + abs(turndbt) + abs(turncdt)) > 0.0001")
+    }
+
+    const condStr = buildWhereClause(cond);
+    const vsql = `${SQL_STMT} ${condStr};`;
+
+    return db.dbSelectRows(vsql, param);
+}
+
+function old_balanceForUpload(db, tm, ofset) {
+    if (!db) return [];
+
     const tmVal = Number(tm ?? 0);
     const ofsetVal = `'-${String(ofset || 10)} seconds'`
 
