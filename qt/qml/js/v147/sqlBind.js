@@ -10,10 +10,18 @@ function parse(raw){
 
 // used for printing
 function dbBind(db, bindid) {
-    let tbl = "docum";
-    const stmt = `
+    // console.log(`II: 827#sqlBind.js bindid=${bindid}`)
+
+    const l_stmt = (archive, bind) => {
+        const isArchive = !!archive;
+        const isBind = !!bind;
+        const tbl = isArchive ? "strgdocum" : "docum";
+        const fldDcmid = isArchive ? "dcmid" : "id";
+        const fldCond = isBind ? fldDcmid : "parentid";
+
+        return `
     SELECT
-        id,
+        ${fldDcmid} AS id,
         dcmtype,
         amount,
         coalesce(eqamount,0) eq,
@@ -30,52 +38,47 @@ function dbBind(db, bindid) {
         coalesce(term,0) term,
         coalesce(item.pkey,'') iid,
         coalesce(dcmno,'') dcmno
-    `;
+    FROM ${tbl} LEFT JOIN item ON (item=item.pkey)
+        LEFT JOIN itemunit ON (defunit=itemunit.pkey)
+        LEFT JOIN articlepriceqty ON (item=articlepriceqty.pkey)
+        LEFT JOIN warranty ON (item=warranty.article)
+    WHERE ${tbl}.${fldCond} = ?
+    `};
 
-    const vsql = String("select id, dcmtype, amount,coalesce(eqamount,0) eq,coalesce(discount,0) dsc, coalesce(dcmnote,itemchar,'') note, dcmtime, coalesce(itemchar,'ГРН') ichar, coalesce(' ('||itemname||')','') iname, " + "coalesce(itemmask,1) mask, coalesce(unitprec,2) prec, coalesce(itemunit.code,'') ucode, coalesce(unitchar,'') uchar, coalesce(qty,1) qty, coalesce(term,0) term, coalesce(item.pkey,'') iid, coalesce(dcmno,'') dcmno " + "from %1 left join item on (item=item.pkey) left join itemunit on (defunit=itemunit.pkey) left join articlepriceqty on (item=articlepriceqty.pkey) " + "left join warranty on (item=warranty.article) ");
-    const fltBind = String(" where %1.id = %2;");
-    let jbind = db.dbSelectRow(vsql.arg(tbl) + fltBind.arg(tbl).arg(bindid));
-    // log("#2w44 printCheck " + JSON.stringify(jbind))
+    const archive = false;
+
+    const bindStmt = l_stmt(archive, true);
+    let jbind = db.dbSelectRow(bindStmt,[bindid]);
     if (jbind.errid === 1) {
-        tbl = "documall";
-        jbind = db.dbSelectRow(vsql.arg(tbl) + fltBind.arg(tbl).arg(bindid));
+        archive = true;
+        const bindStmt_a = l_stmt(archive, true);
+        jbind = db.dbSelectRow(bindStmt_a,[bindid]);
         if (jbind.errid === 1) {
             // error
-            log(jbind.errname, "lib.printCheck", "EE");
-            // cb(jbind.errname)
+            console.error(`EE: sqlBind.js ${jbind.errname}`);
             return false;
         }
     }
-    const fltDcm = String(" where %1.parentid = %2;");
-    const jdcm = parse(db.dbSelectRows(vsql.arg(tbl) + fltDcm.arg(tbl).arg(bindid)));
-    // log("#2w44 printCheck " + (vsql.arg(tbl) + fltDcm.arg(tbl).arg(id)))
-    // log("#898 printCheck " + JSON.stringify(jdcm))
-    if (!jdcm) {
-        jbind.errid = 1;
-        jbind.errname = "Bind documents not found";
-        // log("Bind documents not found","lib.printCheck", "EE")
-        // cb(jbind.errname);
-        return false;
-    }
-    jbind.dcms = jdcm.rows;
+    const dcmStmt = l_stmt(archive, false);
+    const jdcm = db.dbSelectRows(dcmStmt,[bindid]) || [];
+    jbind.dcms = jdcm;
+    // console.log("#2w44 printCheck " + JSON.stringify(jbind))
 
-    // log("#898 printCheck " + JSON.stringify(jbind))
-    // cb(null, jbind)
     return jbind;
 }
 
 function selStmt(archive) {
     const isArchive = !!archive;
     const tbl = isArchive ? "strgdocum" : "docum";
-    const fldShift = isArchive ? "shftid" : "0 AS shftid";
-    const fldDcmid = isArchive ? "dcmid" : "id AS dcmid";
+    const fldShift = isArchive ? "shftid" : "0";
+    const fldDcmid = isArchive ? "dcmid" : "id";
 
     // ✅ ВИПРАВЛЕНО: Додано префікси ${tbl}. до всіх рідних полів документів,
     // щоб уникнути помилки "ambiguous column name", якщо такі ж поля є в таблиці item
     return `
     SELECT
-        ${fldShift},
-        ${fldDcmid},
+        ${fldShift} AS shftid,
+        ${fldDcmid} AS dcmid,
         ${tbl}.parentid AS pid,
         ${tbl}.dcmno,
         ${tbl}.dcmtype,

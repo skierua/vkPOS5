@@ -52,7 +52,7 @@ public:
 
     Q_INVOKABLE bool dbUpdate(const QString &sql);
     Q_INVOKABLE bool dbUpdate(const QString &sql, const QVariantMap &params);
-    // deprecated
+    // DEPRECATED? use dbUpdate instead
     Q_INVOKABLE bool dbUpdateParams(const QString &sql, const QVariantMap &params);
 
     Q_INVOKABLE bool dbDelete(const QString &sql);
@@ -69,11 +69,12 @@ public:
     // ми повертаємо QVariantList. Рушій QML бачить його відразу як готовий масив JS-об'єктів [].
     // Це прискорить роботу таблиць каси у десятки разів і зменшить навантаження на процесор!
     Q_INVOKABLE QVariantList dbSelectRowsJSON(const QString &sql, const QString &filter = QString());
+    Q_INVOKABLE QVariantList dbSelectRows(const QString &sql, const QVariantList &params);
 
     // DEPRECATED
-    Q_INVOKABLE QString dbSelectRows(const QString &sql, const QString &filter = QString());
+    Q_INVOKABLE QString old_dbSelectRows(const QString &sql, const QString &filter = QString());
     Q_INVOKABLE QString getJSONRowsFromSQL_2(const QString &sql, const QString &filter = QString())
-         { return dbSelectRows(sql, filter); }
+         { return old_dbSelectRows(sql, filter); }
 
 signals:
     void vkEvent(QString eventId, QVariant eventParam);

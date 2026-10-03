@@ -15,7 +15,7 @@
 DbDriver4::DbDriver4(QObject *parent)
     : QObject(parent)
 {
-    // ✅ ВИПРАВЛЕНО БАГ З'ЄДНАННЯ: Використовуємо дефолтне з'єднання за замовчуванням (без параметра "st").
+    // Використовуємо дефолтне з'єднання за замовчуванням.
     // Це золотий стандарт Qt6 для локальних SQLite баз. Тепер витоки дескрипторів повністю закриті.
     m_db = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"));
 }
@@ -33,7 +33,6 @@ bool DbDriver4::openConnection()
     // Лічильник посилань: відкриваємо фізичну базу тільки для першого вхідного виклику
     if (++m_cc == 1) {
         if (!m_db.open()) {
-            // ✅ ВИПРАВЛЕНО: Актуалізовано ім'я класу (DbDriver4 замість DbDriver3) та оптимізовано виділення пам'яті
             m_lastError = QStringLiteral("EE:DbDriver4::openConnection database ERROR OPEN...\nName: %1 (Type: %2)\n%3")
                               .arg(m_db.databaseName(), m_db.driverName(), m_db.lastError().text());
 
@@ -480,8 +479,10 @@ int DbDriver4::dbInsert(const QString &sql, const QVariantList &params)
     return id;
 }
 
+// DEPRECATED, use dbUpdate(const QString &sql, const QVariantMap &params) instead
 bool DbDriver4::dbUpdate(const QString &sql)
 {
+    qDebug()<< "WW: DEPRECATED dbdriver4/dbUpdate !!!";
     bool res = false;
 
     if (openConnection()) {
@@ -522,7 +523,6 @@ bool DbDriver4::dbUpdate(const QString &sql, const QVariantMap &params){
         return ok;
     }
 
-    // Автоматично прив'язуємо всі параметри з JS-об'єкта
     for (const QVariant &param : params) {
         // qDebug()<< "r343#dbdriver4/dbUpdate param="<< param;
         q.addBindValue(param);
@@ -562,7 +562,7 @@ bool DbDriver4::dbDelete(const QString &sql)
     if (openConnection()) {
         QSqlQuery q(sql, m_db);
 
-        // ✅ ВИПРАВЛЕНО: В Qt6 безпека фінансових транзакцій вимагає перевірки валідності останньої помилки драйвера,
+        // В Qt6 безпека фінансових транзакцій вимагає перевірки валідності останньої помилки драйвера,
         // замість поверхневого q.isActive()
         if (!q.lastError().isValid()) {
             res = true;
@@ -571,7 +571,6 @@ bool DbDriver4::dbDelete(const QString &sql)
             // int affectedRows = q.numRowsAffected();
             // if (affectedRows == 0) { ... }
         } else {
-            // ✅ ВИПРАВЛЕНО: Актуалізовано назву класу в логах (DbDriver4) та прибрано витоки пам'яті
             m_lastError = QStringLiteral("EE:DbDriver4::dbDelete query ERROR\n%1\n%2")
                               .arg(q.lastError().text(), q.lastQuery());
 
@@ -588,7 +587,9 @@ bool DbDriver4::dbDelete(const QString &sql)
     return res;
 }
 
+// DEPRECATED
 QVariantMap DbDriver4::dbSelectRow(const QString &sql){
+    qDebug()<< "WW: DEPRECATED dbdriver4/dbSelectRow !!!";
     QVariantMap ret;
 
     if (!openConnection()) {
@@ -688,37 +689,52 @@ QVariantMap DbDriver4::dbSelectRow(const QString &sql, const QVariantList &param
     return ret;
 }
 
-/*
-QVariantMap DbDriver4::dbSelectRow(const QString & sql)
-{
-    //    qDebug()<<"DbDriver3::getJSONRowFromSQL "<<"sql="<<sql;
-    QVariantMap ret;
-    if (openConnection()) {
-        QSqlQuery q = QSqlQuery(sql,m_db);
-        if (q.next()) {
-            ret.insert("errid", 0);
-            ret.insert("errname", "");
-            for (int i =0; i < q.record().count(); ++i ) {
-                ret.insert(q.record().fieldName(i), q.value(i));
-            }
-        } else {
-            ret.insert("errid", 1);
-            ret.insert("errname", "Empty row");
-        }
-        closeConnection();
-    } else {
-        ret.insert("errid", -1);
-        ret.insert("errname", "Connection failed");
+QVariantList DbDriver4::dbSelectRows(const QString &sql, const QVariantList &params){
+    QVariantList resultList;
+    if (!openConnection()) {
+        return resultList;
     }
-    return ret;
+
+    QSqlQuery q(m_db);
+
+    if (!q.prepare(sql)) {
+        m_lastError = q.lastError().text();
+        emit error(QStringLiteral("DB q.prepare() error."));
+        emit vkEvent(QStringLiteral("error"), m_lastError);
+        closeConnection();
+        return resultList;
+    }
+    for (const QVariant &param : params) {
+        q.addBindValue(param);
+    }
+    if (q.exec()) {
+        const QSqlRecord recordSchema = q.record();
+        const int fieldCount = recordSchema.count();
+        while (q.next()) {
+            QVariantMap rowMap;
+            for (int i = 0; i < fieldCount; ++i) {
+                rowMap.insert(recordSchema.fieldName(i), q.value(i));
+            }
+            resultList.append(rowMap);
+        }
+    } else {
+        m_lastError = q.lastError().text();
+
+        emit error(m_lastError);
+        emit vkEvent(QStringLiteral("error"), m_lastError);
+    }
+
+    closeConnection();
+    return resultList;
+
 }
-*/
 
 QVariantList DbDriver4::dbSelectRowsJSON(const QString &sql, const QString &filter)
 {
     QVariantList resultList;
     const QString lowerFilter = filter.toLower();
     // qDebug() << "903y#DbDriver4::dbSelectRowsJSON sql=" << sql << " filter=" << filter;
+    QSqlQuery q(m_db);
 
     if (openConnection()) {
         QSqlQuery q(sql, m_db);
@@ -769,7 +785,8 @@ QVariantList DbDriver4::dbSelectRowsJSON(const QString &sql, const QString &filt
     return resultList; // QML автоматично побачить це як чистий масив []
 }
 
-QString DbDriver4::dbSelectRows(const QString &sql, const QString &filter)
+// DEPRECATED
+QString DbDriver4::old_dbSelectRows(const QString &sql, const QString &filter)
 {
     int errId = 0;
     QString errText;
@@ -831,54 +848,6 @@ QString DbDriver4::dbSelectRows(const QString &sql, const QString &filter)
     QJsonDocument doc(resultRoot);
     return QString::fromUtf8(doc.toJson(QJsonDocument::Compact));
 }
-
-/*
-QString DbDriver4::dbSelectRows(const QString & sql, const QString & filter)
-{
-    // qDebug()<<"DbDriver4::dbSelectRows \n"<<sql;
-    QString str = "";
-    QString row = "";
-    int errId = 0;
-    QString errText = "";
-    int rowCount = 0;
-    //    QString errStr = "";
-    if (openConnection()) {
-        QSqlQuery q = QSqlQuery(sql,m_db);
-        int r =0; int i =0;
-        if (!q.lastError().isValid()){
-            while (q.next()) {
-                ++rowCount;
-                row = "";
-                for (r =0; r < q.record().count(); ++r ) {
-                    if (filter.isEmpty()
-                        || q.value(r).toString().toLower().contains(filter.toLower())){
-                        for (i =0; i < q.record().count(); ++i ) {
-                            row += (row.isEmpty()?"":",")+QString("\"%1\":\"%2\"")
-                                                                    .arg(q.record().fieldName(i),
-                                                                    q.value(i).toString().replace(QChar::Tabulation, QChar::Space).replace(QChar::LineFeed, QChar::Space).replace(QChar::CarriageReturn, QChar::Space).replace("\\", "/").replace("\"", "'"));
-                        }
-                        str += (str.isEmpty()?"{":",\n{") + row + "}";
-                        break;
-                    }
-
-                }
-            }
-
-        } else {
-            errId = q.lastError().type();
-            errText = q.lastError().text();
-
-        }
-        closeConnection();
-    } else {
-        errId = 1;
-        errText = "DB connection error.";
-    }
-    str = str.trimmed();
-    return QString("{\"errorId\":%1,\"errorText\":\"%2\",\"rowCount\":%3,\"rows\":[%4]}").arg(errId).arg(errText).arg(rowCount).arg(str);
-
-}
-*/
 
 /**
  * @brief DbDriver3::acntId

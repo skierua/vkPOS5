@@ -1,5 +1,16 @@
 .pragma library
 
+const RATE_STMT = `
+    SELECT
+        id,
+        item,
+        prbidask,
+        qtty AS qty,
+        price
+    FROM price
+`;
+
+// main.js
 const DfltPriceQty = (() => {
     // Створюємо карту для миттєвого пошуку кратності пакувань за O(1)
     let dfltQtyMap = new Map();
@@ -141,20 +152,18 @@ function buy(db, itemid) {
     return dummyPrice();
 }
 
+// rates.js
 function currencyRates(db) {
     if (!db) return [];
 
     const flt = "item in (SELECT pkey FROM item WHERE itemmask & 2 AND folder=0)"
+    const param = [];
+    const condStr = "WHERE (prtype IS NULL OR prtype = '') AND item in (SELECT pkey FROM item WHERE itemmask & 2 AND folder=0)";
+    const vsql = `${RATE_STMT} ${condStr};`;
+    // console.log(`II: 7wy3#sqlPrice.js vsql=${vsql}`)
 
-    const pr = dbPrice(db, flt);
-
-    if (pr) {
-        return pr;
-    }
-
-    return [];
+    return db.dbSelectRows(vsql, param) || [];
 }
-
 
 /**
  *
@@ -220,7 +229,32 @@ function dbLast(db, flt = "") {
 /**
  * Універсальний запис або оновлення курсу в таблиці price (SQLite)
  */
+// rate.js
 function updRate(db, price, qty, id, curid, ba) {
+    if (!db) return 0;
+
+    let res = 0;
+    const qtyVal = Number(qty || 1);
+    const priceVal = Number(price || 0);
+    const idVal = Number(id || 0);
+    const curVal = String(curid || "")
+    const baVal = Number(ba || -1) > 0 ? "1" : "-1";
+
+    // Перевіряємо наявність існуючого ID запису (id як рядок може прийти порожнім або "0")
+    if (idVal !== 0) {
+        const updParam = [qtyVal, priceVal, idVal];
+        const updStmt = "UPDATE price SET qtty = ? , price = ? WHERE id = ? ;";
+        res = db.dbUpdate(updStmt, updParam);
+    } else {
+        const insParam = [curVal, qtyVal, priceVal, baVal];
+        const insStmt = `INSERT INTO price (item, qtty, price, prbidask) VALUES ( ? , ? , ? , ? );`;
+        res = db.dbInsert(insStmt, insParam);
+    }
+
+    return res;
+}
+
+/*function old_updRate(db, price, qty, id, curid, ba) {
     if (!db) return 0;
 
     let vsql = "";
@@ -228,7 +262,6 @@ function updRate(db, price, qty, id, curid, ba) {
 
     // Перевіряємо наявність існуючого ID запису (id як рядок може прийти порожнім або "0")
     if (id !== undefined && id !== null && id !== "" && id !== "0") {
-        // ✅ ВИПРАВЛЕНО CRASH-БАГ: Замість видаленого String().arg використовуємо сучасні шаблонні рядки
         vsql = `UPDATE price SET qtty = ${Number(qty || 1)}, price = ${Number(price || 0)} WHERE id = ${id};`;
         res = db.dbUpdate(vsql);
     } else {
@@ -240,4 +273,4 @@ function updRate(db, price, qty, id, curid, ba) {
     }
 
     return res;
-}
+} */

@@ -133,14 +133,13 @@ function startShift(db, bind, ui) {
    if(isNewMonth){
    // if(1){
       // send reports to REST API
-      if (REST.isConnected){
-         const repo = monProfitForUpload(db, lastShiftMonth);
-         if (!!repo) {
-            console.info(`II: shift.js/startShift#i93e repo=${JSON.stringify(repo)}`);
-            REST.uploadMonRepo(repo, lastShiftMonth, "updprofit", (err) =>{
+      if (REST.IS_CONNECTED || false){
+         REST.uploadMonRepo(db, lastShiftMonth,
+                            (err)=>{
                                // TODO error log
+                                  if (!err) ui?.info?.("REST repo sync is Ok");
+                                  else ui?.error?.(err || "REST sending error");
                             });
-         }
       }
 
 
@@ -290,17 +289,15 @@ function finishShift(db, bind, ui) {
    }
 
    // send reports to REST API
-   if (REST.isConnected){
+   // if (1){
+   if (REST.IS_CONNECTED){
       const period = new Date().toISOString().substring(0, 7);
-      const repo = monProfitForUpload(db);
-      if (!!repo) {
-         // console.info(`II: shift.js/finishShift#376t repo=${JSON.stringify(repo)}`);
-         REST.uploadMonRepo(repo, period, "updprofit", (err) =>{
+      REST.uploadMonRepo(db, period,
+                         (err)=>{
                             // TODO error log
                                if (!err) ui?.info?.("REST repo sync is Ok");
                                else ui?.error?.(err || "REST sending error");
                          });
-      }
    }
 
    // if (!!ui && typeof ui.info === "function")
@@ -461,7 +458,7 @@ function monProfitForUpload(db, flt){
 }
 
 function sendBindToREST(db, jbind, ui){
-   if (REST.isConnected ){
+   if (REST.IS_CONNECTED ){
       REST?.uploadBalance?.(db,
         (e)=>{
            if (!!e) ui?.warn?.(e || "REST sync error");

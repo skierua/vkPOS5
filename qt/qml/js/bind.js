@@ -169,12 +169,13 @@ function handleTranAction(db, prn, model, ui) {
         ui?.error?.(model.lastError || "Serialization error");
         return -2;
     }
+    const dcmcode = String(ui.state || "check");
     const shft = LibShift.crntShift(db)
     const total = model.total();
     const utcTimeStamp = new Date().toISOString();  //.substring(0, 19);
     const jbind = {
         "id": "dcmbind",
-        "dcm": String(ui.state || "check"),
+        "dcm": dcmcode !== "taxcheck" ? dcmcode : "check",
         "dbt": cashAcntNo,
         "cdt": "",
         "amnt": (total?.pmnt || 0).toFixed(2),
@@ -197,6 +198,8 @@ function handleTranAction(db, prn, model, ui) {
         sendBindToREST(db, jbind, ui);
     }
 
+    // console.warn("WW:200 bind.js change to previous");
+    // if (sendToTax) {
     if (sendToTax && TAX.isConnected) {
         TAX.sale(db, bid, 0, (err, resp) => {
                       if (!!err)  ui?.error?.(err || "TAX sending error");
@@ -628,7 +631,7 @@ function createBindForTax_cd(db, dcmid, payType) {
 
 function sendBindToREST(db, jbind, ui){
     // console.info(`II: bind.js/sendBindToREST isConnected=${REST.isConnected}`)
-    if (REST.isConnected){
+    if (REST.IS_CONNECTED){
        REST?.uploadBalance?.(db,
          (e)=>{
             if (!!e) ui?.warn?.(e || "REST sync error");
