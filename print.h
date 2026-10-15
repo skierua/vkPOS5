@@ -34,7 +34,8 @@ public:
     Q_INVOKABLE void setTerm(const QString &v) { m_termCode = v; }
     Q_INVOKABLE void setAddress(const QString & v) { m_termAddress = v; }
     Q_INVOKABLE void setUser(const QString & v) { m_termUser = v; }
-    Q_INVOKABLE void setCheck(const QString & v) { m_check = v; }
+    Q_INVOKABLE void setMode(int v);
+    // Q_INVOKABLE void setCheck(const QString & v) { m_check = v; }
     Q_INVOKABLE void setPrinterName(const QString &v) { m_checkPrinter = v; } // Додано сетер для зміни принтера з налаштувань QML
 
 signals:
@@ -50,7 +51,8 @@ private:
 
     QString m_termUser{""};
 
-    QString m_check{"check"};
+    int m_mode{2};   // 2 kantor, 1 shop
+    // QString m_check{"check"};
 
     QString m_checkPrinter{"POSPrn"};
 

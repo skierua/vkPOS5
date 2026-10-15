@@ -77,10 +77,10 @@ function handleDbNameChanged(db, prn, container, msg, ui){
     const basicConf = Conf.getBasic(db);
     const shft = LibShift.crntShift(db)
 
-    ui.setModeId(Number(basicConf?.appmode || 3))
+    ui.setModeId(Number(basicConf?.appmode || 3)) // this fires prn mode change
     prn.setTerm(basicConf?.id || "TEST")
     prn.setUser(shft?.cshrname || "")
-    prn.setCheck(basicConf?.print_dcm || "")
+    // prn.setCheck(basicConf?.print_dcm || "")
     prn.setPrinterName(basicConf?.pos_printer || "")
 
     if (typeof REST !== "undefined") {
@@ -137,30 +137,6 @@ function handleCloseTab(idx, container) {
         itemToRemove.destroy();
     }
 }
-
-/*function sendTaxSale(db, taxbind, msg){
-    if (!(TAX.isConnected ?? false)) return;
-    if (!!taxbind && taxbind.products.length > 0) {
-        if (typeof TAX.sendSaleToTax === "function") {
-            TAX.sale(taxbind, (e, r) =>{
-                     if (e) msg.error(`TAX server error. ${e || ""}`);
-                     else {
-                         // const setVal = `dcmtype = 'taxchek', dcmnote = ${r}`;
-                         const updateData = {
-                                         "dcmtype": "taxchek",
-                                         "dcmnote": String(r)
-                                     };
-                         // const uOk = LibBind.updDocum(db, dcmid, setVal);
-                         const uOk = LibBind.updDocum(db, dcmid, updateData);
-                         if (!uOk) msg.warn(`TAX sended but not updated. ${db.dbLastError()}`);
-                     }
-                 })
-        } else msg.error("TAX sale function missing");
-    } else {
-        msg.error("TAX bind is empty or serialization error");
-    }
-}
-*/
 
 function handleAddBindTab(db, prn, comp, msg, container, ui){
     const basicConf = Conf.getBasic(db);
@@ -278,6 +254,31 @@ function fix_acnt_item_980(db, msg){
     return ok;
 }
 
+function handleDrawerEvent(id, row, ui){
+    // console.info(`II: main.js#ue72\n id=${id} row=${JSON.stringify(row)}`)
+    if (!id || !row) ui?.error?.("Drawer event bad param");
+    if (id === "rowDoubleClicked"){
+       if (String(ui?.crntComp?.codeid || "") === "bind") {
+           if (String(row?.acntno || "").startsWith(Conf.DEPO_ACNT_PREFIX)
+                   || String(row?.acntno || "").startsWith(Conf.BONUS_ACNT_PREFIX)){
+               ui?.crntComp.newDcm(String(row?.key || ""),
+                            0 - Number(row?.total || 0),
+                            String(row?.acntno || ""));
+           }  else if (String(row?.acntno || "").startsWith(Conf.CASH_ACNT_PREFIX)
+                       || String(row?.acntno || "").startsWith(Conf.TRADE_ACNT_PREFIX)){
+               ui?.crntComp.newDcm(String(row?.key || ""),
+                            0,
+                            String(row?.acntno || ""));
+           }
+           else ui?.warn?.("Unsupported account");
+
+       } else ui?.error?.("Target component missmatch");
+    } else {
+       ui?.warn?.("Drawer bad event");
+    }
+
+}
+
 function testAction_handled(db){
     const d = new Date();
     const dd = new Date(d);
@@ -287,12 +288,12 @@ function testAction_handled(db){
     console.info(`II: e7ge#maim.js ${Date.now()} d=${d} ddIso=${ddIso}`)
     return;
 
-    ["840", "", "978","200111", "124", "840", "200111"]
-    .forEach(v =>
-         {
-            const q = LibItem.new_getItemById(db, v);
-            console.info(`II: e7ge#maim.js ${Date.now()} \n${JSON.stringify(q)}`)
-         })
+    // ["840", "", "978","200111", "124", "840", "200111"]
+    // .forEach(v =>
+    //      {
+    //         const q = LibItem.new_getItemById(db, v);
+    //         console.info(`II: e7ge#maim.js ${Date.now()} \n${JSON.stringify(q)}`)
+    //      })
 
     // REST.uploadMonRepo(db, new Date().toISOString(),
     //                    (err)=>{})

@@ -8,6 +8,11 @@ Print::Print(QObject *parent)
     : QObject{parent}
 {}
 
+void Print::setMode(int v) {
+    // qDebug() << "II: print.cpp/setMode mode changed to=" << v;
+    m_mode = v;
+}
+
 QString Print::getAbsoluteReportPath(const QString &subPath) const {
     const QString baseDir = QCoreApplication::applicationDirPath();
 
@@ -66,7 +71,7 @@ int Print::paintCheck(const QVariantMap &bind, int mode, int isCopy){
     }
 
     QString checkTitle = QStringLiteral("Чек")
-                         + (m_check == QStringLiteral("check") ? QString() : QStringLiteral(" - попередня"))
+                         + (m_mode == 2 ? QString() : QStringLiteral(" - попередня"))
                          + (isCopy ? QStringLiteral(" (копія)") : QString());
 
     painter.drawText(QRect(0, yoffset, 170, 20), Qt::AlignHCenter | Qt::AlignVCenter, checkTitle);
@@ -80,10 +85,18 @@ int Print::paintCheck(const QVariantMap &bind, int mode, int isCopy){
 
     // Шапка таблиці чека
     painter.drawText(QRect(0, yoffset += 16, 140, 14), tr("Артикул"));
-    painter.drawText(QRect(0, yoffset += 14, 35, 14), Qt::AlignHCenter, tr("К-сть"));
-    painter.drawText(QRect(35, yoffset, 45, 14), Qt::AlignHCenter, tr("Ціна"));
-    painter.drawText(QRect(80, yoffset, 55, 14), Qt::AlignHCenter, tr("Сума"));
-    painter.drawText(QRect(135, yoffset, 35, 14), Qt::AlignHCenter, tr("Знж"));
+
+    if (m_mode == 2){
+        painter.drawText(QRect(0, yoffset += 14, 50, 14), Qt::AlignHCenter, tr("К-сть"));
+        painter.drawText(QRect(50, yoffset, 50, 14), Qt::AlignHCenter, tr("Ціна"));
+        painter.drawText(QRect(100, yoffset, 70, 14), Qt::AlignHCenter, tr("Сума"));
+        // painter.drawText(QRect(135, yoffset, 35, 14), Qt::AlignHCenter, tr("Знж"));
+    } else {
+        painter.drawText(QRect(0, yoffset += 14, 35, 14), Qt::AlignHCenter, tr("К-сть"));
+        painter.drawText(QRect(35, yoffset, 45, 14), Qt::AlignHCenter, tr("Ціна"));
+        painter.drawText(QRect(80, yoffset, 55, 14), Qt::AlignHCenter, tr("Сума"));
+        painter.drawText(QRect(135, yoffset, 35, 14), Qt::AlignHCenter, tr("Знж"));
+    }
 
     yoffset += 16;
     const QVariantList dcmsArray = bind.value(QStringLiteral("dcms")).toList();
@@ -108,11 +121,6 @@ int Print::paintCheck(const QVariantMap &bind, int mode, int isCopy){
             QString cleanNote = noteStr.left(noteStr.indexOf(QStringLiteral("#")));
             QString iidStr = (mask == 2) ? (QStringLiteral(" #") + crnStr) : QString();
 
-            painter.drawText(QRect(0, yoffset, 160, 14), (am > 0 ? QStringLiteral("+ ") : QStringLiteral("- ")) + cleanNote + iidStr);
-            yoffset += 14;
-
-            painter.drawText(QRect(0, yoffset, 35, 14), Qt::AlignRight, locale.toString(qAbs(am), 'f', prec));
-
             // ЗАХИСТ ВІД ДІЛЕННЯ НА НУЛЬ: Якщо am == 0, ставимо ціну 0.00
             QString priceStr = QStringLiteral("0.00");
             if (am != 0.0) {
@@ -121,10 +129,27 @@ int Print::paintCheck(const QVariantMap &bind, int mode, int isCopy){
             }
 
             QString qtySuffix = (qty == 1) ? QString() : QStringLiteral("/%1").arg(qty);
-            painter.drawText(QRect(35, yoffset, 45, 14), Qt::AlignRight, priceStr + qtySuffix);
 
-            painter.drawText(QRect(80, yoffset, 55, 14), Qt::AlignRight, locale.toString(qAbs(eq), 'f', 2));
-            painter.drawText(QRect(135, yoffset, 35, 14), Qt::AlignRight, locale.toString(qAbs(ds), 'f', 2));
+            painter.drawText(QRect(0, yoffset, 160, 14), (am > 0 ? QStringLiteral("+ ") : QStringLiteral("- ")) + cleanNote + iidStr);
+            yoffset += 14;
+
+            if (m_mode == 2){
+                painter.drawText(QRect(0, yoffset, 50, 14), Qt::AlignRight, locale.toString(qAbs(am), 'f', prec));
+
+                painter.drawText(QRect(50, yoffset, 50, 14), Qt::AlignRight, priceStr + qtySuffix);
+
+                painter.drawText(QRect(100, yoffset, 70, 14), Qt::AlignRight, locale.toString(qAbs(eq), 'f', 2));
+                // painter.drawText(QRect(135, yoffset, 35, 14), Qt::AlignRight, locale.toString(qAbs(ds), 'f', 2));
+
+            } else {
+                painter.drawText(QRect(0, yoffset, 35, 14), Qt::AlignRight, locale.toString(qAbs(am), 'f', prec));
+
+                painter.drawText(QRect(35, yoffset, 45, 14), Qt::AlignRight, priceStr + qtySuffix);
+
+                painter.drawText(QRect(80, yoffset, 55, 14), Qt::AlignRight, locale.toString(qAbs(eq), 'f', 2));
+                painter.drawText(QRect(135, yoffset, 35, 14), Qt::AlignRight, locale.toString(qAbs(ds), 'f', 2));
+
+            }
 
             if (noteStr.contains(QStringLiteral("#"))) {
                 painter.drawText(QRect(0, yoffset += 14, 150, 14), inoteStr.mid(inoteStr.indexOf(QStringLiteral("#")) + 1));
@@ -547,196 +572,4 @@ int Print::paintCheck(const QVariantMap &bind, int mode, int isCopy){
     return 0;
 }
 */
-
-/* //old version
- *
-int Print::saveOrder(const QVariantMap &bind)
-{
-    QLocale locale = QLocale::system();
-    QPrinter printer;
-
-    // Отримуємо абсолютний шлях до файлу звіту
-    QString reportPath = getAbsoluteReportPath(m_orderSubPath);
-    printer.setOutputFileName(reportPath);
-
-    QPainter painter;
-    if (!painter.begin(&printer)) {
-        // Лог помилки тепер використовує безпечний метод збірки шляху
-        m_lastError = QString("Не вдалося відкрити QPainter для запису накладної. Перевірте права доступу папки: %1")
-                          .arg(getAbsoluteReportPath(m_orderSubPath));
-        // qDebug() << QStringLiteral("Print::saveOrder err: ") << getAbsoluteReportPath(m_orderSubPath);
-        qWarning() << m_lastError;;
-        return 1;
-    }
-
-    QPen pen;
-    pen.setWidthF(1.5);
-    painter.setPen(pen);
-
-    double price = 0;
-    int lmrg = 50;     // лівий відступ
-    int xofs = lmrg;
-    int yoffset = 20;
-    int ylt = 0;       // y лівого верхнього кута таблиці
-    int tblw = 680;    // загальна ширина таблиці
-    int tbrlh = 20;    // висота рядка
-
-    int wid = 24;
-    int war = 50;
-    int wam = 40;
-    int wun = 30;
-    int wpr = 60;
-    int weq = 80;
-    int wsps = 4;       // інтервал між колонками
-    int wnm = tblw - wid - war - wun - wam - wpr - weq - 6 * wsps;
-
-    QString fontFamily = QStringLiteral("Arial");
-    int fontSize = 10;
-
-    QFont f = painter.font();
-    f.setFamily(fontFamily);
-    f.setPointSize(12);
-    f.setBold(true);
-    painter.setFont(f);
-
-    painter.drawText(QRect(xofs, yoffset, tblw, 20), Qt::AlignHCenter | Qt::AlignVCenter,
-                     QStringLiteral("Видаткова накладна №___________ від __________________"));
-
-    yoffset += 30;
-    f.setPointSize(fontSize);
-    f.setBold(false);
-    painter.setFont(f);
-
-    // Блок контрагентів
-    painter.drawText(QRect(xofs, yoffset, 2 * war, 14), QStringLiteral("Постачальник:")); yoffset += 14;
-    painter.drawLine(xofs + 2 * war, yoffset, xofs + tblw, yoffset); yoffset += 25;
-    painter.drawLine(xofs + 2 * war, yoffset, xofs + tblw, yoffset); yoffset += 18;
-
-    painter.drawText(QRect(xofs, yoffset, 2 * war, 14), QStringLiteral("Покупець: ")); yoffset += 14;
-    painter.drawLine(xofs + 2 * war, yoffset, xofs + tblw, yoffset); yoffset += 25;
-    painter.drawLine(xofs + 2 * war, yoffset, xofs + tblw, yoffset); yoffset += 25;
-
-    ylt = yoffset;
-
-    // Шапка таблиці накладної
-    painter.drawText(QRect(xofs, yoffset, wid, 24), Qt::AlignHCenter | Qt::AlignVCenter, QStringLiteral("No")); xofs += wid + wsps;
-    painter.drawText(QRect(xofs, yoffset, war, 24), Qt::AlignHCenter | Qt::AlignVCenter, QStringLiteral("Арт")); xofs += war + wsps;
-    painter.drawText(QRect(xofs, yoffset, wnm, 24), Qt::AlignVCenter, QStringLiteral("Назва")); xofs += wnm + wsps;
-    painter.drawText(QRect(xofs, yoffset, wam, 24), Qt::AlignHCenter | Qt::AlignVCenter, QStringLiteral("К-сть")); xofs += wam + wsps;
-    painter.drawText(QRect(xofs, yoffset, wun, 24), Qt::AlignHCenter | Qt::AlignVCenter, QStringLiteral("Од")); xofs += wun + wsps;
-    painter.drawText(QRect(xofs, yoffset, wpr, 24), Qt::AlignHCenter | Qt::AlignVCenter, QStringLiteral("Ціна")); xofs += wpr + wsps;
-    painter.drawText(QRect(xofs, yoffset, weq, 24), Qt::AlignHCenter | Qt::AlignVCenter, QStringLiteral("Сума"));
-
-    yoffset += 24;
-    xofs = lmrg;
-
-    pen.setWidthF(2);
-    painter.setPen(pen);
-    painter.drawLine(xofs, yoffset, xofs + tblw, yoffset);
-
-    pen.setWidthF(1);
-    painter.setPen(pen);
-    yoffset += 4;
-
-    const QVariantList dcmsArray = bind.value(QStringLiteral("dcms")).toList();
-    int i = 0;
-    for (const QVariant &v_dcm_val : dcmsArray) {
-        QVariantMap v_dcm = v_dcm_val.toMap();
-        QVariantMap v_item = v_dcm.value(QStringLiteral("jitem")).toMap();
-        if (v_dcm.isEmpty()) continue;
-
-        double am = abs(v_dcm.value(QStringLiteral("amnt")).toDouble());
-        double eq = abs(v_dcm.value(QStringLiteral("eq")).toDouble());
-        int qty = v_item.value(QStringLiteral("qty"), 1).toInt();
-        int prec = v_item.value(QStringLiteral("unitprec"), 2).toInt(); // 2 — дефолтна точність, якщо prec відсутній
-
-        QString priceStr = QStringLiteral("0.00");
-        if (am != 0.0) {
-            price = qty * (eq) / am;
-            priceStr = locale.toString(price, 'f', price < 10 ? 3 : (price < 100 ? 2 : 1));
-            if (qty != 1) { priceStr += QStringLiteral("/%1").arg(qty); }
-        }
-
-        painter.drawText(QRect(xofs, yoffset, wid, tbrlh), Qt::AlignRight | Qt::AlignVCenter,
-                         QString::number(i + 1)); xofs += wid + wsps;
-        painter.drawText(QRect(xofs, yoffset, war, tbrlh), Qt::AlignHCenter | Qt::AlignVCenter,
-                         v_item.value(QStringLiteral("id"), "n/a").toString()); xofs += war + wsps;
-        painter.drawText(QRect(xofs, yoffset, wnm, tbrlh), Qt::AlignVCenter,
-                         v_item.value(QStringLiteral("itemchar"), "n/a").toString()); xofs += wnm + wsps;
-        painter.drawText(QRect(xofs, yoffset, wam, tbrlh), Qt::AlignRight | Qt::AlignVCenter,
-                         locale.toString(am, 'f', prec)); xofs += wam + wsps;
-        painter.drawText(QRect(xofs, yoffset, wun, tbrlh), Qt::AlignHCenter | Qt::AlignVCenter,
-                         v_item.value(QStringLiteral("unitchar"), "n/a").toString()); xofs += wun + wsps;
-        painter.drawText(QRect(xofs, yoffset, wpr, tbrlh), Qt::AlignRight | Qt::AlignVCenter,
-                         priceStr); xofs += wpr + wsps;
-        painter.drawText(QRect(xofs, yoffset, weq, tbrlh), Qt::AlignRight | Qt::AlignVCenter,
-                         locale.toString(eq, 'f', 2));
-
-        xofs = lmrg;
-        yoffset += tbrlh + 2;
-        painter.drawLine(xofs, yoffset, xofs + tblw + wsps, yoffset);
-
-        i++;
-    }
-
-    // Малювання вертикальних ліній сітки накладної
-    pen.setWidthF(2);
-    painter.setPen(pen);
-    painter.drawRect(xofs, ylt, tblw + wsps, yoffset - ylt); xofs += wid + wsps / 2;
-    painter.drawLine(xofs, ylt, xofs, yoffset); xofs += war + wsps;
-    painter.drawLine(xofs, ylt, xofs, yoffset); xofs += wnm + wsps;
-    painter.drawLine(xofs, ylt, xofs, yoffset); xofs += wam + wsps;
-    painter.drawLine(xofs, ylt, xofs, yoffset); xofs += wun + wsps;
-    painter.drawLine(xofs, ylt, xofs, yoffset); xofs += wpr + wsps;
-    painter.drawLine(xofs, ylt, xofs, yoffset);
-
-    // Нижній блок підсумків
-    xofs = lmrg + tblw - 250;
-    pen.setWidthF(1.5);
-    painter.setPen(pen);
-    f.setPointSize(12);
-    f.setStretch(100);
-    painter.setFont(f);
-
-    painter.drawText(QRect(xofs, yoffset, 70, 30), Qt::AlignLeft | Qt::AlignVCenter, tr("Разом:")); xofs += 102;
-
-    f.setBold(true);
-    f.setPointSize(14);
-    painter.setFont(f);
-
-    double bindEq = bind.value(QStringLiteral("eq")).toDouble();
-    painter.drawText(QRect(xofs, yoffset, 140, 30), Qt::AlignRight | Qt::AlignVCenter, locale.toString(qAbs(bindEq), 'f', 2));
-
-    f.setBold(false);
-    xofs = lmrg;
-    f.setPointSize(12);
-    painter.setFont(f);
-    yoffset += 30;
-
-    painter.drawText(QRect(xofs, yoffset, tblw, 24),
-                     tr("Всього найменувань %1 на суму %2 грн.")
-                         .arg(QString::number(dcmsArray.size()), locale.toString(qAbs(bindEq), 'f', 2)));
-
-    yoffset += 45;
-    painter.drawLine(xofs, yoffset, xofs + tblw, yoffset);
-
-    yoffset += 30;
-    f.setPointSize(fontSize);
-    painter.setFont(f);
-
-    // Підписи сторін
-    painter.drawText(QRect(xofs, yoffset, tblw / 2, 18), tr("Відвантажив(ла):__________________________"));
-    painter.drawText(QRect(xofs + tblw / 2, yoffset, tblw / 2, 18), tr("Отримав(ла):_______________________________"));
-
-    painter.end();
-    return 0;
-}
-*/
-// qDebug()<<"Print::printCheck STARTED id="
-//          << " cash=" << bind.value("amount")
-//          << " dcms len=" << (bind.value("dcms").toArray()).size()
-//          << " dcms t=" << (bind.value("dcms")[0]["inote"])
-//          << " dcms=" << bind.value("dcms");  //.toVariantMap();
-// QString msg = QString("Print::printCheck STARTED id=0 filePath=%1\n").arg(filePath);
-//    QString v_term = QString("");   //q.value(2).toString().left(16);
 

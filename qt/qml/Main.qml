@@ -17,8 +17,11 @@ ApplicationWindow {
     width: 640
     height: 480
 
-    property int modeid: 2    // 2 kantor, 1 shop
-    onModeidChanged: JS.reloadNaviMenu(naviMenu_dynamic, naviMenuInstantiator);
+    property int modeid: 3    // 2 kantor, 1 shop
+    onModeidChanged: {
+        Prn.setMode(modeid);
+        JS.reloadNaviMenu(naviMenu_dynamic, naviMenuInstantiator);
+    }
 
     property string dbname: ''
 
@@ -34,7 +37,9 @@ ApplicationWindow {
             setModeId: (v) => {root.modeid = Number(v || 3)},
             setRateOnline: (v) => { rateLoader.isRESTConnected = !!v; },
             setTaxAction: (v) => { bindTaxAction.enabled = !!v; },
-            setFooter: (v) => { footerLeftLabel.text = v; }
+            setFooter: (v) => { footerLeftLabel.text = v; },
+            // menu: naviMenu_dynamic,
+            // menuInstantiator: naviMenuInstantiator,
         };
 
         // Запуск C++/JS обробника підключення бази
@@ -1297,8 +1302,14 @@ ApplicationWindow {
             dbDriver: Db
             anchors.fill: parent
 
-            // можна додати сигнал закриття, якщо всередині DrawerItem є кнопка "Назад/Закрити"
-            // onCancelClicked: drawer2Right.close()
+            onVkEvent: (id, param) => {
+               const uiBridge = {
+                   crntComp: compContainer.currentItem,
+                   warn: (str) => logView.warn(str),
+                   error: (str) => logView.error(str),
+               };
+                JS.handleDrawerEvent(id, param, uiBridge);
+            }
         }
     }
 
