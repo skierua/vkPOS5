@@ -198,7 +198,7 @@ function handleTranAction(db, prn, model, ui) {
         sendBindToREST(db, jbind, ui);
     }
 
-    // console.warn("WW:200 bind.js change to previous");
+    // console.warn(`WW:200 bind.js change to previous\n sendToTax=${sendToTax}`);
     // if (sendToTax) {
     if (sendToTax && TAX.isConnected) {
         TAX.sale(db, bid, 0, (err, resp) => {
@@ -210,6 +210,7 @@ function handleTranAction(db, prn, model, ui) {
     const pCode = Number(ui?.printCode || 0)
     if (pCode !== 0 && (pCode === 1 || pMode !== 0)) {
         const bindforPrint = LibBind.dbBind(db, bid);
+        // console.info(`II: bind.js#242g ${JSON.stringify(bindforPrint)}`)
         if (bindforPrint){
             const printer = prn
                           ? prn

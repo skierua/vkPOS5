@@ -12,7 +12,6 @@ Item {
 
     signal vkEvent(string id, var param)
 
-    // ✅ ВИПРАВЛЕНО: Безпечне очищення моделі без руйнування біндінгів Qt 6
     onVisibleChanged: {
         if (visible) {
             viewCashAction.trigger();
@@ -88,7 +87,6 @@ Item {
         }
     }
 
-    // ✨ ГОЛОВНИЙ СУЧАСНИЙ МАКЕТ КОМПОНЕНТА
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 12
@@ -249,6 +247,14 @@ Item {
                 color: "#ffffff"
                 border.color: "#eef0f2"
                 border.width: 1
+                MouseArea {
+                    anchors.fill: parent
+                    onDoubleClicked: {
+                        const v = vw.model.get(index);
+                        // console.info(`II: 238j# DraverItem clicked index=${index} v=${JSON.stringify(v)}`);
+                        vkEvent("rowDoubleClicked", v)
+                    }
+                }
 
                 RowLayout {
                     anchors.fill: parent
@@ -382,41 +388,6 @@ Item {
                 onAccepted: JS.filterData(vw.model, text.trim())
             }
 
-/*            RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: 8
-                anchors.rightMargin: 4
-                spacing: 6
-
-                Label {
-                    text: "🔍"
-                    font.pixelSize: 13
-                    color: "#9e9e9e"
-                }
-
-                TextField {
-                    id: dataFilter
-                    Layout.fillWidth: true
-                    placeholderText: 'Швидкий фільтр залишків...'
-                    font.pixelSize: 13
-                    selectByMouse: true
-                    background: null
-                    // Жива ES6 фільтрація при введенні символів
-                    onTextChanged: JS.filterData(vw.model, text.trim())
-                    onAccepted: JS.filterData(vw.model, text.trim())
-                }
-                ToolButton {
-                    text: "✕"
-                    visible: dataFilter.text !== ""
-                    Layout.preferredWidth: 26
-                    Layout.preferredHeight: 26
-                    onClicked: {
-                        dataFilter.text = "";
-                        JS.filterData(vw.model);
-                    }
-                    background: Rectangle { color: "transparent" }
-                }
-            } */
         }
     }
 }

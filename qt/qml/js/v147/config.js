@@ -1,11 +1,16 @@
 .pragma library
 
+const CASH_ACNT_PREFIX = "30";
+const TRADE_ACNT_PREFIX = "35";
+const DEPO_ACNT_PREFIX = "36";
+const BONUS_ACNT_PREFIX = "38";
+const INIT_ACNT_PREFIX = "42";
 const TRADE_RESULT_PREFIX = "rslt";
 
 const glCashPrefix = "30";
 const glTradePrefix = "35";
-const glDepoPrefix = "36";      // deposits
-const glInitPrefix = "42";      // init capital
+const glDepoPrefix = DEPO_ACNT_PREFIX;      // deposits
+const glInitPrefix = INIT_ACNT_PREFIX;      // init capital
 const glTradeEquivalentPrefix = "eqvl";
 const glTradeResultPrefix = "rslt"; // DEPRECATED, use TRADE_RESULT_PREFIX instead
 const glBonusPrefix = "38";
@@ -82,9 +87,6 @@ function setVal(db, key, value) {
     // Оскільки REPLACE повертає rowid, dbInsert поверне ID створеного/заміненого рядка
     const ok = db.dbUpdate(sql, [key, valToWrite]);
     return ok;
-
-    // const resultId = db.dbInsert(sql, [key, valToWrite]);
-    // return resultId > 0;
 }
 
 

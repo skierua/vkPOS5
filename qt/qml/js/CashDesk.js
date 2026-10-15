@@ -258,7 +258,7 @@ function bindToSale(db, dcmid, payType) {
         const dcm = dcmSource[r];
         // console.log(`id82#CashDesk ${JSON.stringify(dcm)}`);
         const price = dcm.amount !== 0 ? Math.abs(Number(dcm.eqamount || 0)/Number(dcm.amount)) : 0;
-        total_eq += Number(dcm.amount || 0);
+        total_eq += Number(dcm.eqamount || 0);
         ok &= (dcm.dcmtype === "trade:sell");
         // ok &= (Number(dcm.mask || 0) === 4); // Маска 4 — роздрібні товари (Goodies)
         ok &= Number(dcm.amount || 0) < 0;
@@ -278,6 +278,7 @@ function bindToSale(db, dcmid, payType) {
     if (!ok){
         return null;
     }
+    // console.log(`II: u2y#CashDesk ${total_eq}`);
 
     // CashDesk.js (додаємо параметр payType, наприклад: "cash" або "card")
     // payType може приходити з інтерфейсу вибору оплати
@@ -299,14 +300,18 @@ function bindToSale(db, dcmid, payType) {
         paymentsArray.push({
             "code": 0,
             "name": "ГОТIВКА",
-            "sum": pure_total_val.toFixed(2), // Сума товарів до округлення
-            "sum_provided": total_sum_val.toFixed(2), // Фактично отримано
+            "payment_method": "готівка",
+            "sum": pure_total_val, // Сума товарів до округлення
+            "sum_provided": total_sum_val, // Фактично отримано
+            // "sum": pure_total_val.toFixed(2), // Сума товарів до округлення
+            // "sum_provided": total_sum_val.toFixed(2), // Фактично отримано
             "sum_remains": "0.00"
         });
     } else {
         paymentsArray.push({
             "code": 1, // Код 1 або 2 залежно від налаштувань вашого ПРРО шлюзу для безготівки
             "name": "КАРТКА",
+            "payment_method": "безготівка",
             "sum": total_sum_val.toFixed(2), // Для картки сума платежу = сумі товарів
             "sum_provided": total_sum_val.toFixed(2),
             "sum_remains": "0.00"
@@ -316,8 +321,8 @@ function bindToSale(db, dcmid, payType) {
     const taxbind = {
         "action_type": "Z_SALE",
         "local_number": dcmid,
-        "total_sum": total_sum_val.toFixed(2),  // Для готівки — округлена, для картки — точна
-        "round_sum": round_sum_val.toFixed(2),  // Для картки тут автоматично вийде "0.00"
+        "total_sum": total_sum_val,  // Для готівки — округлена, для картки — точна
+        "round_sum": round_sum_val,  // Для картки тут автоматично вийде "0.00"
         "products": articles,
         "payments": paymentsArray,
         "no_text_print": true,

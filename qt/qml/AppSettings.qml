@@ -38,13 +38,13 @@ Item {
         const amnt_sign = editCheckAmnt.text.trim();
         const pos_printer = editPrinter.text.trim();
         const auto_print = switchAutoPrint.checked ? "1" : "0";
-        const print_dcm = editCheckPrintDcm.text.trim();
+        // const print_dcm = editCheckPrintDcm.text.trim();
         return String(basicTab.dataObj?.id || "TEST") !== id
             || String(basicTab.dataObj?.name || "") !== name
             || String(basicTab.dataObj?.pos_printer || "") !== pos_printer
             || String(basicTab.dataObj?.amnt_sign || "1") !== amnt_sign
             || String(basicTab.dataObj?.auto_print || "0") !== auto_print
-            || String(basicTab.dataObj?.print_dcm || "check") !== print_dcm
+            // || String(basicTab.dataObj?.print_dcm || "check") !== print_dcm
             || Number(basicTab.dataObj?.appmode || 3) !== appmode;
     }
 
@@ -60,7 +60,7 @@ Item {
         if (typeof switchAutoPrint !== "undefined") {
             switchAutoPrint.checked = String(jval?.auto_print || "0") === "1";
         }
-        editCheckPrintDcm.text = String(jval?.print_dcm || "check");
+        // editCheckPrintDcm.text = String(jval?.print_dcm || "check");
     }
 
     function refreshRESTConn(){
@@ -391,14 +391,14 @@ Item {
                                 onTextChanged: btnSaveSettings.enabled = isBasicTabChanged();
                             }
                             // Поле: Шаблон друку
-                            UITextField{
+/*                            UITextField{
                                 id: editCheckPrintDcm;
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 56
                                 title: "Дефолтний шаблон друку документа"
                                 placeholderText: "Наприклад: check або check_knt"
                                 onTextChanged: btnSaveSettings.enabled = isBasicTabChanged();
-                            }
+                            } */
 
                             RowLayout {
                                 Layout.fillWidth: true
@@ -433,7 +433,7 @@ Item {
                                 amnt_sign: editCheckAmnt.text.trim(),
                                 pos_printer: editPrinter.text.trim(),
                                 auto_print: switchAutoPrint.checked ? "1" : "0",
-                                print_dcm: editCheckPrintDcm.text.trim()
+                                // print_dcm: editCheckPrintDcm.text.trim()
                             };
                             const ok = JS.setBasic(dbDriver, val);
                             if (ok) {

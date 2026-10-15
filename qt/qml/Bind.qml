@@ -221,10 +221,12 @@ Item {
     }
 
     // addDocum(dbDriver, "", crntAcnt?.acntno || "", root.crntAmnt);
-    function newDcm(atclid, amnt){
+    function newDcm(atclid, amnt, acntno){
+        // console.log(`Bind.qml#he52 atclid=${atclid}  amnt=${amnt} acntno=${acntno} `)
+        const acntVal = !!acntno ? JS.getAcnt(dbDriver, acntno) : null;
         const uiBridge = {
             atclid: atclid || "",
-            acnt: root.crntAcnt || null,
+            acnt: acntVal || root.crntAcnt || null,
             amnt: amnt || root.crntAmnt,
             state: String(root.state || "check")
         };
@@ -237,8 +239,11 @@ Item {
         }
         // console.log("bindView.model")
         // for (let r =0; r < bindView.model.count; ++r) console.warn(`8sjn#Bind.qml ${JSON.stringify(bindView.model.get(r))}`)
-        bindView.currentIndex = 0
-        bindView.forceActiveFocus()
+        if (!acntno){
+            bindView.currentIndex = 0
+            bindView.forceActiveFocus()
+        }
+
     }
 
     function newRefused(dcm){
