@@ -203,6 +203,14 @@ function handleTranAction(db, prn, model, ui) {
     if (sendToTax && TAX.isConnected) {
         TAX.sale(db, bid, 0, (err, resp) => {
                       if (!!err)  ui?.error?.(err || "TAX sending error");
+                    else {
+                        const updateData = {
+                        "dcmno": String(resp.uuid || ""),
+                        "dcmnote": JSON.stringify(resp)
+                        };
+                        const uOk = LibBind.updDocum(db, bid, updateData);
+                        if (!uOk) ui?.error?.(db.dbLastError() || "Docum updating error");
+                    }
                   });
     }
 

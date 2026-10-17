@@ -239,7 +239,7 @@ function selList(db, bindOnly,  param){
     return source1 ?? [];
 }
 
-
+// bind.js
 function updDocum(db, dcmid, updateFields, archive) {
     if (!db || !dcmid || !updateFields) return false;
 
@@ -260,7 +260,7 @@ function updDocum(db, dcmid, updateFields, archive) {
 
     const usql = `UPDATE ${tbl} SET ${setParts.join(", ")} WHERE ${fldName} = :condition_id`;
     // console.log(`dh6g#sqlBind ${usql} \nparam=${JSON.stringify(params)}`); return;
-    return db.dbUpdate(usql, params);
+    return db.dbUpdateObj(usql, params);
 }
 
 

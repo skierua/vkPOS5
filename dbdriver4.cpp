@@ -524,7 +524,7 @@ bool DbDriver4::dbUpdate(const QString &sql, const QVariantMap &params){
     }
 
     for (const QVariant &param : params) {
-        // qDebug()<< "r343#dbdriver4/dbUpdate param="<< param;
+        qDebug()<< "r343#dbdriver4/dbUpdate param="<< param;
         q.addBindValue(param);
     }
     // QVariantMap::const_iterator i = params.constBegin();
@@ -532,6 +532,45 @@ bool DbDriver4::dbUpdate(const QString &sql, const QVariantMap &params){
     //     q.bindValue(i.key(), i.value());
     //     ++i;
     // }
+
+    ok = q.exec();
+    if (!ok) {
+        m_lastError = q.lastError().text();
+        qDebug() << m_lastError;
+        emit error(m_lastError);
+        emit vkEvent(QStringLiteral("error"), m_lastError);
+    }
+
+    closeConnection();
+    // const QVariantList list = q.boundValues();
+    // for (qsizetype i = 0; i < list.size(); ++i)
+    //     qDebug() << i << ":" << list.at(i).toString();
+    // qDebug()<< "499#dbdriver4/dbUpdate ok="<< ok;
+    // qDebug()<< "r343#dbdriver4/dbUpdate sql="<< q.lastQuery();
+    return ok;
+}
+
+//
+bool DbDriver4::dbUpdateObj(const QString &sql, const QVariantMap &params){
+    // qDebug()<< "r343#dbdriver4/dbUpdate param="<< param;
+    if (!openConnection()) return false;
+    bool ok = false;
+    QSqlQuery q(m_db);
+    if (!q.prepare(sql)) {
+        m_lastError = QStringLiteral("EE:DbDriver4::dbInsert prepare ERROR\n%1\n%2")
+        .arg(sql, q.lastError().text());
+        qDebug() << m_lastError;
+        emit error(m_lastError);
+        emit vkEvent(QStringLiteral("error"), m_lastError);
+        closeConnection();
+        return ok;
+    }
+
+    QVariantMap::const_iterator i = params.constBegin();
+    while (i != params.constEnd()) {
+        q.bindValue(i.key(), i.value());
+        ++i;
+    }
 
     ok = q.exec();
     if (!ok) {

@@ -336,7 +336,7 @@ function bindToSale(db, dcmid, payType) {
     return taxbind;
 }
 
-
+// bind.js
 function sale(db, dcmid, payType, callback) {
     // data.api_token = TOKEN
     // data.num_fiscal = CASH

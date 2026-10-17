@@ -611,6 +611,10 @@ ApplicationWindow {
         text: "TEST"
         enabled: false
         onTriggered: {
+            const ui = {
+                error: (str) => logView.error(str),
+            };
+
             JS.testAction_handled(Db);
             // JS.fix_acnt_item_980(Db, logView);
             // JS.feya_feature_fix(Db, logView);

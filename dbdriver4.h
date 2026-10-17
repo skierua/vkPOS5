@@ -52,6 +52,7 @@ public:
 
     Q_INVOKABLE bool dbUpdate(const QString &sql);
     Q_INVOKABLE bool dbUpdate(const QString &sql, const QVariantMap &params);
+    Q_INVOKABLE bool dbUpdateObj(const QString &sql, const QVariantMap &params);
     // DEPRECATED? use dbUpdate instead
     Q_INVOKABLE bool dbUpdateParams(const QString &sql, const QVariantMap &params);
 
