@@ -10,6 +10,33 @@ const RATE_STMT = `
     FROM price
 `;
 
+const LASTRATE_STMT = `
+    SELECT
+        article,
+        bscprice,
+        lastpricebuy,
+        lastpricesell,
+        acntno
+    FROM acntrade
+`;
+
+const OFFER_STMT = `
+    SELECT
+        article,
+        qtty AS qty,
+        price,
+        pricetime
+    FROM selloffer
+`;
+
+const DISCOUNT_STMT = `
+    SELECT
+        article,
+        price,
+        pricetime
+    FROM selldsc
+`;
+
 // main.js
 const DfltPriceQty = (() => {
     // Створюємо карту для миттєвого пошуку кратності пакувань за O(1)
@@ -66,8 +93,13 @@ function dummyPrice(atclid, price = 0) {
     };
 }
 
+const  buildWhereClause = (conditionsArray) => {
+    if (!conditionsArray || conditionsArray.length === 0) return "";
+    return "WHERE " + conditionsArray.join(" AND ");
+}
+
 /**
- * Отримання курсу продажу для конкретної валюти за її ID
+ * Отримання курсу для конкретної валюти за її ID
  * @param {Object} db - Драйвер бази даних
  * @param {string} itemid - ID валюти
  * @param {number} ba - bid|ask
@@ -85,7 +117,7 @@ function price(db, itemid, ba, acntno){
         if (offer?.length > 0 && (offer[0].price || 0) !== 0) {
             ok = true
             res.id = "";
-            res.qty = offer[0].qtty || 1;
+            res.qty = offer[0].qty || 1;
             res.offer = offer[0].price || 0.0;
         }
     }
@@ -93,12 +125,13 @@ function price(db, itemid, ba, acntno){
     if (ok) return res;
 
     let fltP = `prbidask = ${isAsk ? -1 : 1} AND item = '${itemid}'`;
-    const pr = dbPrice(db, fltP);
+    // const pr = dbPrice(db, fltP);
+    const pr = dbPrice(db, itemid, Number(ba || -1));
     // console.info(`s83#sqlPrice 22 fltP=${fltP} id=${JSON.stringify(pr)}`)
     if (pr?.length > 0 && (pr[0].price || 0) !== 0) {
         ok = true
         res.id = pr[0].id || "";
-        res.qty = pr[0].qtty || 1;
+        res.qty = pr[0].qty || 1;
         res.price = pr[0].price || 0.0;
         const fltDsc = `article = '${itemid}'`;
         const dsc = dbDsc(db, fltDsc);
@@ -109,15 +142,18 @@ function price(db, itemid, ba, acntno){
     // console.info(`s83#sqlPrice 33 id=${JSON.stringify(res)}`)
     // then last price
     if (!ok){
-        const fltL = `article = '${itemid}' AND acntno='${acntno || ""}'`
-        const prlast = dbLast(db, fltL);
-        if (prlast.length > 0) {
-            res.id = "";
-            // if (!res.qty) res.qty = 1;
+        const prlast = dbLastRate(db, acntno, itemid);
+        if (!!prlast) {
+            if (!res.qty) res.qty = prlast.qty;
+            const coef = res.qty !== prlast.qty ? (res.qty / prlast.qty) : 1;
             const priceBsc = (isAsk
-                            ? (prlast.lastpricesell || prlast.bscprice || 0.0)
-                            :(prlast.lastpricebuy || prlast.bscprice || 0.0) );
+                            ? coef * (prlast.sell || prlast.bsc || 0.0)
+                            : coef * (prlast.buy || prlast.bsc || 0.0) );
             res.bsc = priceBsc;
+            // res.price = priceBsc;
+            // if (res.qty !== 1) res.price = priceBsc * res.qty;
+            // else res.price = priceBsc;
+
         }
     }
     // console.info(`iw9#sqlPrice 55 id=${JSON.stringify(res)}`)
@@ -127,9 +163,7 @@ function price(db, itemid, ba, acntno){
 function sell(db, itemid) {
     if (!db || !itemid) return dummyPrice();
 
-    const flt = `prbidask = -1 AND item = '${itemid}'`;
-
-    const pr = dbPrice(db, flt);
+    const pr = dbPrice(db, itemid, -1);
 
     if (pr && pr.length > 0) {
         return pr[0];
@@ -138,12 +172,11 @@ function sell(db, itemid) {
     return dummyPrice(itemid);
 }
 
+// shift.js
 function buy(db, itemid) {
     if (!db || !itemid) return dummyPrice();
 
-    const flt = `prbidask = 1 AND item = '${itemid}'`;
-
-    const pr = dbPrice(db, flt);
+    const pr = dbPrice(db, itemid, 1);
 
     if (pr && pr.length > 0) {
         return pr[0];
@@ -168,48 +201,146 @@ function currencyRates(db) {
 /**
  *
  */
-function dbPrice(db, flt = "") {
+// function dbPrice(db, flt = "") {
+function dbPrice(db, atclid, ba, prtype) {
     if (!db) return null;
 
-    const vsql = "SELECT id, item, prbidask, qtty, price FROM price "
-               + "WHERE (prtype IS NULL OR prtype = '')" + (flt === "" ? "" : (" AND " + flt)) + ";";
+    const  l_build = (conditionsArray, prIsBlank) => {
+        if (!conditionsArray || conditionsArray.length === 0) return prIsBlank ? "WHERE prtype IS NULL OR prtype = '' " : "";
+        return "WHERE " + (prIsBlank ? " (prtype IS NULL OR prtype = '') AND " : "") + conditionsArray.join(" AND ");
+    }
+    let isPrBlank = false;
+    const cond = [];
+    const param = [];
+    if (!!atclid){
+        cond.push("item = ?");
+        param.push(atclid);
+    }
+    if (!!ba){
+        if (Number(ba ||0) < 0)
+        cond.push("prbidask = ?");
+        param.push(Number(ba ||0) < 0 ? -1 : 1 );
+    }
+    if (!!prtype){
+        cond.push("item = ?");
+        param.push(atclid);
+    } else isPrBlank = true;
 
-    return db.dbSelectRowsJSON(vsql);
+    const condStr = l_build(cond, isPrBlank);
+
+    const vsql = `${RATE_STMT} ${condStr};`;
+    // const vsql = "SELECT id, item, prbidask, qtty, price FROM price "
+    //            + "WHERE (prtype IS NULL OR prtype = '')" + (flt === "" ? "" : (" AND " + flt)) + ";";
+    // console.log(`sqlPrice sql=${vsql}`);
+    return db.dbSelectRows(vsql, param) || [];
 }
 
-function dbOffer(db, flt = "") {
+function dbOffer(db, atclid) {
     if (!db) return [];
-    const whereCondition = (flt = "" ? "" : `WHERE ${flt}`)
-    const vsql = `
-            SELECT
-                article,
-                qtty,
-                price,
-                pricetime
-            FROM selloffer
-            ${whereCondition};
-            `
-
-    return db.dbSelectRowsJSON(vsql);
+    const cond = [];
+    const param = [];
+    if (!!atclid){
+        cond.push("article = ?");
+        param.push(atclid);
+    }
+    const whereCondition = buildWhereClause(cond);
+    const vsql = `${OFFER_STMT} ${whereCondition};`;
+    return db.dbSelectRows(vsql, param) || [];
 }
 
-function dbDsc(db, flt = "") {
+function dbDsc(db, atclid) {
     if (!db) return [];
-    const whereCondition = (flt === "" ? "" : `WHERE ${flt}`)
-    const vsql = `
-            SELECT
-                article,
-                price,
-                pricetime
-            FROM selldsc
-            ${whereCondition};
-            `
+    const cond = [];
+    const param = [];
+    if (!!atclid){
+        cond.push("article = ?");
+        param.push(atclid);
+    }
+    const whereCondition = buildWhereClause(cond);
+    const vsql = `${DISCOUNT_STMT} ${whereCondition};`;
 
-    return db.dbSelectRowsJSON(vsql);
+    return db.dbSelectRows(vsql, param) || [];
 }
 
 // last price from acntrade
+function dbLastRate(db, acntno, atclid) {
+    if (!db) return null;
+    if (!atclid) return null;
+
+    const cond = [];
+    const param = [];
+    if (!!atclid){
+        cond.push("article = ?");
+        param.push(atclid);
+    }
+    if (!!acntno){
+        cond.push("acntno = ?");
+        param.push(acntno);
+    }
+    const condStr = buildWhereClause(cond);
+    const vsql = `${LASTRATE_STMT} ${condStr};`;
+
+    // console.log(`II: 7wy3#sqlItem.js vsql=${vsql}`)
+    const dbrate = db.dbSelectRow(vsql,param);
+    // console.log(`II: 214#sqlItem.js dbrate=${JSON.stringify(dbrate)}`)
+    if (!dbrate.errid){
+        const qtyVal = DfltPriceQty.val(atclid);
+        const res = {
+            "item": String(dbrate.article || ""),
+            "acntno": String(dbrate.acntno || ""),
+            "qty": qtyVal,
+            "bsc": Number(dbrate.bscprice || 0.0) * qtyVal,
+            "buy": Number(dbrate.lastpricebuy || 0.0) * qtyVal,
+            "sell": Number(dbrate.lastpricesell || 0.0) * qtyVal,
+        };
+        // console.log(`II: 133s#sqlItem.js res=${JSON.stringify(res)}`)
+        return res;
+    }
+
+    return null;
+}
+
+function dbLastRateList(db, acntno, atclid) {
+    const res = [];
+    if (!db) return res;
+
+    const cond = [];
+    const param = [];
+    if (!!acntno){
+        cond.push("acntno = ?");
+        param.push(acntno);
+    }
+    if (!!atclid){
+        cond.push("article = ?");
+        param.push(atclid);
+    }
+    const condStr = buildWhereClause(cond);
+    const vsql = `${LASTRATE_STMT} ${condStr};`;
+
+    // console.log(`II: 7wy3#sqlItem.js vsql=${vsql}`)
+    const source = db.dbSelectRows(vsql,param);
+    // console.log(`II: 214#sqlItem.js source=${JSON.stringify(source)}`)
+    // for (let i =0; i < 10; ++i ) console.log("62j#sqlPrice=", JSON.stringify(source[i]));
+    if (source?.length > 0){
+        for (let v of source){
+            const qtyVal = DfltPriceQty.val(atclid);
+            res.push({
+                         "item": String(v.article || ""),
+                         "acntno": String(v.acntno || ""),
+                         "qty": qtyVal,
+                         "bsc": Number(v.bscprice || 0.0) * qtyVal,
+                         "buy": Number(v.lastpricebuy || 0.0) * qtyVal,
+                         "sell": Number(v.lastpricesell || 0.0) * qtyVal,
+                     })
+        }
+    }
+    // for (let i =0; i < 10; ++i ) console.log("62j#sqlPrice=", JSON.stringify(res[i]));
+
+    return res;
+}
+// DEPRECATED
 function dbLast(db, flt = "") {
+    console.warn("WW: sqlPrice.js/dbLast DEPRECATED, use dbLastRate !!!")
     if (!db) return [];
     const whereCondition = (flt === "" ? "" : `WHERE ${flt}`)
     const vsql = `
@@ -254,23 +385,3 @@ function updRate(db, price, qty, id, curid, ba) {
     return res;
 }
 
-/*function old_updRate(db, price, qty, id, curid, ba) {
-    if (!db) return 0;
-
-    let vsql = "";
-    let res = 0;
-
-    // Перевіряємо наявність існуючого ID запису (id як рядок може прийти порожнім або "0")
-    if (id !== undefined && id !== null && id !== "" && id !== "0") {
-        vsql = `UPDATE price SET qtty = ${Number(qty || 1)}, price = ${Number(price || 0)} WHERE id = ${id};`;
-        res = db.dbUpdate(vsql);
-    } else {
-        // Якщо курсу для цієї валюти ще не було в базі — робимо чистий INSERT
-        // Поле prtype залишається NULL (як ми з'ясували, для комерційних курсів обмінника)
-        const baVal = (ba || -1) > 0 ? "1" : "-1";
-        vsql = `INSERT INTO price (item, qtty, price, prbidask) VALUES ('${curid}', ${Number(qty || 1)}, ${Number(price || 0)}, ${baVal});`;
-        res = db.dbInsert(vsql);
-    }
-
-    return res;
-} */

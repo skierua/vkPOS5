@@ -524,7 +524,7 @@ bool DbDriver4::dbUpdate(const QString &sql, const QVariantMap &params){
     }
 
     for (const QVariant &param : params) {
-        qDebug()<< "r343#dbdriver4/dbUpdate param="<< param;
+        // qDebug()<< "r343#dbdriver4/dbUpdate param="<< param;
         q.addBindValue(param);
     }
     // QVariantMap::const_iterator i = params.constBegin();

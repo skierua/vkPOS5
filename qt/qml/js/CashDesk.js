@@ -2,6 +2,7 @@
 
 .import "v147/config.js" as Conf
 .import "v147/sqlBind.js" as LibBind
+.import "v147/sqlItem.js" as LibItem
 /**
   JS library
   CashDesk
@@ -14,11 +15,35 @@
 // const BAN_SEND = true;
 const BAN_SEND = false;
 
-let HOST = "https://web.cashdesk.com.ua";
-let API = "/api/v2";
+let HOST = "";
+let API = "";
 let CASH = "";
 let TOKEN = "";
-let isConnected = false;
+let IS_CONNECTED = false;
+
+
+/*const DfltPingTimer = (() => {
+    const intervalMs = 30 * 60 * 1000; // 30 minutes
+    let pingTimer = null;
+
+    return {
+        start() {
+            if (pingTimer) clearInterval(pingTimer);
+
+            // Calls ping() every 30 minutes.
+            pingTimer = setInterval(() => {
+                ping((err, resp) => {}
+                     );
+            }, intervalMs);
+        },
+        stop() {
+            if (pingTimer) {
+                clearInterval(pingTimer);
+                pingTimer = null;
+            }
+        }
+    };
+})();*/
 
 function setParam(host, api, cash, token){
     HOST = host ? String(host) : "";
@@ -27,11 +52,13 @@ function setParam(host, api, cash, token){
     TOKEN = token ? String(token) : "";
 }
 
+// main.js
 function reset(){
-    isConnected = false;
+    IS_CONNECTED = false;
     setParam();
 }
 
+// main.js
 function restore(db){
     if (!db) return;
 
@@ -61,34 +88,35 @@ function parse(raw){
     }
 }
 
+// AppSettings.qml
+function ping(callback) {
+    const path = "/shift/ping";
+    const req = { "api_token": TOKEN, "num_fiscal": CASH };
+    postRequest(path, req, callback);
+}
+
+// main.js
 function connect(callback) {
-    // console.log(`II:#9u CashDesk.js`)
-    isConnected = false;
-    if(!String(HOST || "")
-        || !String(API || "")
-        || !String(CASH || "")
-        || !String(TOKEN || "")
-        || String(HOST).startsWith("*")
-        ){
+    // DfltPingTimer.stop();
+    IS_CONNECTED = false;
+
+    if (!String(HOST || "").trim()
+        || !String(API || "").trim()
+        || !String(CASH || "").trim()
+        || !String(TOKEN || "").trim()
+        || String(HOST).startsWith("*")) {
         return;
     }
 
-    const path = HOST + API + "/shift/ping";
-    const req = {
-        "api_token": (TOKEN || ""),
-        "num_fiscal": (CASH || "")
-    };
-
-    // Запускаємо асинхронний POST-запит
-    postRequest(path, req, (err, resp) => {
+    ping((err, resp) => {
         if (err) {
-            isConnected = false;
-
+            IS_CONNECTED = false;
             if (typeof callback === "function") {
                 callback(true, err || "Невідома помилка мережі");
             }
         } else {
-            isConnected = true;
+            // DfltPingTimer.start();
+            IS_CONNECTED = true;
             // if (resp && resp.token) TOKEN = resp.token;
 
             if (typeof callback === "function") {
@@ -99,12 +127,9 @@ function connect(callback) {
 }
 
 function ping(callback) {
-    const path = Param.url() + Param.api() + "/shift/ping";
-    const req = { "api_token": (Param.token() || ""), "num_fiscal": (Param.url() || "") }
+    const path = "/shift/ping";
+    const req = { "api_token": TOKEN, "num_fiscal": CASH }
     postRequest(path, req, callback)
-    // const req = { "api_token": TOKEN, "num_fiscal": CASH }
-    // console.log("ping "+ JSON.stringify(req))
-    // postRequest("/shift/ping", req, callback)
 
 }
 
@@ -256,6 +281,8 @@ function bindToSale(db, dcmid, payType) {
     let total_eq = 0;
     for (let r = 0; ok && r < dcmSource.length; ++r) {
         const dcm = dcmSource[r];
+        const article = LibItem.getItemById(db, dcm.itemid);
+        ok &= (!!article.id ?? false);
         // console.log(`id82#CashDesk ${JSON.stringify(dcm)}`);
         const price = dcm.amount !== 0 ? Math.abs(Number(dcm.eqamount || 0)/Number(dcm.amount)) : 0;
         total_eq += Number(dcm.eqamount || 0);
@@ -265,9 +292,9 @@ function bindToSale(db, dcmid, payType) {
         ok &= (Number(dcm.eqamount || 0) < 0);
 
         articles.push({
-            "unit_code": dcm.unitcode ?? "",
-            "unit_name": dcm.unitchar ?? "",
-            "name": dcm.itemchar ?? "",
+            "unit_code": article.unitcode ?? "",
+            "unit_name": article.unitchar ?? "",
+            "name": article.itemchar ?? "",
             "amount": Math.abs(dcm.amount).toFixed(dcm.unitprec || 2),
             "price": price.toFixed(3),
             "cost": Math.abs(dcm.eqamount || 0).toFixed(2),
@@ -289,7 +316,7 @@ function bindToSale(db, dcmid, payType) {
     const pure_total_val = totalEqCents / 100;
 
     // 2. Розраховуємо копійки з урахуванням типу оплати (НБУ тільки для готівки!)
-    const totalSumCents = isCash ? (Math.round(totalEqCents / 10) * 10) : totalEqCents;
+    const totalSumCents = isCash ? (Math.round(totalEqCents / 50) * 50) : totalEqCents;
 
     const total_sum_val = totalSumCents / 100;
     const round_sum_val = (totalSumCents - totalEqCents) / 100;
@@ -301,7 +328,7 @@ function bindToSale(db, dcmid, payType) {
             "code": 0,
             "name": "ГОТIВКА",
             "payment_method": "готівка",
-            "sum": pure_total_val, // Сума товарів до округлення
+            "sum": total_sum_val,
             "sum_provided": total_sum_val, // Фактично отримано
             // "sum": pure_total_val.toFixed(2), // Сума товарів до округлення
             // "sum_provided": total_sum_val.toFixed(2), // Фактично отримано
@@ -312,17 +339,20 @@ function bindToSale(db, dcmid, payType) {
             "code": 1, // Код 1 або 2 залежно від налаштувань вашого ПРРО шлюзу для безготівки
             "name": "КАРТКА",
             "payment_method": "безготівка",
-            "sum": total_sum_val.toFixed(2), // Для картки сума платежу = сумі товарів
-            "sum_provided": total_sum_val.toFixed(2),
+            "sum": total_sum_val, // Для картки сума платежу = сумі товарів
+            "sum_provided": total_sum_val,
             "sum_remains": "0.00"
         });
     }
 
     const taxbind = {
+        "api_token": TOKEN,
+        "num_fiscal": CASH,
         "action_type": "Z_SALE",
         "local_number": dcmid,
         "total_sum": total_sum_val,  // Для готівки — округлена, для картки — точна
         "round_sum": round_sum_val,  // Для картки тут автоматично вийде "0.00"
+        "round_rule": 50,
         "products": articles,
         "payments": paymentsArray,
         "no_text_print": true,
@@ -356,18 +386,32 @@ function sale(db, dcmid, payType, callback) {
     // debug info
         console.warn("TAX.send is PROHIBITED (BAN_SEND = true) !!!")
     } else {
-        postRequest(String("/check/sale?api_token=%1").arg(TOKEN), bind, callback)
+        postRequest(`/check/sale?api_token=${TOKEN}`, bind, callback)
     }
 }
 
+// AppSettings.qml
 function x_report(callback) {
-    const req = { "api_token": TOKEN, "num_fiscal": CASH, "action_type": "Z_REPORT" }
+    const req = {
+        "api_token": TOKEN,
+        "num_fiscal": CASH,
+        "no_text_print": true,
+        "no_pdf": true,
+    }
     postRequest("/shift/xReport", req, callback)
 
 }
 
+// main.js, AppSettings.qml
 function z_report(callback) {
-    const req = { "api_token": TOKEN, "num_fiscal": CASH,"no_text_print": true,"no_pdf": true,"include_checks": false }
+    const req = {
+        "api_token": TOKEN,
+        "num_fiscal": CASH,
+        "action_type": "Z_REPORT",
+        "no_text_print": true,
+        "no_pdf": true,
+        "include_checks": false,
+    }
     // console.warn(`WW: CashDesk.js/z_report TAX is blocked !!!`);
     // return;
     if (BAN_SEND) {
@@ -378,6 +422,13 @@ function z_report(callback) {
     }
 }
 
+// /api/v2/checks/f301ab5f-21a4-491e-83ce-396fa2a47cbe/pdf?api_token=42b5eaccba739f08***e7fe157eba8bf&pdf_width=80
+function getCheckPdf(uuid, width, callback) {
+    const widthVal = String(width || "80");
+    const path = `/checks/${uuid}/pdf?api_token=${TOKEN}&pdf_width=${widthVal}`;
+    getRequest(path, callback)
+}
+
 function postRequest(path, req, callback) {
     // console.log("[libTAX] data=" + JSON.stringify(req)); return;
     // console.log(`CashDesk.js/postRequest req=${JSON.stringify(req)}`)
@@ -386,25 +437,29 @@ function postRequest(path, req, callback) {
 
     let request = new XMLHttpRequest();
     let  err = null, resp = null;
-    const url = /*host + API + */path
+    const url = HOST + API + path
     // console.log(`CashDesk.js/postRequest url=${url}`)
+    // console.info(`II: CashDesk.js#666 ${request.readyState}`)
     request.onreadystatechange = function() {
+        // console.info(`II: CashDesk.js#555 ${request.readyState}`)
+        // console.info(`II: CashDesk.js#7777 status=${request.status} ${request.response}`)
         if (request.readyState === XMLHttpRequest.DONE) {
             if (request.status === 200) {
                 let isPlainText = request.responseType === ''
                 resp = parse(request.response)
                 if (!isPlainText || !resp) {
-                    err = "Response error.\n" + request.response
+                    err = request.response
                 }
+            } else if (request.status === 403){
+                err = request.response
             } else if (request.status === 0){
                 err = "Site connection error"
             } else {
-                err = "URL: " + url
-                        + "\nRequest: "+JSON.stringify(req)
-                        + "\nResponse: "+request.response
+                console.error(`EE: CashDesk.ls/postRequest\n${JSON.stringify(req)}`);
+                err = request.response
             }
             // console.log(`CashDesk.js/postRequest request=${JSON.stringify(request)}`)
-            callback(err,resp);
+            callback(err,request.response);
         }
     }
 
@@ -415,6 +470,35 @@ function postRequest(path, req, callback) {
     // console.warn(`WW: CashDesk.js#111 send id BLOCKED !!!`)
     request.send(JSON.stringify(req));
     // request.send("data=" + JSON.stringify(req));
+}
+
+function getRequest(path, callback) {
+
+    let request = new XMLHttpRequest();
+    let  err = null, resp = null;
+    const url = HOST + API + path
+    console.log(`CashDesk.js/getRequest url=${url}`)
+    request.onreadystatechange = function() {
+        // console.info(`II: CashDesk.js#555 ${request.readyState}`)
+        // console.info(`II: GET CashDesk.js#1234 ${request.responseText}`)
+        if (request.readyState === XMLHttpRequest.DONE) {
+            if (request.status === 200) {
+                resp = request.response;
+                // resp = Qt.atob(request.response);
+            } else {
+                // console.error(`EE: CashDesk.ls/postRequest\n${JSON.stringify(request)}`);
+                err = request.response
+            }
+            // console.log(`CashDesk.js/getRequest resp=${resp}`)
+            callback(err, resp);
+        }
+    }
+
+    request.open("GET", url);
+    request.setRequestHeader("Content-Type","application/json");
+    request.setRequestHeader("Accept","application/json");
+    request.setRequestHeader("developer-id","linux,mppanna");
+    request.send();
 }
 
 /*

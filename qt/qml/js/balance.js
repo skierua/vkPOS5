@@ -1,3 +1,4 @@
+.import "v147/config.js" as Conf
 .import "v147/sqlBalance.js" as LibBal
 .import "v147/sqlItem.js" as LibItem
 .import "v147/sqlPrice.js" as LibPrice
@@ -7,6 +8,8 @@ const PROXY_DATA = [];
 const SECTION_CACHE = new Map();
 const PAGE_CAPACITY = 25;
 let SORT_ID = "";
+
+const DFLT_TRADE_ACNT = `${Conf.TRADE_ACNT_PREFIX}00`;
 
 function bindCount(){
     return SECTION_CACHE.size;
@@ -24,6 +27,18 @@ function load(db, model, ui) {
     const balVal = ui?.bal || "300";
     if (balVal.length < 2) return;
 
+    const priceAcnt = balVal.startsWith(Conf.TRADE_ACNT_PREFIX) ? balVal : DFLT_TRADE_ACNT;
+    const priceSource = LibPrice.dbLastRateList(db, priceAcnt);
+    // const priceMap = new Map();
+    // priceSource.forEach(v => {
+    //     priceMap.set(String(v.item), v);
+    // });
+    // for (let i = 0; i < priceSource.length; i++) {
+    //     let v = priceSource[i];
+    //     priceMap.set(String(v.item), v);
+    //     // if (i < 10) console.log(JSON.stringify(v));
+    // }
+    const priceMap = new Map(priceSource.map(v => [String(v.item), v]));
     const source = LibBal.balBalance(db, balVal) || [];
     for (let blnc of source){
         const crntItem = LibItem.getItemById(db, blnc.itemid);
@@ -34,20 +49,26 @@ function load(db, model, ui) {
         }
 
         // Витягуємо курс обміну з бази
-        const pr = LibPrice.sell(db, blnc.itemid) || { "price": 0, "qtty": 1 };
-        const denominator = Number(pr.qtty || pr.qty || 1) === 0 ? 1 : Number(pr.qtty || pr.qty );
-        const prval = Number(pr.price || 0) / denominator;
+        // const pr = LibPrice.sell(db, blnc.itemid) || { "price": 0, "qtty": 1 };
+        // const denominator = Number(pr.qtty || pr.qty || 1) === 0 ? 1 : Number(pr.qtty || pr.qty );
+        // const prval = Number(pr.price || 0) / denominator;
 
         // if (!prval) console.info(`II: balance.js/load prvalerror id=${blnc.itemid} prval=[${prval}] pr=${JSON.stringify(pr)}`)
-        blnc.price = prval;
-
-        blnc.eq = prval * Number(blnc.total || 0);
+        // blnc.price = prval;
+        // blnc.eq = prval * Number(blnc.total || 0);
+        const itemPrice = priceMap.get(blnc.itemid) || {
+            "item": blnc.itemid,
+            "acntno": priceAcnt,
+            "qty": 1,
+            "bsc": 0.0,
+            "buy": 0.0,
+            "sell": 0.0,
+        };
+        blnc.price = itemPrice;
+        blnc.eq = itemPrice.bsc * Number(blnc.total || 0);
 
         ROW_CACHE.push(blnc);
-
     }
-
-    // sortData();
     filterData(model, ui);
 }
 
@@ -172,7 +193,7 @@ function populate(model, page =1){
             "itemprec": sourceRow.item?.unitprec || 0,
             "total": sourceRow.total || 0,
             "eq": sourceRow.eq || 0,
-            "price": sourceRow.price || 0,
+            "price": sourceRow.price.bsc || 0,
             "intm": sourceRow.intm || "",
             "outm": sourceRow.outm || "",
         }

@@ -220,13 +220,13 @@ Item {
         }
     }
 
-    // addDocum(dbDriver, "", crntAcnt?.acntno || "", root.crntAmnt);
-    function newDcm(atclid, amnt, acntno){
+    function newDcm(atclid, amnt, forceEdit = true){
         // console.log(`Bind.qml#he52 atclid=${atclid}  amnt=${amnt} acntno=${acntno} `)
-        const acntVal = !!acntno ? JS.getAcnt(dbDriver, acntno) : null;
+        // const acntVal = !!acntno ? JS.getAcnt(dbDriver, acntno) : root.crntAcnt;
+        const acntVal = root.crntAcnt;
         const uiBridge = {
             atclid: atclid || "",
-            acnt: acntVal || root.crntAcnt || null,
+            acnt: acntVal || null,
             amnt: amnt || root.crntAmnt,
             state: String(root.state || "check")
         };
@@ -239,10 +239,13 @@ Item {
         }
         // console.log("bindView.model")
         // for (let r =0; r < bindView.model.count; ++r) console.warn(`8sjn#Bind.qml ${JSON.stringify(bindView.model.get(r))}`)
-        if (!acntno){
+        // const rtest = bindModel.get(0);
+        // const test = Number(rtest.jprice.offer || rtest.jprice.price || rtest.jprice.bsc || 0)
+        // console.log(`bind.qml#yq65 price=${test}\n rtest=${JSON.stringify(rtest.jprice)}`)
+        if (!!forceEdit){
             bindView.currentIndex = 0
             bindView.forceActiveFocus()
-        }
+        } else bindView.currentIndex = -1;
 
     }
 
@@ -265,11 +268,11 @@ Item {
         newRowAction.trigger();
     }
 
-    function setCrntClient(clnt){
+    function setCrntClient(clid){
         root.crntAcnt = JS.getAcnt(dbDriver)    // set default account
-        root.crntClient = (!!clnt ? clnt : null);
+        root.crntClient = (!!clid ? JS.getClient(dbDriver, clid) : null);
         newRowAction.trigger();
-        vkEvent("clientChanged", clnt)
+        vkEvent("clientChanged", root.crntClient)
     }
 
 
@@ -441,9 +444,15 @@ Item {
                                 // Відображення ціни за одиницю
                                 Text {
                                     id: fldPrice
+                                    readonly property real priceVal: {
+                                        const pr = Number(model.jprice?.offer || model.jprice?.price || model.jprice?.bsc || 0);
+                                        // console.log(`Bind.qml#7d1 pr=${pr}\n${JSON.stringify(model.jprice)}`)
+                                        return pr;
+                                    }
+
                                     readonly property int pricePrecision: {
-                                        const vv = Number(model.jprice?.offer || model.jprice?.price || 0);
-                                        return Math.abs((vv * 100) - Math.round(vv * 100)) > 0.0001 ? 4 : 2;
+                                        // const vv = Number(model.jprice?.offer || model.jprice?.price || 0);
+                                        return Math.abs((priceVal * 100) - Math.round(priceVal * 100)) > 0.0001 ? 4 : 2;
                                     }
                                     Layout.fillWidth: true
                                     visible: dlgRoot.isTrade
@@ -451,7 +460,7 @@ Item {
                                     color: (model.jprice?.offer ?? 0) ? "#e65100" : "#424242"
                                     horizontalAlignment: Text.AlignHCenter
                                     verticalAlignment: Text.AlignVCenter
-                                    text: Number(model.jprice?.offer || model.jprice?.price || 0).toFixed(pricePrecision)
+                                    text: priceVal.toFixed(pricePrecision)
 
                                     MouseArea {
                                         anchors.fill: parent
@@ -586,10 +595,11 @@ Item {
                                     dlgRoot.ListView.view.restart();
                                 }
                                 visible = false;
-                                if (dlgRoot.isTrade && (Number(model.jprice?.offer || model.jprice?.price || 0) === 0)) {
-                                    fldPriceEdit.visible = true;
-                                    fldPriceEdit.forceActiveFocus();
-                                } else fldMainInput.forceActiveFocus(); // Повертаємо фокус на головний сканер
+                                // if (dlgRoot.isTrade && (Number(model.jprice?.offer || model.jprice?.price || 0) === 0)) {
+                                //     fldPriceEdit.visible = true;
+                                //     fldPriceEdit.forceActiveFocus();
+                                // } else
+                                    fldMainInput.forceActiveFocus(); // Повертаємо фокус на головний сканер
                             }
                             onAccepted: visible = false
                         }
@@ -1316,9 +1326,9 @@ Item {
         onSelected: (code, id) => {
             if (code==="client"){                  // client
                 // root.crntAcnt = JS.getAcnt(dbDriver)    // set default account
-                const clnt = JS.getClient(dbDriver, id);
-                root.crntClient = clnt;
-                setCrntClient(clnt);
+                // const clnt = JS.getClient(dbDriver, id);
+                // root.crntClient = clnt;
+                setCrntClient(id);
                 // console.log(`w82j$Bind.qml HERE 1111`)
                 // newRowAction.trigger();
             } else if (code === "acntno") {        // acntno

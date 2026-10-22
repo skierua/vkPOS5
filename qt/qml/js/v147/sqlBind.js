@@ -73,8 +73,6 @@ function selStmt(archive) {
     const fldShift = isArchive ? "shftid" : "0";
     const fldDcmid = isArchive ? "dcmid" : "id";
 
-    // ✅ ВИПРАВЛЕНО: Додано префікси ${tbl}. до всіх рідних полів документів,
-    // щоб уникнути помилки "ambiguous column name", якщо такі ж поля є в таблиці item
     return `
     SELECT
         ${fldShift} AS shftid,
@@ -105,6 +103,11 @@ function selStmt(archive) {
     // LEFT JOIN itemunit ON (defunit = itemunit.pkey)
 }
 
+const  buildWhereClause = (conditionsArray) => {
+    if (!conditionsArray || conditionsArray.length === 0) return "";
+    return "WHERE " + conditionsArray.join(" AND ");
+}
+
 // Безпечний пошук одного документа
 function selDcmById(db, dcmid, archive) {
     if (!db) return null;
@@ -125,8 +128,19 @@ function selDcmsByPid(db, pid, archive) {
     const cleanPid = parseInt(pid, 10) || 0;
     const tbl = isArchive ? "strgdocum" : "docum";
 
-    const vsql = `${selStmt(isArchive)} WHERE ${tbl}.parentid = ${cleanPid}`;
-    return db.dbSelectRowsJSON(vsql);
+    const cond = [];
+    const param = [];
+    if (!!cleanPid){
+        cond.push(`${tbl}.parentid = ?`);
+        param.push(cleanPid);
+    }
+    const condStr = buildWhereClause(cond);
+    const vsql = `${selStmt(isArchive)} ${condStr};`;
+
+    return db.dbSelectRows(vsql, param) || [];
+
+    // const vsql = `${selStmt(isArchive)} WHERE ${tbl}.parentid = ${cleanPid}`;
+    // return db.dbSelectRowsJSON(cleanPid);
 }
 
 // Пошук за кастомною SQL-умовою
@@ -259,7 +273,8 @@ function updDocum(db, dcmid, updateFields, archive) {
     });
 
     const usql = `UPDATE ${tbl} SET ${setParts.join(", ")} WHERE ${fldName} = :condition_id`;
-    // console.log(`dh6g#sqlBind ${usql} \nparam=${JSON.stringify(params)}`); return;
+    // console.log(`dh6g#sqlBind ${usql} \nparam=${JSON.stringify(params)}`);
+    // return;
     return db.dbUpdateObj(usql, params);
 }
 

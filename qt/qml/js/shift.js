@@ -1,4 +1,5 @@
 .import "libREST.js" as REST
+// .import "CashDesk.js" as TAX
 // .import "v147/config.js" as Conf
 .import "v147/sqlAcnt.js" as LibAcnt
 .import "v147/sqlItem.js" as LibItem
@@ -23,12 +24,11 @@
    if (isShiftActive){
       // LibShift.dbRefreshTradeRate(db);
    } else {
-      const cashiers = LibShift.dbCashier(db) || [];
+      const cashiers = [{"code":"", "note":"Оберіть касира...", "psw":"11"},
+                        ...(LibShift.dbCashier(db) || []).sort((a,b) => a.note.localeCompare(b.note))];
+
       model.clear();
-      model.append({"code":"", "note":"Оберіть касира...", "psw":"11"})
-      for (const row of cashiers) model.append(row);
-         // model = cashiers;
-      // }
+      cashiers.forEach(row => model.append(row));
    }
 
    // populateIncas();

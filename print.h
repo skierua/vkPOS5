@@ -31,6 +31,9 @@ public:
 
     Q_INVOKABLE int saveOrder(const QVariantMap &bind);
 
+    // Q_INVOKABLE QString savePdf(const QByteArray &base64Data, const QString &fileName = "report/lastTAXcheck.pdf");
+    Q_INVOKABLE QString savePdf(const QString &base64Data, const QString &fileName = "report/lastTAXcheck.pdf");
+
     Q_INVOKABLE void setTerm(const QString &v) { m_termCode = v; }
     Q_INVOKABLE void setAddress(const QString & v) { m_termAddress = v; }
     Q_INVOKABLE void setUser(const QString & v) { m_termUser = v; }
@@ -63,6 +66,7 @@ private:
     // Статичні суфікси шляхів (будуть збиратися в абсолютні шляхи всередині .cpp файлу)
     const QString m_checkSubPath{"report/lastcheck.pdf"};
     const QString m_orderSubPath{"report/order.pdf"};
+    const QString m_TAXcheckSubPath{"report/lastTAXcheck.pdf"};
 
     // Головна функція рендеру (макетування) чека
     int paintCheck(const QVariantMap &bind, int mode = 1, int copy = 0);

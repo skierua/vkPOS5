@@ -107,9 +107,11 @@ function handleDbNameChanged(db, prn, container, msg, ui){
         TAX.connect((err, errstr) => {
             if (!err) {
                 if (!!ui && typeof ui.setTaxAction === "function")
-                    ui.setTaxAction(TAX.isConnected);
+                    ui.setTaxAction(TAX.IS_CONNECTED);
+                    ui.pingTAX?.restart()
                 msg.info("З'єднання з фіскальним сервером успішно встановлено!");
             } else {
+                ui.pingTAX?.stop()
                 msg.warn("Помилка фіскального шлюзу: " + String(errstr));
             }
         });
@@ -127,6 +129,12 @@ function handleDbNameChanged(db, prn, container, msg, ui){
         if (shft?.shftdate !== currentDateStr)  ui.winShift();
     }
     return true;
+}
+
+function handlePingTAX(ui){
+    TAX.ping((err, resp) => {
+                 if (!!err) ui?.warn?.("Connection to the TAX server has been lost.")
+             });
 }
 
 function handleCloseTab(idx, container) {
@@ -177,14 +185,15 @@ function handleAddBindTab(db, prn, comp, msg, container, ui){
     container.currentIndex = container.count - 1;
 }
 
-function handleShiftWinClose(db, timer){
-    if (typeof LibShift !== "undefined" && typeof LibShift.crntShift === "function") {
-        const shft = LibShift.crntShift(db)
-        // Якщо зміна закрита в базі — примусово вимикаємо термінал
-        if (shft && shft.shftend !== "") {
-            if (typeof timer !== "undefined") timer.start();
-        }
-    }
+function handleShiftWinClose(ui){
+    // if (typeof LibShift !== "undefined" && typeof LibShift.crntShift === "function") {
+    //     const shft = LibShift.crntShift(db)
+    //     // Якщо зміна закрита в базі — примусово вимикаємо термінал
+    //     if (shft && shft.shftend !== "") ui?.error?.("Shift closing ERROR");
+    // }
+    if (TAX.IS_CONNECTED) {
+        if (!!ui && typeof ui.z_popup !== "undefined") ui.z_popup.open();
+    } else if (typeof ui?.quitApp === "function") ui.quitApp();
 }
 
 function reloadNaviMenu(menu, instantiator){
@@ -199,7 +208,7 @@ function reloadNaviMenu(menu, instantiator){
 }
 
 function handleZReport(msg){
-    if (!TAX.isConnected) return false;
+    if (!TAX.IS_CONNECTED) return false;
     TAX.z_report( (err, resp) =>
                 {
                     if (err){
@@ -207,21 +216,6 @@ function handleZReport(msg){
                         return false;
                     } else {
                         msg.info(`Z_report: OK # ${resp}`)
-                        return true;
-                    }
-                }
-            )
-}
-
-function handleXReport(msg){
-    if (!TAX.isConnected) return false;
-    TAX.x_report( (err, resp) =>
-                {
-                    if (err){
-                        msg.error(`X_report: ${err}`)
-                        return false;
-                    } else {
-                        msg.info(`X_report: OK # ${resp}`)
                         return true;
                     }
                 }
@@ -254,27 +248,63 @@ function fix_acnt_item_980(db, msg){
     return ok;
 }
 
-function handleDrawerEvent(id, row, ui){
+function handleDrawerEvent(db, id, row, ui){
     // console.info(`II: main.js#ue72\n id=${id} row=${JSON.stringify(row)}`)
-    if (!id || !row) ui?.error?.("Drawer event bad param");
+    if (!ui) {
+        console.error("EE: ui brige missing");
+        return;
+    }
+    if (!ui.crntComp) {
+        ui.error?.("EE: ui Bind missing");
+        ui.closeDrawer();
+        return;
+    }
+    // if (row.acntno === LibAcnt.DfltAcnt.cashAcntNo(db)){
+    //     return;
+    // }
+
+    if (!id || !row) ui.error?.("Drawer event bad param");
     if (id === "rowDoubleClicked"){
-       if (String(ui?.crntComp?.codeid || "") === "bind") {
+       if (String(ui.crntComp?.codeid || "") === "bind") {
+           let ok = true;
+           const clid = row.clid ?? ""
+           const acntno = row.acntno ?? ""
+           if ( clid !== ""
+                && clid !== String(ui.crntComp.crntClient?.clid ?? "")){
+               // const cl = LibClient.client(db, clid)
+               ui.crntComp?.setCrntClient(clid);
+               ui.warn("Змінено клієнта")
+           }
+
+           if (acntno !== ui.crntComp.crntAcnt.acntno
+                   && acntno !== LibAcnt.DfltAcnt.cashAcntNo(db) ){
+               const acnt = LibAcnt.acntbal(db, acntno);
+               ui.crntComp.crntAcnt = acnt;
+               ui.warn("Змінено типовий рахунок")
+           }
+
            if (String(row?.acntno || "").startsWith(Conf.DEPO_ACNT_PREFIX)
                    || String(row?.acntno || "").startsWith(Conf.BONUS_ACNT_PREFIX)){
-               ui?.crntComp.newDcm(String(row?.key || ""),
+                ok = ui?.crntComp.newDcm(String(row?.key || ""),
                             0 - Number(row?.total || 0),
-                            String(row?.acntno || ""));
+                            false);
            }  else if (String(row?.acntno || "").startsWith(Conf.CASH_ACNT_PREFIX)
                        || String(row?.acntno || "").startsWith(Conf.TRADE_ACNT_PREFIX)){
-               ui?.crntComp.newDcm(String(row?.key || ""),
+                ok = ui?.crntComp.newDcm(String(row?.key || ""),
                             0,
-                            String(row?.acntno || ""));
+                            false);
+           } else {
+               ui?.warn?.("Unsupported account");
+               ui.closeDrawer();
            }
-           else ui?.warn?.("Unsupported account");
-
-       } else ui?.error?.("Target component missmatch");
+            if (!ok) ui.closeDrawer();
+       } else {
+           ui?.error?.("Target component missmatch");
+           ui.closeDrawer();
+       }
     } else {
-       ui?.warn?.("Drawer bad event");
+        ui.closeDrawer();
+        ui?.warn?.("Drawer bad event");
     }
 
 }
