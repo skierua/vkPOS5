@@ -15,6 +15,7 @@ Item {
                 actBasic.trigger();
             }
         }
+    property var prnDriver                 // printer manager
     property string title: "Налаштування системи"
     property string codeid: "settings"
 
@@ -73,7 +74,7 @@ Item {
                 && user === REST.USER
                 && psw === REST.PSW){
             editRestToken.text = REST.TOKEN;
-            restTab.connected = !!REST.isConnected;
+            restTab.connected = !!REST.IS_CONNECTED;
             btnSaveREST.enabled = false
             btnRestoreREST.enabled = false
         } else {
@@ -90,7 +91,7 @@ Item {
         editRestUser.text = REST?.USER || "";
         editRestPsw.text = REST?.PSW || "";
         editRestToken.text = REST?.TOKEN || "";
-        restTab.connected = REST?.isConnected || false;
+        restTab.connected = REST?.IS_CONNECTED || false;
 
     }
 
@@ -103,7 +104,7 @@ Item {
                 && api === TAX.API
                 && cash === TAX.CASH
                 && token === TAX.TOKEN){
-            taxTab.connected = !!TAX.isConnected;
+            taxTab.connected = !!TAX.IS_CONNECTED;
             btnSaveTAX.enabled = false
             btnRestoreTAX.enabled = false
         } else {
@@ -118,7 +119,7 @@ Item {
         editTaxApi.text = TAX?.API || "";
         editTaxCash.text = TAX?.CASH || "";
         editTaxToken.text = TAX?.TOKEN || "";
-        taxTab.connected = TAX?.isConnected || false;
+        taxTab.connected = TAX?.IS_CONNECTED || false;
     }
 
     function isAcntTabChanged(){
@@ -547,7 +548,7 @@ Item {
                                                       editRestToken.text.trim())
 
                                         REST.connect((err, msg) => {
-                                            restTab.connected = REST.isConnected;
+                                            restTab.connected = REST.IS_CONNECTED;
                                             editRestToken.text = REST.TOKEN;
                                             if (!err) {
                                                 root.vkEvent("info", "З'єднання з REST сервером успішно встановлено!");
@@ -669,8 +670,8 @@ Item {
                                     id: editTaxHost;
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 56
-                                    title: "🖥 Адреса фіскального сервера (Tax Host URL)"
-                                    placeholderText: "Наприклад: http://localhost:8080 або https://check.gov.ua"
+                                    title: "🖥 Адреса (Tax Host URL)"
+                                    placeholderText: "Наприклад:https://check.gov.ua"
                                     onTextChanged: refreshTAXConn()
                                 }
 
@@ -678,62 +679,71 @@ Item {
                                     id: editTaxApi;
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 56
-                                    title: "📦 Шлях до фіскального API (Tax API Endpoint)"
-                                    placeholderText: "Наприклад: api/v1/rro або prro/sign"
+                                    title: "📦 Шлях до API (Tax API Endpoint)"
+                                    placeholderText: "Наприклад: api/v1/rro"
                                     onTextChanged: refreshTAXConn()
-                                }
-                            }
-
-                            UITextField{
-                                id: editTaxCash;
-                                Layout.fillWidth: true
-                                Layout.preferredHeight: 56
-                                title: "🆔 Номер каси / Фіскальний код ПРРО (Cash ID)"
-                                placeholderText: "Введіть унікальний фіскальний номер каси..."
-                                onTextChanged: refreshTAXConn()
-                            }
-
-                            Rectangle { Layout.fillWidth: true; height: 1; color: "#e5e7eb"; Layout.topMargin: 4; Layout.bottomMargin: 4 }
-
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                spacing: 8
-
-                                // Кнопка: Перевірити фіскальне з'єднання (Connect)
-                                UIBtn{
-                                    id: btnConnectTAX
-                                    palette: taxTab.connected ? "green" : ""
-                                    text: taxTab.connected ? "✅ РРО авторизовано (Перепідключити)" : "⚙ Перевірити зв'язок з ПРРО (Connect)"
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 44
-                                    onClicked: {
-                                        taxTab.connected = false;
-                                        TAX.setParam(editTaxHost.text.trim(),
-                                                     editTaxApi.text.trim(),
-                                                     editTaxCash.text.trim(),
-                                                     editTaxToken.text.trim());
-
-                                        TAX.connect((err, errorMsg) => {
-                                            if (!err) {
-                                                root.vkEvent("info", "З'єднання з фіскальним сервером успішно встановлено!");
-                                            } else {
-                                                root.vkEvent("error", "Помилка фіскального шлюзу: " + String(errorMsg));
-                                            }
-                                            taxTab.connected = TAX.isConnected;
-                                        });
-                                    }
                                 }
 
                                 UITextField{
-                                    id: editTaxToken;
+                                    id: editTaxCash;
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 56
-                                    title: "🔑 Фіскальний токен сесії (Tax Token)"
-                                    placeholderText: "Токен відсутній. Натисніть 'Connect' для авторизації..."
-                                    color: "#2e7d32"
+                                    title: "🆔 Фіскальний код ПРРО (Cash ID)"
+                                    placeholderText: "Введіть фіскальний номер каси..."
                                     onTextChanged: refreshTAXConn()
                                 }
                             }
+
+
+                            Rectangle { Layout.fillWidth: true; height: 1; color: "#e5e7eb"; Layout.topMargin: 4; Layout.bottomMargin: 4 }
+
+                            // ColumnLayout {
+                            //     Layout.fillWidth: true
+                            //     spacing: 8
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+
+                                    UITextField{
+                                        id: editTaxToken;
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 56
+                                        Layout.alignment: Qt.AlignBottom
+                                        title: "🔑 Фіскальний токен сесії (Tax Token)"
+                                        placeholderText: "Токен відсутній. Натисніть 'Connect' для авторизації..."
+                                        color: "#2e7d32"
+                                        onTextChanged: refreshTAXConn()
+                                    }
+
+                                    // Кнопка: Перевірити фіскальне з'єднання (Connect)
+                                    UIBtn{
+                                        id: btnConnectTAX
+                                        // Layout.fillWidth: true
+                                        Layout.alignment: Qt.AlignBottom
+                                        palette: taxTab.connected ? "green" : ""
+                                        text: taxTab.connected ? "✅ РРО авторизовано (Перепідключити)" : "⚙ Перевірити зв'язок з ПРРО (Connect)"
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 44
+                                        onClicked: {
+                                            taxTab.connected = false;
+                                            TAX.setParam(editTaxHost.text.trim(),
+                                                         editTaxApi.text.trim(),
+                                                         editTaxCash.text.trim(),
+                                                         editTaxToken.text.trim());
+
+                                            TAX.connect((err, errorMsg) => {
+                                                if (!err) {
+                                                    root.vkEvent("info", "З'єднання з фіскальним сервером успішно встановлено!");
+                                                } else {
+                                                    root.vkEvent("error", "Помилка фіскального шлюзу: " + String(errorMsg));
+                                                }
+                                                taxTab.connected = TAX.IS_CONNECTED;
+                                            });
+                                        }
+                                    }
+                                }
+                            // }
                         }
                     }
 
@@ -773,6 +783,116 @@ Item {
                             TAX.restore(dbDriver);
                             populateTAX();
                         }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: taxManageColumn.implicitHeight + 32
+                        color: "#ffffff"
+                        radius: 12
+                        border.color: "#e5e7eb"
+                        border.width: 1
+
+                        ColumnLayout {
+                            id: taxManageColumn
+                            anchors.fill: parent
+                            anchors.margins: 16
+                            spacing: 14
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 10
+
+                                UIBtn{
+                                    id: btnPingTAX
+                                    enabled: taxTab.connected
+                                    text: "Ping"
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 44
+
+                                    onClicked: {
+                                        // console.info("AppSetting.qml Ping onClicked")
+                                        TAX.ping((err, resp) => {
+                                                     const title = !!err ? "ПОМИЛКА:" : "УПІШНО:"
+                                                     taxFeedback.text = title + "\n" + (err || resp);
+                                                 });
+                                    }
+                                }
+
+                                UIBtn{
+                                    id: btnXrepoTAX
+                                    enabled: taxTab.connected
+                                    text: "X-звіт"
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 44
+
+                                    onClicked: {
+                                        // console.info("AppSetting.qml X-report onClicked")
+                                        TAX.x_report((err, resp) => {
+                                                // console.info(`AppSetting.qml X-report onClicked ${err || resp}`)
+                                                    const title = !!err ? "ПОМИЛКА:" : "УПІШНО:"
+                                                    taxFeedback.text = title + "\n" + (err || resp);
+                                                 });
+                                    }
+                                }
+
+                                UIBtn{
+                                    id: btnZrepoTAX
+                                    enabled: taxTab.connected
+                                    text: "Z-звіт"
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 44
+
+                                    onClicked: {
+                                        TAX.z_report((err, resp) => {
+                                                // console.info(`AppSetting.qml Z-report onClicked ${err || resp}`)
+                                                         const title = !!err ? "ПОМИЛКА:" : "УПІШНО:"
+                                                         taxFeedback.text = title + "\n" + (err || resp);
+                                                 });
+                                    }
+                                }
+
+/*                                UIBtn{
+                                    id: btnTestTAX
+                                    // enabled: false
+                                    text: "pdf check"
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 44
+
+                                    onClicked: {
+                                        TAX.getCheckPdf("eeab9f39-a0f2-433a-83ad-39e770e320bf", null, (err, resp) => {
+                                                console.info(`AppSetting.qml btnTestTAX onClicked\n ${err || resp}`)
+                                                 const title = !!err ? "Помилка:" : "Успішно:"
+                                                 taxFeedback.text = title + "\n" + (err || resp);
+                                                 // if (!err) prnDriver.savePdf(resp);
+                                            });
+                                    }
+                                } */
+
+                                UIBtn{
+                                    id: btnClearInfoTAX
+                                    enabled: !!taxFeedback.text
+                                    text: "Очистити"
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 44
+                                    palette: 'pink'
+
+                                    onClicked: taxFeedback.text = ''
+                                }
+                            }
+
+                            Rectangle { Layout.fillWidth: true; height: 1; color: "#e5e7eb"; Layout.topMargin: 4; Layout.bottomMargin: 4 }
+
+                            Label{
+                                id: taxFeedback
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 120
+                                clip: true
+                                wrapMode: Text.WrapAnywhere
+
+                            }
+                        }
+
                     }
 
                 }

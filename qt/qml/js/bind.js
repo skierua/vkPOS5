@@ -148,6 +148,14 @@ function handleTranAction(db, prn, model, ui) {
         return ok;
     };
 
+    const l_parse = (raw) => {
+        try {
+            return JSON.parse(raw);
+        } catch (err) {
+            return null;
+        }
+    }
+
     let sendToTax = false;
     let bindForTax = null;
     if (!!ui && ui.state === "taxcheck") {
@@ -200,17 +208,21 @@ function handleTranAction(db, prn, model, ui) {
 
     // console.warn(`WW:200 bind.js change to previous\n sendToTax=${sendToTax}`);
     // if (sendToTax) {
-    if (sendToTax && TAX.isConnected) {
+    if (sendToTax && TAX.IS_CONNECTED) {
         TAX.sale(db, bid, 0, (err, resp) => {
-                      if (!!err)  ui?.error?.(err || "TAX sending error");
-                    else {
-                        const updateData = {
-                        "dcmno": String(resp.uuid || ""),
+                     // console.info(`II: bind.js#5et3 ${resp}`)
+                    const updateData = {
                         "dcmnote": JSON.stringify(resp)
-                        };
-                        const uOk = LibBind.updDocum(db, bid, updateData);
-                        if (!uOk) ui?.error?.(db.dbLastError() || "Docum updating error");
-                    }
+                    };
+                    if (!!err)  ui?.error?.(err || "TAX sending error");
+                    else {
+                        const parsed = l_parse(resp);
+                        const taxNo = String(parsed?.uuid || "");
+                        if (!!taxNo) updateData.dcmno = taxNo;
+                         // console.info(`II: bind.js#4r21 updateData=${JSON.stringify(updateData)}\ntaxNo=${taxNo}`)
+                     }
+                    const uOk = LibBind.updDocum(db, bid, updateData);
+                    if (!uOk) ui?.error?.(db.dbLastError() || "Docum updating error");
                   });
     }
 
@@ -465,8 +477,9 @@ function handleFind(db, str, popup, ui) {
         } else {
             if (res[0].code==="client"){                  // client
                 // handleClientChanged(db, res[0].id)
-                const clnt = getClient(db, res[0].id);
-                ui.setClient(clnt || null);
+                // const clnt = getClient(db, res[0].id);
+                // ui.setClient(clnt || null);
+                ui.setClient(res[0].id ?? "");
                 // ui.vkEvent("clientChanged", clnt)
             } else if (res[0].code === "acntno") {        // acntno
                 const acnt = getAcnt(db, res[0].id);
@@ -518,12 +531,16 @@ function handleNewDcm(db, model, ui){
 
         // console.log(`bind.js#mdh30 crn=${jatcl.id} ba=${bidAskSign} no=${ui.acnt?.acntno || ""}`)
         // console.log(`bind.js#mdh30 price=${JSON.stringify(jprice)}\natcl=${JSON.stringify(jatcl)}`)
+        // console.log(`bind.js#mdh30 price=${test}\natcl=${JSON.stringify(jprice)}`)
         note = jatcl.itemchar + " " + ((!!jprice?.offer) ? "#АКЦІЯ!" : (!!jprice?.dsc ? "#ЗНИЖКА!" : ""))
     }
     if (stateVal === "taxcheck"){
         if (dcmType !== "trade:sell" || amntVal > 0) return false;
     }
     const ok = model.addDcm(jatcl, ui.acnt, dcmType, amntVal, jprice, note)
+    // const rtest = model.get(0);
+    // const test = Number(rtest.jprice.offer || rtest.jprice.price || rtest.jprice.bsc || 0)
+    // console.log(`bind.js#sj72 price=${test}\n rtest=${JSON.stringify(rtest.jprice)}`)
     return ok;
 
 }
@@ -639,7 +656,7 @@ function createBindForTax_cd(db, dcmid, payType) {
 */
 
 function sendBindToREST(db, jbind, ui){
-    // console.info(`II: bind.js/sendBindToREST isConnected=${REST.isConnected}`)
+    // console.info(`II: bind.js/sendBindToREST isConnected=${REST.IS_CONNECTED}`)
     if (REST.IS_CONNECTED){
        REST?.uploadBalance?.(db,
          (e)=>{

@@ -4,50 +4,52 @@
 .import "sqlAcnt.js" as LibAcnt
 .import "sqlPrice.js" as LibPrice
 
+const SHIFT_STMT = `
+    SELECT
+        id,
+        shftdate,
+        shftbegin,
+        shftend,
+        cshr,
+        cashier.note AS cshrname
+    FROM shift
+        LEFT JOIN cashier ON(cshr = code)
+`;
+
+const CASHIER_STMT = `
+    SELECT
+        code,
+        note,
+        psw
+    FROM cashier
+`;
+
 
 function dbShift(db, condition){
     if (!db) return null;
-    const vsql = `
-        SELECT
-            id,
-            shftdate,
-            shftbegin,
-            shftend,
-            cshr,
-            cashier.note AS cshrname
-        FROM shift
-            LEFT JOIN cashier ON(cshr = code)
-        ${condition};
-    `
+    const vsql = `${SHIFT_STMT} ${condition};`;
     // console.log(`sqlShift.js#73yu ${vsql}`)
     return db.dbSelectRowsJSON(vsql);
 }
 
-function dbCashier(db, condition, filter){
+function dbCashier(db/*, condition, filter*/){
     if (!db) return null;
-    const whereCondition = (condition ? `WHERE ${condition}` : "")
-    const vsql = `
-        SELECT
-            code,
-            note,
-            psw
-        FROM cashier
-        ${whereCondition}
-        ORDER BY note;
-    `
+    // const whereCondition = (condition ? `WHERE ${condition}` : "")
+    const vsql = `${CASHIER_STMT};`;
     // console.log(`sqlShift.js#73yu ${vsql}`)
-    return db.dbSelectRowsJSON(vsql, filter);
+    return db.dbSelectRows(vsql, []);
 }
 
 /**
- *
+ * bind.js, shift.js, main.js
  */
 function crntShift(db) {
     if (!db) return null;
 
-    const condition = "ORDER BY id DESC LIMIT 1";
-    const res = dbShift(db, condition);
-// console.log(`sqlShift#e7h len=${res.length} shift=${JSON.stringify(res)}`)
+    // const condition = "ORDER BY id DESC LIMIT 1";
+    const  vsql = `${SHIFT_STMT} ORDER BY id DESC LIMIT 1;`;
+    const res = db.dbSelectRows(vsql, []);
+    // console.log(`sqlShift#e7h len=${res.length} shift=${JSON.stringify(res)}`)
     if (res && res.length > 0)  return res[0];
     return null;
 }
@@ -60,19 +62,26 @@ function cashierList(db) {
     return res;
 }
 
+// shift.js
 function dbStartShift(db, cshrid = "") {
     if (!db) return null;
     const vnewd = new Date().toISOString();
 
-    let vsql = `
-    INSERT INTO shift (shftdate, shftbegin, cshr)
-        VALUES ('${vnewd.substring(0, 10)}',
-                '${vnewd}',
-                '${cshrid}');
-    `
-    // console.log("#uhe4 sql="+vsql)
-    const vid =  db.dbInsert(vsql)
-    // console.log("#4eq id="+vid)
+    const param = [
+                    vnewd.substring(0, 10),
+                    vnewd,
+                    cshrid
+                ];
+
+    let vsql = " INSERT INTO shift (shftdate, shftbegin, cshr) VALUES ( ? , ? , ?);";
+
+    // let vsql = `
+    // INSERT INTO shift (shftdate, shftbegin, cshr)
+    //     VALUES ('${vnewd.substring(0, 10)}',
+    //             '${vnewd}',
+    //             '${cshrid}');
+    // `;
+    const vid =  db.dbInsert(vsql, param)
 
     return vid;
 }

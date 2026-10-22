@@ -98,6 +98,7 @@ Window {
                 root.isProcessing = false;
                 if (!ok) {
                     vkEvent("info", "Зміну успішно ЗАКРИТО");
+                    vkEvent("shiftClosed", null);
                     root.close();
                 } else logView.error("Помилка закриття зміни");
             } else { logView.error("Системна помилка: Відсутня функція закриття зміни"); }

@@ -400,6 +400,37 @@ int Print::saveOrder(const QVariantMap &bind)
     return 0;
 }
 
+QString Print::savePdf(const QString &base64Data, const QString &fileName){
+// QString Print::savePdf(const QByteArray &base64Data, const QString &fileName){
+    // qDebug() << "II: print.cpp#38u" << base64Data;
+    // QByteArray cleanData = base64Data.toUtf8();
+    // if (cleanData.contains("base64,")) {
+    //     cleanData = cleanData.mid(cleanData.indexOf("base64,") + 7);
+    // }
+
+    // Decode Base64
+    QByteArray pdfBytes = QByteArray::fromBase64(base64Data.toUtf8());
+    // if (pdfBytes.isEmpty()) {
+    //     qWarning() << "Failed to decode PDF Base64 string.";
+    //     return QString();
+    // }
+
+    // Determine save path (e.g., App Local Data or Temp directory)
+    // QString path = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/" + fileName;
+    QString path = getAbsoluteReportPath(fileName);
+
+    QFile file(path);
+    if (file.open(QIODevice::WriteOnly)) {
+        file.write(pdfBytes);
+        file.close();
+        qDebug() << "PDF saved to:" << path;
+        return path; // Return file path so QML can open it if needed
+    }
+
+    qWarning() << "Could not write PDF file to:" << path;
+    return QString();
+}
+
 /* // old version
 int Print::paintCheck(const QVariantMap &bind, int mode, int isCopy){
     QLocale locale = QLocale::system();

@@ -38,6 +38,7 @@ ApplicationWindow {
             setRateOnline: (v) => { rateLoader.isRESTConnected = !!v; },
             setTaxAction: (v) => { bindTaxAction.enabled = !!v; },
             setFooter: (v) => { footerLeftLabel.text = v; },
+            pingTAX: pingTAXTimer,
             // menu: naviMenu_dynamic,
             // menuInstantiator: naviMenuInstantiator,
         };
@@ -136,13 +137,13 @@ ApplicationWindow {
                         // syncBalanceAction,
                         changeDBAction,
                         { isSeparator: true },  // ✂️ роздільник
-                        // testAction,
+                        testAction,
                         winShiftAction,
                         { isSeparator: true },  // ✂️ роздільник
                         quitAction
                     ]
 
-                    // 2. ✨ Інстанціатор, який фільтрує та створює контент «на льоту»
+                    // Інстанціатор, який фільтрує та створює контент «на льоту»
                     Instantiator {
                         id: naviMenuInstantiator
                         model: naviMenu_dynamic.menuStructure
@@ -609,13 +610,19 @@ ApplicationWindow {
     Action {
         id: testAction
         text: "TEST"
-        enabled: false
+        enabled: true
         onTriggered: {
             const ui = {
+                quitApp: () => quitTimer.start(),
+                z_popup: popupCloseShift,
                 error: (str) => logView.error(str),
-            };
+            }
+            JS.handleShiftWinClose(Db, ui);
+            // const ui = {
+            //     error: (str) => logView.error(str),
+            // };
 
-            JS.testAction_handled(Db);
+            // JS.testAction_handled(Db);
             // JS.fix_acnt_item_980(Db, logView);
             // JS.feya_feature_fix(Db, logView);
             // popupCloseShift.open()
@@ -642,6 +649,21 @@ ApplicationWindow {
         onTriggered: {
             closeChildWindow()
             Qt.quit()
+        }
+    }
+
+    Timer {
+        id: pingTAXTimer
+        interval: 30 * 60 * 1000 // 30 minutes
+        repeat: true
+        running: false          // Start it manually when needed
+
+        onTriggered: {
+            const ui = {
+                warn: (str) => logView.warn(str),
+                error: (str) => logView.error(str),
+            }
+            JS.handlePingTAX(ui);
         }
     }
 
@@ -781,7 +803,7 @@ ApplicationWindow {
             }
             const component = Qt.createComponent("AppSettings.qml");
             if (component.status === Component.Ready) {
-                const newObj = component.createObject(compContainer, { dbDriver: Db })
+                const newObj = component.createObject(compContainer, { dbDriver: Db, prnDriver: Prn })
                 newObj.vkEvent.connect( (id, param) => {
                     if (id === 'info') {
                         logView.info(`[Settings] ${param ?? "Unknown info"}`, 1, 5)
@@ -911,13 +933,18 @@ ApplicationWindow {
             function onClosing() {
                 winShiftLoader.active = false;
                 // console.log(`Main.qml/winShiftLoader#8dj onClosing popupCloseShift.opened=${popupCloseShift.opened}`)
-                if (!popupCloseShift.opened) {
-                    JS.handleShiftWinClose(Db, quitTimer);
-                }
+
             }
 
             function onVkEvent(id, param) {
-                if (id === "info"){
+                if (id === "shiftClosed"){
+                    const ui = {
+                        quitApp: () => quitTimer.start(),
+                        z_popup: popupCloseShift,
+                        // error: (str) => logView.error(str),
+                    }
+                    JS.handleShiftWinClose(ui);
+                } else if (id === "info"){
                     logView.info(`[Shift] ${param ?? "Unknown info"}`);
                 } else if (id === "warn"){
                     logView.warn(`[Shift] ${param ?? "Unknown warning"}`);
@@ -1311,8 +1338,9 @@ ApplicationWindow {
                    crntComp: compContainer.currentItem,
                    warn: (str) => logView.warn(str),
                    error: (str) => logView.error(str),
+                    closeDrawer: () => drawer2Right.close(),
                };
-                JS.handleDrawerEvent(id, param, uiBridge);
+                JS.handleDrawerEvent(Db, id, param, uiBridge);
             }
         }
     }

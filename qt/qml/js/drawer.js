@@ -130,36 +130,18 @@ function loadProfit(db, model, balList) {
 // console.info(`II: drawer.js/loadProfit ${JSON.stringify([...SECTION_CACHE.entries()])}`)
     // sortData();
     ROW_CACHE.sort((a,b) => {
+                       const maskSort = (Number(a.mask) === 2 && Number(b.mask) === 2)
+                       ?  (a.so || "").localeCompare(b.so || "") : 0;
                        return (a.bind || "").localeCompare(b.bind || "")
-                       || (a.so || "").localeCompare(b.so || "");
+                       || (Number(a.mask) - Number(b.mask))
+                       || maskSort
+                     || (Number(b.total) - Number(a.total))
+                     ;
                        // || Math.abs(Number(b.total)) - Math.abs(Number(a.total));
                    });
     filterData(model)
     return;
 }
-
-/*function sortData(){
-    ROW_CACHE.sort((a,b) => {
-                 const compBind = (a.acntno || "").localeCompare(b.acntno || "");
-                 if (compBind !== 0) return compBind;
-
-                 const maskA = Number(a.mask);
-                 const maskB = Number(b.mask);
-                 if (!isNaN(maskA) && !isNaN(maskB) && maskA !== maskB) {
-                     return maskA - maskB;
-                 }
-
-                 const numA = Number(a.so);
-                 const numB = Number(b.so);
-                 if (!isNaN(numA) && !isNaN(numB) && numA !== numB) {
-                     return numA - numB;
-                 }
-                 const compSo = (a.so || "").localeCompare(b.so || "");
-                 if (compSo !== 0) return compSo;
-
-                 return (a.acntno || "").localeCompare(b.acntno || "");
-             });
-}*/
 
 function isAllowed(row, flt) {
     if (!row) return false;

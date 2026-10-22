@@ -40,6 +40,7 @@ Window {
     Action {
         id: loadAction
         onTriggered: source => {
+            vfilterEdit.expanded = false;
             const brige = {
                  bal: source.bal,
                  setPages: (v) => { balanceRoot.countPage = Number(v || 1);},
@@ -408,7 +409,7 @@ Window {
                         Layout.preferredWidth: 65
                         horizontalAlignment: Text.AlignRight
                         verticalAlignment: Text.AlignVCenter
-                        text: price.toFixed(price < 10 ? 2 : 0);
+                        text: price.toFixed(price < 10 ? 2 : 2);
                         font.pixelSize: 12
                         color: "#4B5563"
                         clip: true
@@ -419,7 +420,7 @@ Window {
                         Layout.preferredWidth: 65
                         horizontalAlignment: Text.AlignRight
                         verticalAlignment: Text.AlignVCenter
-                        text: Math.abs(eq).toLocaleString(Qt.locale(), 'f', 0);
+                        text: Math.abs(eq).toLocaleString(Qt.locale(), 'f', 2);
                         color: (Number(price) * Number(total)) < 0 ? "#DC2626" : "#111827"
                         font { pixelSize: 12; bold: true }
                         clip: true
@@ -486,7 +487,7 @@ Window {
                     horizontalAlignment: Text.AlignRight
                     verticalAlignment: Text.AlignVCenter
                     // Безпечний виклик підсумку по касі
-                    text: rootSect.infoObj?.totaleq || "0"    // JSON.stringify(rootSect.infoObj)  //
+                    text: rootSect.infoObj?.totaleq.toLocaleString(Qt.locale(), 'f', 0) || "0"    // JSON.stringify(rootSect.infoObj)  //
                     font { pixelSize: 13; bold: true }
                     color: "#1F2937"
                 }

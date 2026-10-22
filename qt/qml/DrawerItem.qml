@@ -18,7 +18,8 @@ Item {
         } else {
             // if (typeof drawerModel.clear === "function")
             vw.model.clear();
-            dataFilter.text = "";
+            dataFilter.expanded = false;
+            // dataFilter.text = "";
         }
     }
 
@@ -378,14 +379,15 @@ Item {
             Layout.preferredHeight: 32
             Layout.maximumHeight: 38
             color: "#eaedf0"
-            // radius: 8
+            radius: 8
             // border.color: dataFilter.activeFocus ? "#0288d1" : "#e0e0e0"
             // border.width: dataFilter.activeFocus ? 2 : 1
             UIFindEdit{
                 id: dataFilter
                 placeholderText: "🔍 Фільтрувати..."
-                onTextChanged: JS.filterData(vw.model, text.trim())
+                // onTextChanged: JS.filterData(vw.model, text.trim())
                 onAccepted: JS.filterData(vw.model, text.trim())
+                onEditingFinished: JS.filterData(vw.model, text.trim())
             }
 
         }

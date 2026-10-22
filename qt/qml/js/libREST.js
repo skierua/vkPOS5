@@ -25,7 +25,7 @@ let USER = "";
 let PSW = "";
 let TOKEN = "";
 let IS_CONNECTED = false;
-let isConnected = false;    // DEPRECATED, use IS_CONNECTED instead
+let isConnected = IS_CONNECTED;    // DEPRECATED, use IS_CONNECTED instead
 let BALANCE_SYNC = new Date().toISOString();
 
 function setParam(host, api, user, psw, token){
@@ -42,7 +42,7 @@ function setParam(host, api, user, psw, token){
  */
 function reset() {
     IS_CONNECTED = false;
-    isConnected = false;
+    // isConnected = false;
     setParam();
 }
 
@@ -81,7 +81,7 @@ function save(db) {
 function connect(callback) {
     TOKEN = "";
     IS_CONNECTED = false;
-    isConnected = false;
+    // isConnected = false;
     if(!String(HOST || "")
         || !String(API || "")
         // && !!String(USER || "")
@@ -96,7 +96,7 @@ function connect(callback) {
         if (!err) {
             TOKEN = token;
             IS_CONNECTED = true;
-            isConnected = true;
+            // isConnected = true;
             if (typeof callback === "function") callback(false, null);
             return true;
         } else {
