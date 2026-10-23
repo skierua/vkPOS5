@@ -127,7 +127,7 @@ function price(db, itemid, ba, acntno){
     let fltP = `prbidask = ${isAsk ? -1 : 1} AND item = '${itemid}'`;
     // const pr = dbPrice(db, fltP);
     const pr = dbPrice(db, itemid, Number(ba || -1));
-    // console.info(`s83#sqlPrice 22 fltP=${fltP} id=${JSON.stringify(pr)}`)
+    console.info(`s83#sqlPrice 22 pr=${JSON.stringify(pr)}`)
     if (pr?.length > 0 && (pr[0].price || 0) !== 0) {
         ok = true
         res.id = pr[0].id || "";
@@ -217,9 +217,8 @@ function dbPrice(db, atclid, ba, prtype) {
         param.push(atclid);
     }
     if (!!ba){
-        if (Number(ba ||0) < 0)
         cond.push("prbidask = ?");
-        param.push(Number(ba ||0) < 0 ? -1 : 1 );
+        param.push(Number(ba || 0) < 0 ? -1 : 1 );
     }
     if (!!prtype){
         cond.push("item = ?");
