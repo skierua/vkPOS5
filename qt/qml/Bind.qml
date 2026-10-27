@@ -314,7 +314,7 @@ Item {
             readonly property bool isAmntEditable: (model.retfor || "") === ""
             // readonly property bool isTrade: Number(model.dacnt?.trade ?? 0) === 1
             readonly property bool isPriceEditable: model.disTrade && isAmntEditable && model.dpriceType !== 'offer'
-            readonly property bool isEqEditable: model.disTrade && !!model.priceDsc
+            readonly property bool isEqEditable: model.disTrade && !model.priceDsc
 
             // Звертаємося до властивостей ListView через вбудований ListView.view контекст
             width: dlgRoot.ListView.view ? dlgRoot.ListView.view.width : 400;
