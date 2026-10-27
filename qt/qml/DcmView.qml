@@ -229,8 +229,14 @@ Window {
 
                             text: model.dcmnote
                         }
+                        Label {
+                            text: `ID: ${String(model.dcmid || "")} ${model.cdtacntname} ${model.dcmsubnote}`
+                            font.pixelSize: 9
+                            font.italic: !model.flt
+                            color: "dimgray"
+                        }
 
-                        RowLayout {
+                /*        RowLayout {
                             spacing: 6
                             Label {
                                 text: "ID: " + String(model.dcmid || "")
@@ -245,7 +251,13 @@ Window {
                                 font.italic: !model.flt
                                 color: "dimgray"
                             }
-                        }
+                            Label {
+                                text: model.dcmsubnote
+                                font.pixelSize: 9
+                                font.italic: !model.flt
+                                color: "dimgray"
+                            }
+                        } */
                     }
 
                     // 3. Фінансова колонка (Ціна, Еквівалент, Знижки, Бонуси) - Видима тільки для комерційного роздробу

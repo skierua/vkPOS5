@@ -733,12 +733,8 @@ Item {
                                                          editTaxToken.text.trim());
 
                                             TAX.connect((err, errorMsg) => {
-                                                if (!err) {
-                                                    root.vkEvent("info", "З'єднання з фіскальним сервером успішно встановлено!");
-                                                } else {
-                                                    root.vkEvent("error", "Помилка фіскального шлюзу: " + String(errorMsg));
-                                                }
                                                 taxTab.connected = TAX.IS_CONNECTED;
+                                                root.vkEvent("taxConnChanged", TAX.IS_CONNECTED);
                                             });
                                         }
                                     }

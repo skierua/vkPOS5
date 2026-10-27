@@ -2,6 +2,7 @@
 // .import "CashDesk.js" as TAX
 // .import "v147/config.js" as Conf
 .import "v147/sqlAcnt.js" as LibAcnt
+.import "v147/sqlBalance.js" as LibBal
 .import "v147/sqlItem.js" as LibItem
 .import "v147/sqlPrice.js" as LibPrice
 .import "v147/sqlRepo.js" as LibRepo
@@ -11,7 +12,7 @@
 
  function handleDriverChanged(db, model, ui){
    if (!db) return;
-   const shift = LibShift.crntShift(db);
+   const shift = LibShift.crntShiftData(db);
    if (!shift) return;
    ui.setShiftData(shift);
    const dfltAcnts = LibAcnt.DfltAcnt.acnts(db);
@@ -19,9 +20,9 @@
    const hasBulkVal = !!dfltAcnts?.bulk || false;
    ui?.setHasBulk?.(hasBulkVal);
    // console.info(`II: shift.js/handleDriverChanged hasBulkVal=[${hasBulkVal}]`)
-   const isShiftActive = (shift?.shftend === '');
-   ui.setStackIndex(isShiftActive);
-   if (isShiftActive){
+   // const isShiftActive = (shift?.shftend === '');
+   ui.setStackIndex(shift.isActive);
+   if (shift.isActive){
       // LibShift.dbRefreshTradeRate(db);
    } else {
       const cashiers = [{"code":"", "note":"Оберіть касира...", "psw":"11"},
@@ -34,74 +35,33 @@
    // populateIncas();
  }
 
-// former BalancingTrade
-// moves trade results to profit account
-function rsltToProfit(db, bind, cshr) {
-   const acntList = LibAcnt.dbBalance(db, `substr(acntno,1,4)='rslt' AND ABS(beginamnt+turndbt-turncdt) > 0.009`);
-   let ok = true;
-   const tradeMap = new Map();
 
-   if (acntList.length > 0 && typeof bind !== "undefined"){
-      const atcl = LibItem.getItemById(db);
-      const cashAcntNo = LibAcnt.DfltAcnt.cashAcntNo(db);
-      const profitAcntNo = LibAcnt.DfltAcnt.profitAcntNo(db);
-      const profitAcnt = LibAcnt.acntbal(db, (profitAcntNo || ""));
+function buildRsltBind(db, bind, cshr){
+   if (!bind && typeof bind.rsltToProfit === 'function') return null;
 
-      if (!profitAcnt || !cashAcntNo) return null;
+   bind.flush();
+   bind.rsltToProfit(db);
+   const cashAcntNo = LibAcnt.DfltAcnt.cashAcntNo(db);
+   const dcmList = bind.dcmsToTran(cashAcntNo || "");
 
-      for (let i =0; ok && i < acntList.length; ++i){
-         const currentTotal = Number(acntList[i]?.total || 0);
-         const rsltAcnt = LibAcnt.acntbal(db, acntList[i].acntno);
-         const noteVal = (currentTotal < 0 ? "+++ rslt" : "--- rslt")
-         ok &= bind.addDcm( atcl, rsltAcnt, "memo", currentTotal, null, noteVal);
-
-         const tradeAcnt = acntList[i].acntno.substring(5,9);
-         // console.log(`bind.js/handleBalancingTrade ${tradeAcnt}`)
-         tradeMap.set(tradeAcnt, (tradeMap.get(tradeAcnt) || 0) + currentTotal);
-
-      //    ok &= bind.addMemo(db,
-      //                            {"dcm":"memo",
-      //                               "amnt":acntList[i].total,
-      //                               "cdt":acntList[i].acntno,
-      //                               "crn":"",
-      //                            "note": (acntList[i].total < 0 ? "+++ rslt" : "--- rslt")})
-      }
-      const currentPeriod = new Date().toISOString().substring(0, 7); // Формат: YYYY-MM
-      for (let k of tradeMap.keys()) {
-          const pmnt = 0 - tradeMap.get(k);
-
-          ok &= bind.addDcm( atcl,
-                            profitAcnt,
-                            "memo",
-                            pmnt,
-                            null,
-                             `${(pmnt < 0 ? "--- rslt" : "+++ rslt")} ${currentPeriod} ${k}`);
-
-      }
-      const dcmList = bind.dcmsToTran(cashAcntNo || "");
-      if (!dcmList) return null;
-
-      const total = bind.total();
-      const utcTimeStamp = new Date().toISOString();
-      const jbind = {
-          "id": "dcmbind",
-          "dcm": "folder",
-          "dbt": "profit",
-          "cdt": "blnc",
-         "amnt": (total?.pmnt || 0).toFixed(2),
-         "eq": (0 - Number(total?.pmnt || 0)).toFixed(2),
-         "dsc": (total?.dsc || 0).toFixed(2),
-         "bns": (total?.bns || 0).toFixed(2),
-          "note": "rslt>profit",
-          "clnt": "",
-         "cshr": cshr || "",
-          "tm": utcTimeStamp,
-          "dcms": dcmList
-      }
-
-      return jbind;
+   const total = bind.total();
+   const utcTimeStamp = new Date().toISOString();
+   const jbind = {
+       "id": "dcmbind",
+       "dcm": "folder",
+       "dbt": "profit",
+       "cdt": "blnc",
+      "amnt": (total?.pmnt || 0).toFixed(2),
+      "eq": (0 - Number(total?.pmnt || 0)).toFixed(2),
+      "dsc": (total?.dsc || 0).toFixed(2),
+      "bns": (total?.bns || 0).toFixed(2),
+       "note": "rslt>profit",
+       "clnt": "",
+      "cshr": cshr || "",
+       "tm": utcTimeStamp,
+       "dcms": dcmList
    }
-   return null;
+   return jbind;
 }
 
 function startShift(db, bind, ui) {
@@ -110,13 +70,16 @@ function startShift(db, bind, ui) {
       return -1;
    };
    // console.log("dhift.js startShift 111")
-    const shift = LibShift.crntShift(db);
+    const shift = LibShift.crntShiftData(db);
     ui.setShiftData(shift);
     // console.log(`10j#shift.js/ shftend=[${shift?.shftend === ""}]`)
-    if (shift?.shftend === "") {
+    if (shift?.isActive) {
        if (!!ui && typeof ui.warn === "function") ui.warn("shift IS allready active");
        return -1;
     }
+    // const jbind = buildRsltBind(db, bind, shift?.cshr || "")
+    // console.info(`II: shift.js#14r3 jbind=${JSON.stringify(jbind)}`)
+    // return 1;
 
     // UNBLOCK !!!
     const shid = LibShift.dbStartShift(db, ui.cshr || "");
@@ -124,12 +87,13 @@ function startShift(db, bind, ui) {
        if (!!ui && typeof ui.error === "function") ui.error("DB не вдалося відкрити зміну");
        return -1;
     }
-    const newShift = LibShift.crntShift(db);
+    const newShift = LibShift.crntShiftData(db);
     ui.setShiftData(newShift);
 
     const currentYearMonth = new Date().toISOString().substring(0, 7);
-    const lastShiftMonth = shift.shftdate.substring(0, 7)
+    const lastShiftMonth = shift.date.substring(0, 7)
     const isNewMonth = (lastShiftMonth !== currentYearMonth);
+
    if(isNewMonth){
    // if(1){
       // send reports to REST API
@@ -142,16 +106,16 @@ function startShift(db, bind, ui) {
                             });
       }
 
-
-      const jbind = rsltToProfit(db, bind, shift?.cshr || "")
-      if (!jbind) {
-         if (!!ui && typeof ui.warn === "function") ui.warn("Bind fo rslt is empty");
-         return -1;
+      let bid = 0;
+      const jbind = buildRsltBind(db, bind, shift?.cshrId || "")
+      if (!!jbind && jbind.dcms.length > 0) {
+         bid = LibTran.tranBind(db, jbind);
       }
+      // if (!!ui && typeof ui.warn === "function") ui.warn("Bind fo rslt is empty");
+      // return -1;
 
-      const bid = LibTran.tranBind(db, jbind);
 
-      if (bid){
+      if (!!bid){
          sendBindToREST(db, jbind, ui);
          ui?.info?.("Успішне проведення балансування TRADE");
          // return bid;
@@ -162,6 +126,7 @@ function startShift(db, bind, ui) {
    }
 
    if (!!ui && typeof ui.info === "function") ui.info("Зміну успішно ВІДКРИТО");
+
    return 0;
 }
 
@@ -180,13 +145,13 @@ function finishShift(db, bind, ui) {
    };
 
    const cashAcntNo = LibAcnt.DfltAcnt.cashAcntNo(db);
-   const shift = LibShift.crntShift(db);
-   if (!shift || shift.shftend !== "") {
+   const shift = LibShift.crntShiftData(db);
+   if (!shift || !shift.isActive) {
       if (!!ui && typeof ui.warn === "function") ui.warn("shift IS NOT active");
       return -1;
    }
 
-   if (typeof LibTran.tranBind !== "function"
+/*   if (typeof LibTran.tranBind !== "function"
          || typeof LibShift.dbRefreshTradeRate !== "function") {
         if (!!ui && typeof ui.error === "function")
            ui.error("System error: 'tranBind','dbRefreshTradeRate' function is missed");
@@ -198,9 +163,48 @@ function finishShift(db, bind, ui) {
       if (!!ui && typeof ui.error === "function")
          ui.error("SQL Error: refresh trade rates");
       return -1;
-   }
+   } */
 
-   const atcl = LibItem.getItemById(db);
+   ok = bind.tradeRevaluation(db);
+   if (ok && !!bind.count){
+      const dcmList = bind.dcmsToTran(cashAcntNo);
+      if (!dcmList){
+         if (!!ui && typeof ui.error === "function")
+            ui.error(bind.lastError || "Помилка формування ордерів інкасації" || "Bind unknown error");
+      }
+      // const total = bind.total();
+      const utcTimeStamp = new Date().toISOString();
+      const jbind = {
+          "id": "dcmbind",
+          "dcm": "folder",
+          "dbt": cashAcntNo,
+          "cdt": "rslt",
+         "amnt": "0.00",
+         "eq": "0.00",
+         "dsc": "0.00",
+         "bns": "0.00",
+          "note": "reval",
+          "clnt": shift?.cshrId || "",
+         "cshr": shift?.cshrId || "",
+          "tm": utcTimeStamp,
+          "dcms": dcmList
+      }
+
+      // console.info(`shift.js#98u3 bind=${JSON.stringify(jbind)}`);
+      // continue;
+      const bid = LibTran.tranBind(db, jbind);
+      if (bid > 0){
+         sendBindToREST(db, jbind, ui);
+      } else {
+         if (!!ui && typeof ui.error === "function")
+            ui.error("Помилка проведення переоцінки");
+         return -1;
+      }
+   }
+   if (!!ui && typeof ui.info === "function") ui.info("Переоцінку успішно завершено");
+
+
+/*   const atcl = LibItem.getItemById(db);
    const t_source = LibShift.dbRevalList(db) || [];
   // console.info(`II: shift.js/finishShift#5i5 t_source=${JSON.stringify(t_source)}`)
    const revalSet = new Set(
@@ -233,11 +237,27 @@ function finishShift(db, bind, ui) {
          const eqVal = Number(reval.eqamnt || 0);
          const profitVal = amntVal * priceVal + eqVal;
          if (Math.abs(100 * profitVal) < 1) continue;
-         const acntEq = LibAcnt.acntbal(db, String(reval.eno || ""));
-         const acntRslt = LibAcnt.acntbal(db, String(reval.rno || ""));
+         // const acntEq = LibAcnt.acntbal(db, String(reval.eno || ""));
+         // const acntRslt = LibAcnt.acntbal(db, String(reval.rno || ""));
          const noteVal = `${(profitVal < 0 ? "+++" : "---")} reval(${reval.item}) ${reval.amnt} * ${reval.bscprice}`;
-         ok &= bind.addDcm( atcl, acntEq, "memo", profitVal, null, noteVal);
-         ok &= bind.addDcm( atcl, acntRslt, "memo", 0 - profitVal, null, noteVal);
+         const dcm_1 = {
+            atclId: atcl.id,
+            acntNo: String(reval.eno || ""),
+            amnt: profitVal,
+            type: "memo",
+            note: noteVal,
+         }
+         const dcm_2 = {
+            atclId: atcl.id,
+            acntNo: String(reval.rno || ""),
+            amnt: 0 - profitVal,
+            type: "memo",
+            note: noteVal,
+         }
+         ok &= bind.addDcm(db, dcm_1);
+         ok &= bind.addDcm(db, dcm_2);
+         // ok &= bind.addDcm( atcl, acntEq, "memo", profitVal, null, noteVal);
+         // ok &= bind.addDcm( atcl, acntRslt, "memo", 0 - profitVal, null, noteVal);
          // console.info(`II: shift.js/finishShift#i24 noteVal=${noteVal} bind.count=${bind.count}`)
       }
       if (ok && !!bind.count){
@@ -258,11 +278,14 @@ function finishShift(db, bind, ui) {
             "dsc": "0.00",
             "bns": "0.00",
              "note": "reval",
-             "clnt": shift?.cshr || "",
-            "cshr": shift?.cshr || "",
+             "clnt": shift?.cshrId || "",
+            "cshr": shift?.cshrId || "",
              "tm": utcTimeStamp,
              "dcms": dcmList
          }
+
+         // console.info(`shift.js#98u3 bind=${JSON.stringify(jbind)}`);
+         // continue;
          const bid = LibTran.tranBind(db, jbind);
          if (bid > 0){
             sendBindToREST(db, jbind, ui);
@@ -275,7 +298,7 @@ function finishShift(db, bind, ui) {
       }
       if (!!ui && typeof ui.info === "function") ui.info("Переоцінку успішно завершено");
    }
-
+*/
 //    console.info(`II: shift.js/finishShift#256y bindList=${JSON.stringify(bindList)}`)
 // return null;
 
@@ -300,8 +323,7 @@ function finishShift(db, bind, ui) {
                          });
    }
 
-   // if (!!ui && typeof ui.info === "function")
-      ui?.info?.("Зміну ЗАКРИТО");
+   ui?.info?.("Зміну ЗАКРИТО");
    return 0;
 }
 
@@ -364,8 +386,8 @@ function handleIncasAction(db, model, bind, ui){
       if (!!ui && typeof ui.error === "function") ui.error("DB connection is broken");
       return -1;
    };
-   const shift = LibShift.crntShift(db);
-   if (!shift || shift.shftend !== "") {
+   const shift = LibShift.crntShiftData(db);
+   if (!shift || !shift.isActive) {
       if (!!ui && typeof ui.warn === "function") ui.warn("shift IS NOT active");
       return -1;
    }
@@ -376,7 +398,7 @@ function handleIncasAction(db, model, bind, ui){
    const tradeAcnt = LibAcnt.DfltAcnt.trade(db);
    const bulkAcnt = LibAcnt.acntbal(db, bulkAcntNo, true);
 
-   if (!cashAcntNo || !tradeAcnt || !bulkAcnt
+   if (!cashAcntNo || !tradeAcntNo || !bulkAcntNo
          || typeof model === "undefined" || typeof bind === "undefined") {
       if (!!ui && typeof ui.error === "function") ui.error("Критична помилка: Не налаштовано конфігурацію рахунків каси!");
       return -1;
@@ -393,9 +415,26 @@ function handleIncasAction(db, model, bind, ui){
            let eq = (incasValue * priceNum) / qtyNum;
            // totalEq += eq;
             const priceObj = {"price": priceNum, "qty": qtyNum};
-
-          ok &= bind.addDcm(rowItem.item, bulkAcnt, "trade:inner", 0 - rowItem.amnt, priceObj, String(rowItem.item?.itemchar || ""))
-          ok &= bind.addDcm(rowItem.item, tradeAcnt, "trade:inner", rowItem.amnt, priceObj, String(rowItem.item?.itemchar || ""))
+          const dcm_1 = {
+             atclId: rowItem.item.id,
+             acntNo: bulkAcntNo,
+             amnt: 0 - rowItem.amnt,
+             type: "trade:inner",
+             note: String(rowItem.item?.itemchar || ""),
+             jprice: priceObj
+          }
+          const dcm_2 = {
+             atclId: rowItem.item.id,
+             acntNo: tradeAcntNo,
+             amnt: rowItem.amnt,
+             type: "trade:inner",
+             note: String(rowItem.item?.itemchar || ""),
+             jprice: priceObj
+          }
+         ok &= bind.addDcm(db, dcm_1);
+         ok &= bind.addDcm(db, dcm_2);
+          // ok &= bind.addDcm(rowItem.item, bulkAcnt, "trade:inner", 0 - rowItem.amnt, priceObj, String(rowItem.item?.itemchar || ""))
+          // ok &= bind.addDcm(rowItem.item, tradeAcnt, "trade:inner", rowItem.amnt, priceObj, String(rowItem.item?.itemchar || ""))
        }
    }
    // bindModel.eqTotal = totalEq;
@@ -415,11 +454,13 @@ function handleIncasAction(db, model, bind, ui){
        "dsc": "0.00",
        "bns": "0.00",
        "note": "incas>bulk",
-       "clnt": shift?.cshr || "",
-      "cshr": shift?.cshr || "",
+       "clnt": shift?.cshrId || "",
+      "cshr": shift?.cshrId || "",
        "tm": utcTimeStamp,
        "dcms": dcmList
    }
+   // console.info(`shift.js#u621 bind=${JSON.stringify(jbind)}`);
+   // return;
    const bid = LibTran.tranBind(db, jbind);
 
    if (!bid || bid < 0){

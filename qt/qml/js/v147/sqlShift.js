@@ -1,5 +1,6 @@
 .pragma library
 
+.import "../common.js" as JS
 .import "config.js" as LibConf
 .import "sqlAcnt.js" as LibAcnt
 .import "sqlPrice.js" as LibPrice
@@ -54,6 +55,29 @@ function crntShift(db) {
     return null;
 }
 
+// bind.js, sqlTran.js
+function crntShiftData(db) {
+    if (!db) return null;
+
+    // const condition = "ORDER BY id DESC LIMIT 1";
+    const  vsql = `${SHIFT_STMT} ORDER BY id DESC LIMIT 1;`;
+    const source = db.dbSelectRows(vsql, []);
+    // console.log(`sqlShift#e7h len=${res.length} shift=${JSON.stringify(res)}`)
+    if (!source || source.length === 0)  return null;
+    const row = source[0];
+    const res = {
+        id: Number(row.id || 0),
+        date: String(row.shftdate || ""),
+        start: String(row.shftbegin || ""),
+        finish: String(row.shftend || ""),
+        isActive: !row.shftend,
+        cshrId: String(row.cshr || ""),
+        cshrName: String(row.cshrname || ""),
+    }
+
+    return res;
+}
+
 function cashierList(db) {
     if (!db) return null;
 
@@ -86,34 +110,7 @@ function dbStartShift(db, cshrid = "") {
     return vid;
 }
 
-function dbRefreshTradeRate(db) {
-    if (!db) return false;
-
-    const priceList = LibPrice.dbPrice(db, "prbidask = 1 AND price != 0")
-    // if (!priceList) return false;
-    let vsql = "";
-    let ok = true;
-    for (let r =0; priceList && r < priceList.length && ok; ++r) {
-        vsql = `UPDATE acntrade
-                    SET lastpricebuy = ${priceList[r].price/priceList[r].qtty}
-                WHERE article='${priceList[r].item}';
-        `
-        ok &= db.dbUpdate(vsql)
-    }
-    vsql = "UPDATE acntrade SET lastpricebuy = 0 WHERE lastpricebuy ISNULL;"
-    ok &= db.dbUpdate(vsql)
-    vsql = "UPDATE acntrade SET lastpricesell = 0 WHERE lastpricesell IS NULL;"
-    ok &= db.dbUpdate(vsql)
-    vsql = `UPDATE acntrade
-                SET bscprice = (CASE WHEN lastpricebuy = 0 THEN lastpricesell ELSE lastpricebuy END)
-            WHERE (lastpricebuy != 0 OR lastpricesell != 0 );
-            `
-    // AND bscprice != (CASE WHEN lastpricebuy = 0 THEN lastpricesell ELSE lastpricebuy END);
-    ok &= db.dbUpdate(vsql)
-
-    return ok;
-}
-
+/*
 function makeBind_reval(db, cshrid ){
     var res = []
     let ok = true;
@@ -155,14 +152,19 @@ function makeBind_reval(db, cshrid ){
 
     return res;
 }
+*/
 
 function dbRevalList(db, tradeAcntNo) {
     // console.log(`sqlClient.js#14rc tradeAcntNo=${tradeAcntNo}`)
     if (!db) return null;
-    // if (!tradeAcntNo) return null;
-    // const whereCondition = `WHERE acntrade.acntno ='${tradeAcntNo}' AND (acnt.beginamnt+acnt.turndbt-acnt.turncdt) != 0 `;
-    // const whereCondition = `WHERE substr(acntrade.acntno, 1, ${tradeAcntNo.length}) ='${tradeAcntNo}'`;
-    const whereCondition = !!tradeAcntNo ? `WHERE acntrade.acntno ='${tradeAcntNo}'` : "";
+    const cond = [];
+    const param = [];
+    if ( !!tradeAcntNo ) {
+        cond.push("acntrade.acntno = ?");
+        param.push(tradeAcntNo);
+    }
+
+    const condStr = JS.buildWhereClause(cond);
     const vsql = `
         SELECT
             acnt.id tid,
@@ -178,10 +180,10 @@ function dbRevalList(db, tradeAcntNo) {
         FROM acntrade
             JOIN acnt ON (acntrade.pkey = acnt.id)
             JOIN acnt AS eq ON (('eqvl.'||acntrade.acntno||'/'||acntrade.article) = eq.acntno)
-        ${whereCondition};
+        ${condStr};
     `
     // console.log(`sqlClient.js#0ru ${vsql}`);
-    return db.dbSelectRowsJSON(vsql);
+    return db.dbSelectRows(vsql, param);
 }
 
 function fakeDbCloseShift(db, shiftid){

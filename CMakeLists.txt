@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 
 project(vkPOS5
-    VERSION 3.28
+    VERSION 3.29
     LANGUAGES CXX)
 
 
@@ -51,6 +51,7 @@ set(JS_FILES
     qt/qml/js/libREST.js
     qt/qml/js/main.js
     qt/qml/js/CashDesk.js
+    qt/qml/js/common.js
     qt/qml/js/v147/sqlAcnt.js
     qt/qml/js/v147/sqlBalance.js
     qt/qml/js/v147/sqlBind.js

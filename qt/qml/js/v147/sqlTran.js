@@ -11,11 +11,11 @@
  */
 function tranBind(db, jbind) {
     if (!db || !jbind || !jbind.dcms) return 0;
-    const shift = LibShift.crntShift(db);
-    const isShiftActive = shift?.shftend === "";
+    const shift = LibShift.crntShiftData(db);
+    // const isShiftActive = shift?.shftend === "";
     // console.info(`II:#397- sqlTran.js/tranBind jbind=${JSON.stringify(jbind)}`);
     // console.log(`3dj9#ModelBind.qml ${JSON.stringify(shift)}`)
-    if (!isShiftActive) {
+    if (!shift.isActive) {
         // lastError = "Немає відкритої зміни!";
         return 0;
     }
@@ -99,16 +99,22 @@ function tranBind(db, jbind) {
                                      maximumFractionDigits: 6,
                                      useGrouping: false //Вимикає розділювачі тисяч (прибирає коми/пробіли)
                                  });
+                const param = {
+                    ":price": calculatedAvgPrice,
+                    ":acntno": dcmItem.cdt,
+                    ":atclid": dcmItem.crn
+                }
 
+                // console.info("II:#7e56 sqlTran.js", Number(param[0]))
                 if (dcmItem.dcm === "trade:buy" && amntNum > 0) {
-                    const updateBuyPriceSql = `UPDATE acntrade SET lastpricebuy = ${calculatedAvgPrice} WHERE acntno = '${dcmItem.cdt}' AND article = '${dcmItem.crn}';`;
-                    ok &= db.dbUpdate(updateBuyPriceSql);
+                    const updateBuyPriceSql = `UPDATE acntrade SET lastpricebuy = :price WHERE acntno = :acntno AND article = :atclid;`;
+                    ok &= db.dbUpdate(updateBuyPriceSql, param);
                 } else if (dcmItem.dcm === "trade:sell" && amntNum < 0) {
-                    const updateSellPriceSql = `UPDATE acntrade SET lastpricesell = ${calculatedAvgPrice} WHERE acntno = '${dcmItem.cdt}' AND article = '${dcmItem.crn}';`;
-                    ok &= db.dbUpdate(updateSellPriceSql);
+                    const updateSellPriceSql = `UPDATE acntrade SET lastpricesell = :price WHERE acntno = :acntno AND article = :atclid;`;
+                    ok &= db.dbUpdate(updateSellPriceSql, []);
                 } else {
-                    const updateBscPriceSql = `UPDATE acntrade SET bscprice = ${calculatedAvgPrice} WHERE acntno = '${dcmItem.cdt}' AND article = '${dcmItem.crn}';`;
-                    ok &= db.dbUpdate(updateBscPriceSql);
+                    const updateBscPriceSql = `UPDATE acntrade SET bscprice = :price WHERE acntno = :acntno AND article = :atclid;`;
+                    ok &= db.dbUpdate(updateBscPriceSql, param);
                 }
             }
 
@@ -140,7 +146,7 @@ function tranBind(db, jbind) {
             let subDcm = jbind.dcms[r];
             let sqlItemField = (subDcm.crn === "") ? "NULL" : `'${subDcm.crn}'`;
             let sqlRetforField = (subDcm.retfor === "") ? "NULL" : `${subDcm.retfor}`;
-            let sqlCshrField = ((shift?.cshr || "") === "") ? "NULL" : `'${shift?.cshr || ""}'`;
+            let sqlCshrField = ((shift?.cshrId || "") === "") ? "NULL" : `'${shift?.cshrId || ""}'`;
 
             const insertSubDocSql = `
                 INSERT INTO docum (dcmtype, acntdbt, amount, eqamount, discount, bonus, dcmstate, acntcdt, dcmnote, item, parentid, retfor, dcmaker, dcmtime)

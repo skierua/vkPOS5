@@ -8,20 +8,20 @@
 .import "v147/sqlShift.js" as LibShift
 .import "v147/sqlTran.js" as LibTran
 
-function crnTotalList(model) {
+function crnTotalList(db, model) {
     // Використовуємо Map для миттєвого пошуку валюти за її ID за O(1)
     const totalsMap = new Map();
     const maxSortOrder = 99;
 
     for (let i = 0; i < model.count; ++i) {
         const item = model.get(i);
-        const mask = Number(item.darticle?.mask || 0);
+        const mask = Number(item.darticleMask|| 0);
         // console.log(`bind.js#w924 ${JSON.stringify(item)}`)
 
         // Фільтруємо тільки іноземну валюту (маска 2)
         if ((mask & 2) !== 2) continue;
 
-        const articleId = item.darticle.id;
+        const articleId = item.darticleId;
         const transactionAmount = item.dsign * Number(item.damnt || 0);
 
         if (totalsMap.has(articleId)) {
@@ -30,11 +30,12 @@ function crnTotalList(model) {
             existing.amnt += transactionAmount;
         } else {
             // Нова валюта — створюємо запис
+            const atcl = LibItem.getItemById(db, item.darticleId)
             totalsMap.set(articleId, {
-                "id": item.darticle.id,
-                "itemchar": item.darticle.itemchar,
+                "id": item.darticleId,
+                "itemchar": atcl.itemchar,
                 "amnt": transactionAmount,
-                "so": Number(item.darticle?.itemnote || maxSortOrder)
+                "so": Number(atcl.itemnote || maxSortOrder)
             });
         }
     }
@@ -178,21 +179,21 @@ function handleTranAction(db, prn, model, ui) {
         return -2;
     }
     const dcmcode = String(ui.state || "check");
-    const shft = LibShift.crntShift(db)
+    const shft = LibShift.crntShiftData(db)
     const total = model.total();
     const utcTimeStamp = new Date().toISOString();  //.substring(0, 19);
     const jbind = {
         "id": "dcmbind",
         "dcm": dcmcode !== "taxcheck" ? dcmcode : "check",
         "dbt": cashAcntNo,
-        "cdt": "",
+        "cdt": ui.bindCdt || "",
         "amnt": (total?.pmnt || 0).toFixed(2),
         "eq": (total?.eq || 0).toFixed(2),
         "dsc": (total?.dsc || 0).toFixed(2),
         "bns": (total?.bns || 0).toFixed(2),
-        "note": "",
+        "note": ui.bindNote || "",
         "clnt": ui.clid || "",
-        "cshr": shft?.cshr || "",
+        "cshr": shft?.cshrId || "",
         "tm": utcTimeStamp,
         "dcms": dcmList
     }
@@ -537,123 +538,22 @@ function handleNewDcm(db, model, ui){
     if (stateVal === "taxcheck"){
         if (dcmType !== "trade:sell" || amntVal > 0) return false;
     }
-    const ok = model.addDcm(jatcl, ui.acnt, dcmType, amntVal, jprice, note)
+    const dcm = {
+        atclId: jatcl.id,
+        acntNo: ui.acnt.acntno,
+        amnt: amntVal,
+        type: dcmType,
+        note: note,
+        jprice: jprice,
+    }
+    const ok = model.addDcm(db, dcm);
+    // const ok = model.addDcm(jatcl, ui.acnt, dcmType, amntVal, jprice, note)
     // const rtest = model.get(0);
     // const test = Number(rtest.jprice.offer || rtest.jprice.price || rtest.jprice.bsc || 0)
     // console.log(`bind.js#sj72 price=${test}\n rtest=${JSON.stringify(rtest.jprice)}`)
     return ok;
 
 }
-
-function handleNewRefuse(db, model, dcm){
-    if (!db) return false;
-    if (!model || !dcm) return false;
-    const atcl = LibItem.getItemById(db, String(dcm.itemid || ""));
-    const acnt = LibAcnt.acntbal(db, String(dcm.acntcdt || ""));
-    // console.log(`bind.js#wlp0/handleNewRefuse dcm=${JSON.stringify(dcm)}`)
-    const res = model.addRefused(dcm, atcl, acnt);
-    // console.log(`bind.js#wlp0/handleNewRefuse res=[${res}]`)
-    return res;
-
-}
-
-/* // for CashDesk
-function createBindForTax_cd(db, dcmid, payType) {
-    let  err = null, resp = null;
-    let archive = false;
-    let bind = LibBind.selDcmById(db, dcmid);
-    if (!bind || bind?.errid || null) {
-        archive = true;
-        bind = LibBind.selDcmById(db, dcmid, archive);
-    }
-    // console.log(`id82#CashDesk ${JSON.stringify(bind)}`);
-    if (!bind || bind?.errid || null) {
-        return null;
-    }
-    const dcmSource = LibBind.selDcmsByPid(db, dcmid, archive);
-    if (!dcmSource || dcmSource?.errid || null) {
-        return null;
-    }
-    let ok = (bind?.dcmtype || "") === "check";
-    let articles = [];
-    let total_eq = 0;
-    for (let r = 0; ok && r < dcmSource.length; ++r) {
-        const dcm = dcmSource[r];
-        // console.log(`id82#CashDesk ${JSON.stringify(dcm)}`);
-        const price = dcm.amount !== 0 ? Math.abs(Number(dcm.eqamount || 0)/Number(dcm.amount)) : 0;
-        total_eq += Number(dcm.amount || 0);
-        ok &= (dcm.dcmtype === "trade:sell");
-        // ok &= (Number(dcm.mask || 0) === 4); // Маска 4 — роздрібні товари (Goodies)
-        ok &= Number(dcm.amount || 0) < 0;
-        ok &= (Number(dcm.eqamount || 0) < 0);
-
-        articles.push({
-            "unit_code": dcm.unitcode ?? "",
-            "unit_name": dcm.unitchar ?? "",
-            "name": dcm.itemchar ?? "",
-            "amount": Math.abs(dcm.amount).toFixed(dcm.unitprec || 2),
-            "price": price.toFixed(3),
-            "cost": Math.abs(dcm.eqamount || 0).toFixed(2),
-            "sum_discount": Math.abs(dcm.discount || 0).toFixed(2)
-        });
-    }
-
-    if (!ok){
-        return null;
-    }
-
-    // CashDesk.js (додаємо параметр payType, наприклад: "cash" або "card")
-    // payType може приходити з інтерфейсу вибору оплати
-    const isCash = (payType === "cash" || payType === 0);
-
-    // 1. Чиста сума товарів у копійках без жодних округлень
-    const totalEqCents = Math.round(Math.abs(total_eq) * 100);
-    const pure_total_val = totalEqCents / 100;
-
-    // 2. Розраховуємо копійки з урахуванням типу оплати (НБУ тільки для готівки!)
-    const totalSumCents = isCash ? (Math.round(totalEqCents / 10) * 10) : totalEqCents;
-
-    const total_sum_val = totalSumCents / 100;
-    const round_sum_val = (totalSumCents - totalEqCents) / 100;
-
-    // 3. Динамічно формуємо масив платежів під ПРРО
-    let paymentsArray = [];
-    if (isCash) {
-        paymentsArray.push({
-            "code": 0,
-            "name": "ГОТIВКА",
-            "sum": pure_total_val.toFixed(2), // Сума товарів до округлення
-            "sum_provided": total_sum_val.toFixed(2), // Фактично отримано
-            "sum_remains": "0.00"
-        });
-    } else {
-        paymentsArray.push({
-            "code": 1, // Код 1 або 2 залежно від налаштувань вашого ПРРО шлюзу для безготівки
-            "name": "КАРТКА",
-            "sum": total_sum_val.toFixed(2), // Для картки сума платежу = сумі товарів
-            "sum_provided": total_sum_val.toFixed(2),
-            "sum_remains": "0.00"
-        });
-    }
-
-    const taxbind = {
-        "action_type": "Z_SALE",
-        "local_number": dcmid,
-        "total_sum": total_sum_val.toFixed(2),  // Для готівки — округлена, для картки — точна
-        "round_sum": round_sum_val.toFixed(2),  // Для картки тут автоматично вийде "0.00"
-        "products": articles,
-        "payments": paymentsArray,
-        "no_text_print": true,
-        "no_pdf": true,
-        "no_qr": true,
-        "open_shift": true,
-        "print_width": 32,
-        "pdf_width": 48
-    };
-
-    return taxbind;
-}
-*/
 
 function sendBindToREST(db, jbind, ui){
     // console.info(`II: bind.js/sendBindToREST isConnected=${REST.IS_CONNECTED}`)

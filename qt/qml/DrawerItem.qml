@@ -251,8 +251,11 @@ Item {
                 MouseArea {
                     anchors.fill: parent
                     onDoubleClicked: {
-                        const v = vw.model.get(index);
-                        // console.info(`II: 238j# DraverItem clicked index=${index} v=${JSON.stringify(v)}`);
+                        const row = vw.model.get(index);
+                        const v = {key: row.key,
+                            acntno: row.acntno,
+                            total: Number(row.total),
+                            clid: row.clid};
                         vkEvent("rowDoubleClicked", v)
                     }
                 }
@@ -297,7 +300,8 @@ Item {
                         Text {
                             Layout.fillWidth: true
                             horizontalAlignment: Text.AlignRight
-                            text: Math.abs(Number(model.total || 0)).toLocaleString(Qt.locale(), 'f', Number(model.prec))
+                            text: Math.abs(Number(model.total || 0)).toLocaleString(Qt.locale(), 'f', 0)
+                            // text: Math.abs(Number(model.total || 0)).toLocaleString(Qt.locale(), 'f', Number(model.prec))
                             font.pixelSize: 13
                             font.bold: true
                             // Якщо баланс від'ємний (борг) — підсвічуємо червоним

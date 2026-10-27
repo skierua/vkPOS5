@@ -78,7 +78,14 @@ Window {
         }
     }
 
-    Action { id: cancelAction; text: qsTr("Скасувати"); onTriggered: root.close() }
+    Action {
+        id: cancelAction;
+        text: qsTr("Скасувати");
+        onTriggered: {
+            vkEvent("onCanceled", null);
+            root.close() ;
+        }
+    }
 
     Action {
         id: closeAction
@@ -237,10 +244,10 @@ Window {
                                 }
                                 onActiveFocusChanged: if (activeFocus) selectAll()
                                 onAccepted: {
-                                    console.info(`II: Shift.qml cmindex=${cmb.currentIndex} text=${text}`)
+                                    // console.info(`II: Shift.qml cmindex=${cmb.currentIndex} text=${text}`)
                                     if (cmb.model && cmb.currentIndex >= 0) {
                                         const cshr = cmb.model.get(cmb.currentIndex);
-                                        console.info(`II: Shift.qml text=${text} psw=${cshr.psw} atob=${Qt.atob(cshr.psw)}`)
+                                        // console.info(`II: Shift.qml text=${text} psw=${cshr.psw} atob=${Qt.atob(cshr.psw)}`)
                                         if (cshr && (text === Qt.atob(cshr.psw))){
                                             startAction.enabled = !root.isProcessing;
                                             startButton.forceActiveFocus();
@@ -332,10 +339,10 @@ Window {
                                     anchors.margins: 10
                                     spacing: 6
                                     RowLayout { Label { text: qsTr("ID:"); color: "#6B7280"; Layout.preferredWidth: 65 } Label { id: shid; font.bold: true; text: String(crntShiftData.id || "0") } }
-                                    RowLayout { Label { text: qsTr("Касир:"); color: "#6B7280"; Layout.preferredWidth: 65 } Label { id: shcshr; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true; text: String(crntShiftData.cshrname || "—") } }
-                                    RowLayout { Label { text: qsTr("Дата:"); color: "#6B7280"; Layout.preferredWidth: 65 } Label { id: shdate; text: String(crntShiftData.shftdate || "—") } }
-                                    RowLayout { Label { text: qsTr("Старт:"); color: "#6B7280"; Layout.preferredWidth: 65 } Label { id: shopen; text: String(crntShiftData.shftbegin || "—") } }
-                                    RowLayout { Label { text: qsTr("Кінець:"); color: "#6B7280"; Layout.preferredWidth: 65 } Label { id: shclose; color: "#6B7280"; text: String(crntShiftData.shftend || "—") } }
+                                    RowLayout { Label { text: qsTr("Касир:"); color: "#6B7280"; Layout.preferredWidth: 65 } Label { id: shcshr; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true; text: String(crntShiftData.cshrName || "—") } }
+                                    RowLayout { Label { text: qsTr("Дата:"); color: "#6B7280"; Layout.preferredWidth: 65 } Label { id: shdate; text: String(crntShiftData.date || "—") } }
+                                    RowLayout { Label { text: qsTr("Старт:"); color: "#6B7280"; Layout.preferredWidth: 65 } Label { id: shopen; text: String(crntShiftData.start || "—") } }
+                                    RowLayout { Label { text: qsTr("Кінець:"); color: "#6B7280"; Layout.preferredWidth: 65 } Label { id: shclose; color: "#6B7280"; text: String(crntShiftData.finish || "—") } }
                                 }
                             }
                             Rectangle {

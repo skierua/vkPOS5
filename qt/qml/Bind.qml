@@ -25,8 +25,11 @@ Item {
 
     property list<Action> vkBatchActions: [
         actionRsltToProfit,
+        actionRevaluation,
     ]
 
+    property string bindNote: ""
+    property string bindCdt: ""
     property int dfltAmnt: 1
 
     property real totalPmnt: 0
@@ -50,6 +53,7 @@ Item {
             PropertyChanges { target: dscbnsColumn; visible: true }
             PropertyChanges { target: rateColumn; visible: false }
             PropertyChanges { target: actionRsltToProfit; enabled: false }
+            PropertyChanges { target: actionRevaluation; enabled: false }
         },
         State {
             name: "facture"
@@ -57,6 +61,7 @@ Item {
             PropertyChanges { target: dscbnsColumn; visible: true }
             PropertyChanges { target: rateColumn; visible: true }
             PropertyChanges { target: actionRsltToProfit; enabled: false }
+            PropertyChanges { target: actionRevaluation; enabled: false }
         },
         State {
             name: "folder"
@@ -64,6 +69,7 @@ Item {
             PropertyChanges { target: dscbnsColumn; visible: false }
             PropertyChanges { target: rateColumn; visible: false }
             PropertyChanges { target: actionRsltToProfit; enabled: true }
+            PropertyChanges { target: actionRevaluation; enabled: true }
         },
         State {
             name: "taxcheck"
@@ -71,6 +77,7 @@ Item {
             PropertyChanges { target: dscbnsColumn; visible: false }
             PropertyChanges { target: rateColumn; visible: false }
             PropertyChanges { target: actionRsltToProfit; enabled: false }
+            PropertyChanges { target: actionRevaluation; enabled: false }
     }
         ]
 
@@ -109,6 +116,8 @@ Item {
             warn: (v) => { vkEvent("warn", `${v || "???"}`); },
             state: root.state,
             clid: root.crntClient?.id || "",
+            bindCdt: root.bindCdt || "",
+            bindNote: root.bindNote || "",
             printMode: root.autoPrint || 0,
             printCode: Number(printCode || 0),
         };
@@ -184,7 +193,7 @@ Item {
             root.totalEq = total?.eq ?? 0;
             root.totalDsc = total?.dsc ?? 0;
             root.totalBns = total?.bns ?? 0;
-            totalCurrencyView.model = JS.crnTotalList(bindModel)
+            totalCurrencyView.model = JS.crnTotalList(root.dbDriver, bindModel)
             if (typeof fldMainInput !== "undefined") {
                 fldMainInput.text = '';
                 fldMainInput.forceActiveFocus();
@@ -201,6 +210,8 @@ Item {
                 setAcnt: (v) => { root.crntAcnt = v; },
                 // state: root.state
             };
+            root.bindCdt = ""
+            root.bindNote = ""
             JS.handleStartBindAction(dbDriver, bindModel, uiBridge);
             vkEvent("clientChanged", null);
             newRowAction.trigger();
@@ -209,14 +220,27 @@ Item {
 
     Action {
         id: actionRsltToProfit
-        enabled: root.state === "folder"
+        enabled: false  //root.state === "folder"
         text: "Збалансувати TRADE"
         onTriggered: {
-            const uiBridge = {
-                error: (v) => { vkEvent("error", `${v || "???"}`); },
-                info: (v) => { vkEvent("info", `${v || "???"}`); },
-            };
-            JS.handleRsltToProfit(dbDriver, bindModel, uiBridge);
+            root.bindCdt = "blnc"
+            root.bindNote = "rslt>profit"
+            bindModel.rsltToProfit(dbDriver);
+            bindView.currentIndex = -1;
+            newRowAction.trigger();
+        }
+    }
+
+    Action {
+        id: actionRevaluation
+        enabled: false  //root.state === "folder"
+        text: "Переоцінка (дохід за день)"
+        onTriggered: {
+            root.bindCdt = "rslt"
+            root.bindNote = "reval"
+            bindModel.tradeRevaluation(dbDriver);
+            bindView.currentIndex = -1;
+            newRowAction.trigger();
         }
     }
 
@@ -228,7 +252,7 @@ Item {
             atclid: atclid || "",
             acnt: acntVal || null,
             amnt: amnt || root.crntAmnt,
-            state: String(root.state || "check")
+            state: String(root.state || "check"),
         };
         const ok = JS.handleNewDcm(root.dbDriver, bindModel, uiBridge)
         // console.log(`Bind.qml#d7j4 state=${root.state}  uiBridge=${uiBridge.state} ${ok} `)
@@ -258,12 +282,15 @@ Item {
             return;
         }
 
-        const ok = JS.handleNewRefuse(root.dbDriver, bindModel, dcm)
         // console.log(`Bind#js8/newRefused ok=[${ok}]`)
-        if (!ok) {
-            vkEvent("error", bindModel.lastError);
-            return;
-        }
+        if (typeof bindModel.addRefused === "function") {
+            const ok = bindModel.addRefused(root.dbDriver, dcm);
+            if (!ok) {
+                vkEvent("error", bindModel.lastError);
+                return;
+            }
+        } else vkEvent("error", "Відсутня функція повернення");
+
         bindView.currentIndex = -1
         newRowAction.trigger();
     }
@@ -285,8 +312,9 @@ Item {
 
             readonly property string test: 'for testing'
             readonly property bool isAmntEditable: (model.retfor || "") === ""
-            readonly property bool isTrade: Number(model.dacnt?.trade ?? 0) === 1
-            readonly property bool isPriceEditable: isTrade && isAmntEditable && (model.jprice?.offer || 0) === 0
+            // readonly property bool isTrade: Number(model.dacnt?.trade ?? 0) === 1
+            readonly property bool isPriceEditable: model.disTrade && isAmntEditable && model.dpriceType !== 'offer'
+            readonly property bool isEqEditable: model.disTrade && !!model.priceDsc
 
             // Звертаємося до властивостей ListView через вбудований ListView.view контекст
             width: dlgRoot.ListView.view ? dlgRoot.ListView.view.width : 400;
@@ -360,9 +388,9 @@ Item {
                                 elide: Text.ElideRight
                             }
                             Text {
-                                readonly property string dtag: (model.jprice?.offer ?? 0) ? "#АКЦІЯ!" : ((model.jprice?.dsc ?? 0) ? "#ЗНИЖКА!" : "")
-                                text: `#${model.darticle?.id || ""} ${dlgRoot.isTrade ? "" : ` [${model.dacnt?.acntno || ""}/${model.dacnt?.note || ""}]`} ${dtag}`
-                                color: (model.jprice?.offer ?? 0) ? "#e65100" : 'dimgray' // Акція підсвічується помаранчевим
+                                // readonly property string dtag: (model.dpriceType === 'offer') ? "#АКЦІЯ!" : ((model.dpriceDsc ?? 0) ? "#ЗНИЖКА!" : "")
+                                text: `#${model.darticleId || ""} ${model.disTrade ? "" : ` [${model.dacntNo || ""}/${model.dacntNote || ""}]`} ${model.dnotetag}`
+                                color: (model.dpriceType === 'offer') ? "#e65100" : 'dimgray' // Акція підсвічується помаранчевим
                                 font.pointSize: 9
                                 Layout.fillWidth: true
                                 elide: Text.ElideRight
@@ -371,7 +399,7 @@ Item {
 
                         MouseArea {
                             anchors.fill: parent
-                            enabled: !dlgRoot.isTrade
+                            enabled: !model.disTrade
                             onClicked: {
                                 fldNoteEdit.text = model.dnote || "";
                                 fldNoteEdit.visible = true;
@@ -422,7 +450,7 @@ Item {
                                     Layout.fillWidth: true
                                     horizontalAlignment: Text.AlignHCenter
                                     verticalAlignment: Text.AlignVCenter
-                                    text: Number(model.damnt || 0).toLocaleString(Qt.locale(), 'f', Number(model.darticle?.unitprec ?? 0))
+                                    text: Number(model.damnt || 0).toLocaleString(Qt.locale(), 'f', model.darticlePrec)
                                     font.pointSize: 12
                                     font.bold: true
                                     color: "#212121"
@@ -430,12 +458,12 @@ Item {
 
                                     MouseArea {
                                         anchors.fill: parent
+                                        enabled: dlgRoot.isAmntEditable
                                         onClicked: {
-                                            if (dlgRoot.isAmntEditable && dlgRoot.ListView.view) {
+                                            if (dlgRoot.ListView.view) {
                                                 dlgRoot.ListView.view.currentIndex = index;
                                                 fldAmntEdit.visible = true;
                                                 fldAmntEdit.forceActiveFocus();
-                                                // Тут логіка активації fldAmntEdit, якщо воно оголошено нижче в /* ... TextEdit fields ... */
                                             }
                                         }
                                     }
@@ -444,31 +472,33 @@ Item {
                                 // Відображення ціни за одиницю
                                 Text {
                                     id: fldPrice
-                                    readonly property real priceVal: {
-                                        const pr = Number(model.jprice?.offer || model.jprice?.price || model.jprice?.bsc || 0);
-                                        // console.log(`Bind.qml#7d1 pr=${pr}\n${JSON.stringify(model.jprice)}`)
-                                        return pr;
-                                    }
+                                    // readonly property real priceVal: {
+                                    //     const pr = Number(model.jprice?.offer || model.jprice?.price || model.jprice?.bsc || 0);
+                                    //     // console.log(`Bind.qml#7d1 pr=${pr}\n${JSON.stringify(model.jprice)}`)
+                                    //     return pr;
+                                    // }
 
                                     readonly property int pricePrecision: {
                                         // const vv = Number(model.jprice?.offer || model.jprice?.price || 0);
-                                        return Math.abs((priceVal * 100) - Math.round(priceVal * 100)) > 0.0001 ? 4 : 2;
+                                        return model.dprice < 10 ? 4 : (model.dprice < 100 ? 3 : 2)
+                                        // return Math.abs((model.dprice * 100) - Math.round(model.dprice * 100)) > 0.0001 ? 4 : 2;
                                     }
                                     Layout.fillWidth: true
-                                    visible: dlgRoot.isTrade
+                                    visible: model.disTrade
                                     font.pointSize: 11
-                                    color: (model.jprice?.offer ?? 0) ? "#e65100" : "#424242"
+                                    color: (model.dpriceType === 'offer') ? "#e65100" : "#424242"
                                     horizontalAlignment: Text.AlignHCenter
                                     verticalAlignment: Text.AlignVCenter
-                                    text: priceVal.toFixed(pricePrecision)
+                                    text: (model.dprice).toFixed(pricePrecision)
 
                                     MouseArea {
                                         anchors.fill: parent
-                                        enabled: !(model.jprice?.offer || model.jprice?.dsc || 0)
+                                        enabled: dlgRoot.isPriceEditable
                                         onClicked: {
-                                            if (dlgRoot.isPriceEditable && dlgRoot.ListView.view) {
+                                            // console.info(`II:#8e6 fldPrice/onClicked`, dlgRoot.isPriceEditable)
+                                            if (dlgRoot.ListView.view) {
                                                 dlgRoot.ListView.view.currentIndex = index;
-                                                fldPriceEdit.text = jprice?.offer || jprice?.price
+                                                fldPriceEdit.text = model.dprice.toFixed(4)
                                                 fldPriceEdit.visible = true;
                                                 fldPriceEdit.forceActiveFocus();
                                             }
@@ -480,7 +510,7 @@ Item {
                             // Локальний підрядковий блок для знижок/еквівалентів на рівні позиції
                             RowLayout {
                                 Layout.fillWidth: true
-                                visible: dlgRoot.isTrade
+                                visible: model.disTrade
 
                                 RowLayout {
                                     Layout.fillWidth: true
@@ -495,12 +525,13 @@ Item {
                                         verticalAlignment: Text.AlignVCenter
 
                                         // Безпечно форматуємо число з бази даних
-                                        text: Math.abs((model.moneyEq ?? 0)/ (dlgRoot.ListView.view.model.rate ?? 1)).toLocaleString(Qt.locale(), 'f', 2)
+                                        text: Math.abs((model.moneyEq + model.moneyDsc)/ (model.drate || 1)).toLocaleString(Qt.locale(), 'f', 2)
                                         font.pointSize: 9
                                         color: 'dimgray'
 
                                         MouseArea {
                                             anchors.fill: parent
+                                            enabled: dlgRoot.isEqEditable
                                             onClicked: {
                                                 // Перевіряємо можливість редагування та наявність віджета введення
                                                 if (dlgRoot.isAmntEditable && dlgRoot.ListView.view) {
@@ -508,7 +539,7 @@ Item {
 
                                                     // Безпечний виклик поля редагування еквівалента (якщо воно оголошене в делегаті)
                                                     if (typeof fldEqEdit !== "undefined") {
-                                                        fldEqEdit.text = Math.abs(model.moneyEq ?? 0).toFixed(2);
+                                                        fldEqEdit.text = Math.abs((model.moneyEq ?? 0)/model.drate).toFixed(2);
                                                         fldEqEdit.visible = true;
                                                         fldEqEdit.forceActiveFocus();
                                                     }
@@ -525,7 +556,7 @@ Item {
                                         verticalAlignment: Text.AlignVCenter
 
                                         // Форматування тексту знижки
-                                        text: (model.moneyDsc || 0) !== 0 ? Math.abs((model.moneyDsc)/ (dlgRoot.ListView.view.model.rate ?? 1)).toFixed(2) : 'знижка'
+                                        text: (model.dpriceDsc || 0) !== 0 ? `${(100 * model.dpriceDsc).toFixed(0)}%` : 'знижка'
                                         font.pointSize: 9
                                         // Текст стає блідим, якщо знижка відсутня
                                         color: (model.moneyDsc ?? 0) !== 0 ? '#d32f2f' : 'lightgray' // Червонуватий відтінок, якщо знижка є
@@ -539,7 +570,7 @@ Item {
                                         verticalAlignment: Text.AlignVCenter
 
                                         // Форматування тексту бонусів
-                                        text: (model.moneyBns ?? 0) !== 0 ? Math.abs(model.moneyBns).toFixed(2) : 'бонус'
+                                        text: (model.dpriceBns ?? 0) !== 0 ? `${(100 * model.dpriceBns).toFixed(0)}%` : 'бонус'
                                         font.pointSize: 9
                                         color: (model.moneyBns ?? 0) !== 0 ? '#ff8f00' : 'lightgray' // Теплий золотий колір для бонусів
                                     }
@@ -562,7 +593,7 @@ Item {
                             // Динамічний валідатор на основі точності товару з бази даних (ваговий/штучний)
                             validator: DoubleValidator {
                                 bottom: 0
-                                decimals: model.darticle ? Number(model.darticle.unitprec ?? 2) : 2
+                                decimals: model.darticlePrec ?? 2
                                 notation: "StandardNotation"
                                 locale: "en_US"
                             }
@@ -570,7 +601,7 @@ Item {
                             onActiveFocusChanged: {
                                 if (activeFocus) {
                                     // При відкритті підтягуємо свіже значення кількості
-                                    text = Number(model.damnt || 0).toFixed(model.darticle ? Number(model.darticle.unitprec ?? 2) : 2);
+                                    text = Number(model.damnt || 0).toFixed(model.darticlePrec ?? 2);
                                     selectAll();
                                 } else {
                                     // Захист: якщо касир просто клікнув в інше місце, ховаємо поле безпечно
@@ -630,14 +661,14 @@ Item {
                                 if (!visible) return;
 
                                 const inputVal = Number(text);
-                                if (inputVal !== 0 && model.jprice && dlgRoot.ListView.view && dlgRoot.ListView.view.model) {
+                                if (inputVal !== 0 && model.dprice && dlgRoot.ListView.view && dlgRoot.ListView.view.model) {
                                     // Оновлюємо внутрішні фінансові об'єкти
-                                    let priceObj = model.jprice;
-                                    priceObj.price = inputVal;
-                                    if (!priceObj.qty) priceObj.qty = fldPriceEdit.pqty;
+                                    // let priceObj = model.jprice;
+                                    // priceObj.price = inputVal;
+                                    // if (!priceObj.qty) priceObj.qty = fldPriceEdit.pqty;
 
-                                    model.jprice = priceObj; // Перезаписуємо об'єкт для тригеру оновлення QML
-
+                                    // model.jprice = priceObj; // Перезаписуємо об'єкт для тригеру оновлення QML
+                                    model.dprice = inputVal
                                     dlgRoot.ListView.view.model.setDcmTradeData(index);
                                     dlgRoot.ListView.view.restart();
                                 }
@@ -649,7 +680,7 @@ Item {
                             // Текст кратності пакування (наприклад: x 12), притиснутий праворуч зсередини поля ціни
                             Text {
                                 id: suffix
-                                text: fldPriceEdit.pqty > 1 ? `x${fldPriceEdit.pqty.toFixed(0)}` : ""
+                                text: model.dpriceQty !== 1 ? `/${model.dpriceQty}` : ""
                                 visible: text !== ""
                                 anchors {
                                     right: parent.right
@@ -657,7 +688,7 @@ Item {
                                     verticalCenter: parent.verticalCenter
                                 }
                                 font { pixelSize: 12; weight: Font.Medium }
-                                color: "#e65100" // Акцентний помаранчевий колір для оптових пакувань
+                                color: "#e65100"
                             }
                         }
 
@@ -684,9 +715,10 @@ Item {
                                     const currentModel = dlgRoot.ListView.view.model;
 
                                     // Формула зворотного перерахунку кількості на основі фінансової суми
-                                    const priceEach = Number(model.jprice?.offer || model.jprice?.price || 1);
-                                    const packQty = Number(model.jprice?.qty || 1);
-                                    const calculatedAmount = (inputVal * packQty) / priceEach;
+                                    // const priceEach = Number(model.jprice?.offer || model.jprice?.price || 1);
+                                    // const packQty = Number(model.jprice?.qty || 1);
+                                    // const calculatedAmount = (inputVal * packQty) / priceEach;
+                                    const calculatedAmount = (inputVal * model.dpriceQty) / model.dprice;
 
                                     // Безпечний запис нової кількості в модель
                                     if (typeof currentModel.setProperty === "function") {
@@ -1128,8 +1160,10 @@ Item {
                                         anchors.leftMargin: 6
                                         verticalAlignment: Text.AlignVCenter
                                         visible: !fldDscEdit.visible
-                                        readonly property string dscMoneyString: root.totalDsc === 0 ? '' : `(-${Math.abs(root.totalDsc).toFixed(2)})`
-                                        text: `🏷 Знижка: ${(100 * bindModel.crntDsc).toFixed(1)}% ${dscMoneyString}`
+                                        readonly property string moneyString: root.totalDsc === 0 ? ''
+                                                                                                     : Math.abs(root.totalDsc / (bindModel?.rate || 1)).toFixed(2)
+                                        text: !(bindModel?.crntDsc ?? 0) ? '🏷 Знижка'
+                                                                         : `🏷${(100 * (bindModel?.crntDsc ?? 0))}% ${moneyString}`
                                         font.pixelSize: 11
                                         color: "#424242"
 
@@ -1137,7 +1171,7 @@ Item {
                                             anchors.fill: parent
                                             hoverEnabled: true
                                             onClicked: {
-                                                fldDscEdit.text = (100 * Math.abs(bindModel.crntDsc)).toFixed(1);
+                                                fldDscEdit.text = (100 * Math.abs(bindModel?.crntDsc ?? 0));
                                                 fldDscEdit.visible = true;
                                                 fldDscEdit.forceActiveFocus();
                                             }
@@ -1157,7 +1191,8 @@ Item {
                                         validator: DoubleValidator { bottom: 0; top: 100; decimals: 1; notation: "StandardNotation"; locale: "en_US" }
                                         onActiveFocusChanged: if (activeFocus) selectAll();
                                         onEditingFinished: {
-                                            bindModel.setBindDsc(Number(text) / 100);
+                                            const val = Number(text.trim()) / 100
+                                            bindModel.setBindDsc(val);
                                             visible = false;
                                             newRowAction.trigger();
                                         }
@@ -1173,10 +1208,10 @@ Item {
 
                                 Rectangle {
                                     id: bnsBadge
+                                    property bool  hasClient: !!root.crntClient && String(root.crntClient.id ?? "") !== ""
                                     anchors.fill: parent
                                     radius: 4
                                     // Якщо клієнта немає — плашка стає напівпрозорою (disabled стиль)
-                                    property bool  hasClient: !!root.crntClient && String(root.crntClient.id ?? "") !== ""
                                     color: fldBnsEdit.visible ? "#ffffff" : (hasClient ? "#fff8e1" : "#f1f3f4")
                                     border.color: fldBnsEdit.visible ? "#ffb300" : "transparent"
                                     border.width: 1
@@ -1188,8 +1223,10 @@ Item {
                                         anchors.leftMargin: 6
                                         verticalAlignment: Text.AlignVCenter
                                         visible: !fldBnsEdit.visible
-                                        readonly property string bnsMoneyString: root.totalBns === 0 ? '' : `(${Math.abs(root.totalBns).toFixed(2)})`
-                                        text: `⭐ Бонуси: ${(100 * bindModel.crntBns).toFixed(1)}% ${bnsMoneyString}`
+                                        readonly property string moneyString: root.totalBns === 0 ? ''
+                                                                                                     : Math.abs(root.totalBns / (bindModel?.rate || 1)).toFixed(2)
+                                        text: !(bindModel?.crntBns ?? 0) ? '⭐ Бонуси'
+                                                                         : `⭐${(100 * (bindModel?.crntBns ?? 0))}% ${moneyString}`
                                         font.pixelSize: 11
                                         color: "#5d4037"
 
@@ -1197,7 +1234,7 @@ Item {
                                             anchors.fill: parent
                                             enabled: !!root.crntClient && String(root.crntClient.id ?? "") !== ""
                                             onClicked: {
-                                                fldBnsEdit.text = (100 * Math.abs(bindModel.crntBns)).toFixed(1);
+                                                fldBnsEdit.text = (100 * Math.abs(bindModel?.crntBns ?? 0));
                                                 fldBnsEdit.visible = true;
                                                 fldBnsEdit.forceActiveFocus();
                                             }
@@ -1217,7 +1254,8 @@ Item {
                                         validator: DoubleValidator { bottom: 0; top: 100; decimals: 1; notation: "StandardNotation"; locale: "en_US" }
                                         onActiveFocusChanged: if (activeFocus) selectAll();
                                         onEditingFinished: {
-                                            bindModel.setBindBns(Number(text) / 100);
+                                            const val = Number(text.trim()) / 100
+                                            bindModel.setBindBns(val);
                                             visible = false;
                                             newRowAction.trigger();
                                         }
@@ -1247,13 +1285,13 @@ Item {
                                         anchors.leftMargin: 6
                                         verticalAlignment: Text.AlignVCenter
                                         visible: !fldRateEdit.visible
-                                        text: `💱 Курс: ${Number(bindModel.rate).toFixed(2)}`
+                                        text: `💱 Курс: ${(bindModel?.rate || 1).toFixed(2)}`
                                         font.pixelSize: 11
                                         color: "#4e342e"
                                         MouseArea {
                                             anchors.fill: parent
                                             onClicked: {
-                                                fldRateEdit.text = String(bindModel.rate);
+                                                fldRateEdit.text = String(bindModel?.rate || 1);
                                                 fldRateEdit.visible = true;
                                                 fldRateEdit.forceActiveFocus();
                                             }
@@ -1272,7 +1310,8 @@ Item {
                                         validator: DoubleValidator { bottom: 0; decimals: 4; notation: "StandardNotation"; locale: "en_US" }
                                         onActiveFocusChanged: if (activeFocus) selectAll();
                                         onEditingFinished: {
-                                            bindModel.setRate(text);
+                                            const val = text.trim()
+                                            bindModel.setRate(val);
                                             visible = false;
                                             newRowAction.trigger();
                                         }
@@ -1293,7 +1332,7 @@ Item {
                                 // text: bindModel.rate === 1
                                 //       ? ''
                                 //       : `₴ ${((root.totalEq + root.totalDsc)).toFixed(2)}`
-                                text: (root.totalPmnt / (bindModel?.rate ?? 1)).toLocaleString(Qt.locale(), 'f', 2)
+                                text: (root.totalPmnt / (bindModel?.rate || 1)).toLocaleString(Qt.locale(), 'f', 2)
                                 // text: (root.totalPmnt < 0 ? "- " : "")
                                 //       + Math.abs(root.totalPmnt / (bindModel?.rate ?? 1)).toLocaleString(Qt.locale(), 'f', 2)
                                 //       + (bindModel.rate === 1 ? " грн" : " 💱")

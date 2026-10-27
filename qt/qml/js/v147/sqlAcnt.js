@@ -82,6 +82,7 @@ function createTradeAcntNo() {
     return res;
 }
 
+// sqlTran.js
 function createClientBonusAcntNo( clid ) {
     const res = `${Conf.glBonusPrefix}00${clid || ""}`;
     return res;

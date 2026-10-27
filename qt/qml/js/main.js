@@ -259,9 +259,6 @@ function handleDrawerEvent(db, id, row, ui){
         ui.closeDrawer();
         return;
     }
-    // if (row.acntno === LibAcnt.DfltAcnt.cashAcntNo(db)){
-    //     return;
-    // }
 
     if (!id || !row) ui.error?.("Drawer event bad param");
     if (id === "rowDoubleClicked"){
@@ -282,7 +279,6 @@ function handleDrawerEvent(db, id, row, ui){
                ui.crntComp.crntAcnt = acnt;
                ui.warn("Змінено типовий рахунок")
            }
-
            if (String(row?.acntno || "").startsWith(Conf.DEPO_ACNT_PREFIX)
                    || String(row?.acntno || "").startsWith(Conf.BONUS_ACNT_PREFIX)){
                 ok = ui?.crntComp.newDcm(String(row?.key || ""),
@@ -310,7 +306,11 @@ function handleDrawerEvent(db, id, row, ui){
 }
 
 function testAction_handled(db, ui){
-    const bid = 245756;
+
+    const ok = LibShift.dbRefreshTradeRate(db);
+    if (ok) ui?.info("SUCCESS")
+    else ui?.error("ERROR")
+/*    const bid = 245756;
     const resp = {
     "ORDERNUM":"1rT89b5xMDE",
     "ORDERDATE":"2026-08-13",
@@ -333,7 +333,7 @@ function testAction_handled(db, ui){
                 };
     const uOk = LibBind.updDocum(db, bid, updateData);
     if (!uOk) ui?.error?.(db.dbLastError() || "Docum updating error");
-    return;
+    return; */
 
     // const d = new Date();
     // const dd = new Date(d);
