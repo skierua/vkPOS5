@@ -474,7 +474,7 @@ int DbDriver4::dbInsert(const QString &sql, const QVariantList &params)
         emit error(m_lastError);
         emit vkEvent(QStringLiteral("error"), m_lastError);
     }
-    qDebug() << "dbdriver #8w7 id=[" << id << "]";
+    // qDebug() << "dbdriver #8w7 id=[" << id << "]";
     closeConnection();
     return id;
 }
@@ -509,7 +509,8 @@ bool DbDriver4::dbUpdate(const QString &sql)
     return res;
 }
 
-bool DbDriver4::dbUpdate(const QString &sql, const QVariantMap &params){
+// sqlPrice.js
+bool DbDriver4::dbUpdate(const QString &sql, const QVariantList &params){
     if (!openConnection()) return false;
     bool ok = false;
     QSqlQuery q(m_db);
@@ -550,14 +551,14 @@ bool DbDriver4::dbUpdate(const QString &sql, const QVariantMap &params){
     return ok;
 }
 
-//
-bool DbDriver4::dbUpdateObj(const QString &sql, const QVariantMap &params){
-    // qDebug()<< "r343#dbdriver4/dbUpdate param="<< param;
+// sqlBind.js, sqlShift.js. sqlTran.js
+bool DbDriver4::dbUpdate(const QString &sql, const QVariantMap &params){
+    // qDebug()<< "r343#dbdriver4/dbUpdateObj sql="<< sql << " param="<< params;
     if (!openConnection()) return false;
     bool ok = false;
     QSqlQuery q(m_db);
     if (!q.prepare(sql)) {
-        m_lastError = QStringLiteral("EE:DbDriver4::dbInsert prepare ERROR\n%1\n%2")
+        m_lastError = QStringLiteral("EE:DbDriver4::dbUpdateObj prepare ERROR\n%1\n%2")
         .arg(sql, q.lastError().text());
         qDebug() << m_lastError;
         emit error(m_lastError);
@@ -589,7 +590,12 @@ bool DbDriver4::dbUpdateObj(const QString &sql, const QVariantMap &params){
     return ok;
 }
 
-bool DbDriver4::dbUpdateParams(const QString &sql, const QVariantMap &params){
+bool  DbDriver4::dbUpdateObj(const QString &sql, const QVariantMap &params){
+    qDebug() << "WW: DEPRECATED dbdriver4/dbUpdateObj";
+    return dbUpdate(sql, params);
+}
+
+bool DbDriver4::dbUpdateParams(const QString &sql, const QVariantList &params){
     qDebug() << "WW: DEPRECATED dbdriver4/dbUpdateParams";
     return dbUpdate(sql, params);
 }
@@ -823,70 +829,6 @@ QVariantList DbDriver4::dbSelectRowsJSON(const QString &sql, const QString &filt
     // qDebug() << "903y#DbDriver4::dbSelectRowsJSON FINISH resultList=" << resultList;
 
     return resultList; // QML автоматично побачить це як чистий масив []
-}
-
-// DEPRECATED
-QString DbDriver4::old_dbSelectRows(const QString &sql, const QString &filter)
-{
-    int errId = 0;
-    QString errText;
-    int rowCount = 0;
-
-    QJsonArray jsonRowsArray; // Нативний масив під JSON рядки []
-    const QString lowerFilter = filter.toLower(); // Обчислюємо регістр один раз для всього запиту
-
-    if (openConnection()) {
-        QSqlQuery q(sql, m_db);
-
-        if (!q.lastError().isValid()) {
-            const QSqlRecord recordSchema = q.record();
-            const int fieldCount = recordSchema.count();
-
-            while (q.next()) {
-                bool rowMatchesFilter = filter.isEmpty();
-                QJsonObject jsonRow;
-
-                // 1. Збираємо дані рядка в JSON об'єкт і паралельно перевіряємо фільтр
-                for (int i = 0; i < fieldCount; ++i) {
-                    QString fieldName = recordSchema.fieldName(i);
-                    QVariant fieldValue = q.value(i);
-
-                    // Додаємо в об'єкт (Qt6 сам розбереться з типами: числа, рядки, NULL)
-                    jsonRow.insert(fieldName, QJsonValue::fromVariant(fieldValue));
-
-                    // Якщо фільтр задано, перевіряємо, чи містить поточне поле шуканий текст
-                    if (!rowMatchesFilter && fieldValue.toString().toLower().contains(lowerFilter)) {
-                        rowMatchesFilter = true;
-                    }
-                }
-
-                // 2. ✅ ВИПРАВЛЕНО БАГ ДУБЛЮВАННЯ: Додаємо рядок до масиву ТІЛЬКИ ОДИН РАЗ,
-                // якщо він пройшов критерій фільтрації
-                if (rowMatchesFilter) {
-                    jsonRowsArray.append(jsonRow);
-                    ++rowCount;
-                }
-            }
-        } else {
-            errId = static_cast<int>(q.lastError().type());
-            errText = q.lastError().text();
-        }
-        closeConnection();
-    } else {
-        errId = 1;
-        errText = QStringLiteral("DB connection error.");
-    }
-
-    // 3. Формуємо підсумкову фінансову структуру відповіді
-    QJsonObject resultRoot;
-    resultRoot.insert(QStringLiteral("errorId"), errId);
-    resultRoot.insert(QStringLiteral("errorText"), errText);
-    resultRoot.insert(QStringLiteral("rowCount"), rowCount);
-    resultRoot.insert(QStringLiteral("rows"), jsonRowsArray);
-
-    // Конвертуємо зібране дерево у компактний JSON-рядок без зайвих пробілів
-    QJsonDocument doc(resultRoot);
-    return QString::fromUtf8(doc.toJson(QJsonDocument::Compact));
 }
 
 /**

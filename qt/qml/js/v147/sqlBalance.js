@@ -31,6 +31,7 @@ function buildWhereClause(conditionsArray) {
 
 /**
  * ГЕНЕРАТОР ЗАПИТІВ БАЛАНСУ (Головна функція, повністю оптимізована)
+ * BindModel.qml
  */
 function dbBalance(db, flt = "", order = "", reverse = false) {
     // console.log(`26#sqlAcnt.js db=[${db}]`)
@@ -61,7 +62,7 @@ function dbBalance(db, flt = "", order = "", reverse = false) {
         ${sortCondition};
     `
     // console.log(`sqlAcnt.js ${vsql}`)
-    return db.dbSelectRowsJSON(vsql);
+    return db.dbSelectRows(vsql, []);
     // const res = db.dbSelectRowsJSON(vsql);
     // console.log(`0wh#sqlAcnt.js ${JSON.stringify(res)}`)
     // return res;

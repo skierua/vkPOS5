@@ -275,7 +275,7 @@ function updDocum(db, dcmid, updateFields, archive) {
     const usql = `UPDATE ${tbl} SET ${setParts.join(", ")} WHERE ${fldName} = :condition_id`;
     // console.log(`dh6g#sqlBind ${usql} \nparam=${JSON.stringify(params)}`);
     // return;
-    return db.dbUpdateObj(usql, params);
+    return db.dbUpdate(usql, params);
 }
 
 

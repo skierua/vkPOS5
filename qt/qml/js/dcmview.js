@@ -140,18 +140,21 @@ function load_2(db, model, ui) {
 
 
 function isAllowed(row, flt) {
-    if (!row) return false;
+    // if (!row) return false;
     if (!flt || flt === "") return true;
 
     const dcm = ROW_CACHE[row];
     const filterLower = flt.toLowerCase();
     const noteStr = String(dcm.dcmnote || "").toLowerCase();
+    // const subnoteStr = String(dcm.dcmsubnote || "").toLowerCase();
     const acntStr = String(dcm.cdtacntname || "").toLowerCase();
     const atclStr = String(dcm.jarticle?.itemchar || "").toLowerCase();
     const atclFStr = String(dcm.jarticle?.itemname || "").toLowerCase();
 
-    return (dcm.dcmid === flt
+    // console.info(`II: dcmview.js/isAllowed`, JSON.stringify(dcm), row, flt)
+    return (dcm.itemid === filterLower
             || noteStr.includes(filterLower)
+            // || subnoteStr.includes(filterLower)
             || (dcm.jarticle?.scancode || "").includes(filterLower)
             || (dcm.acntcdt || "") === filterLower
             || acntStr.includes(filterLower)
@@ -169,6 +172,7 @@ function filterData(model, ui){
     let pid = 0;
     let fpid = 0;
     for ( let r =0; r < ROW_CACHE.length; ++r){
+        // console.info("II: dcmview.js/filterData ", r,  JSON.stringify(ROW_CACHE[r]));
         if (flt === undefined || flt === "" || isAllowed(r, flt) ){
             if (fpid !== ROW_CACHE[r].pid) {
                 fpid = ROW_CACHE[r].pid
@@ -213,12 +217,14 @@ function addNew(model, row, idx){
     const isTrade = row.eqamount !== 0 || row.dcmtype.startsWith("trade:");
     const noteStr = String(row.dcmnote || "");
     let noteVal = "";
+    let subnoteVal = "";
     if (isTrade) {
         const hashIdx = noteStr.indexOf("#");
         if (hashIdx === -1) {
             noteVal = `[${row.itemid || ""}] ${row.jarticle?.itemchar || "???"}`;
         } else {
             noteVal = noteStr.substring(0, hashIdx).trim();
+            subnoteVal = noteStr.substring(hashIdx).trim();
         }
     } else noteVal = `[${row.itemid || ""}] ${row.jarticle.itemchar || "???"} ${noteStr}`;
     const dcm = {
@@ -232,6 +238,7 @@ function addNew(model, row, idx){
         , "discount": row.discount
         , "bonus": row.bonus
         , "dcmnote": noteVal
+        , "dcmsubnote": subnoteVal
         , "itemid": row.itemid
         // , "itemchar": row.jarticle.itemchar
         , "unitprec": row.jarticle.unitprec

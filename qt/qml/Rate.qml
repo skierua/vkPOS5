@@ -317,9 +317,14 @@ Window {
 
     Action {
         id: commitAction
-        enabled: root.online && root.dbDriver !== null
+        enabled: root.dbDriver !== null
         text: qsTr("Встановити для каси")
-        onTriggered: JS.updateLocalRates(root.dbDriver, vw.model, logView, root.zero)
+        onTriggered: {
+            const ok = JS.updateLocalRates(root.dbDriver, vw.model, root.zero);
+            if (ok) logView.info("Курси успішно оновлені.");
+            else logView.error("Критична помилка запису! Оновлення скасовано.");
+
+        }
     }
 
     // --- ГОЛОВНИЙ ЖУРНАЛ КУРСІВ ВАЛЮТ ---

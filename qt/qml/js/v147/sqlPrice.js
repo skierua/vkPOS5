@@ -127,7 +127,7 @@ function price(db, itemid, ba, acntno){
     let fltP = `prbidask = ${isAsk ? -1 : 1} AND item = '${itemid}'`;
     // const pr = dbPrice(db, fltP);
     const pr = dbPrice(db, itemid, Number(ba || -1));
-    console.info(`s83#sqlPrice 22 pr=${JSON.stringify(pr)}`)
+    // console.info(`s83#sqlPrice 22 pr=${JSON.stringify(pr)}`)
     if (pr?.length > 0 && (pr[0].price || 0) !== 0) {
         ok = true
         res.id = pr[0].id || "";
@@ -382,5 +382,40 @@ function updRate(db, price, qty, id, curid, ba) {
     }
 
     return res;
+}
+
+// ModelBind.qml
+function dbRefreshTradeRate(db) {
+    if (!db) return false;
+
+    const priceSQL = "SELECT item, qtty AS qty, price FROM price WHERE prbidask = 1 AND price != 0";
+    const priceList = db.dbSelectRows(priceSQL, []);
+    // console.info(`sqlShift#73g9 priceList\n${JSON.stringify(priceList)}`)
+    // LibPrice.dbPrice(db, "prbidask = 1 AND price != 0")
+    // if (!priceList) return false;
+    let ok = true;
+    for (let row of priceList){
+        if (row.qty > 0){
+            const param = {
+                ":price": row.price / row.qty,
+                ":atclid": row.item,
+            }
+            // console.info(`sqlShift#235 param\n${JSON.stringify(param)}`)
+            const updSQL = "UPDATE acntrade SET lastpricebuy = :price WHERE article = :atclid";
+            ok &= db.dbUpdate(updSQL, param)
+        }
+    }
+
+    const buySQL = "UPDATE acntrade SET lastpricebuy = 0 WHERE lastpricebuy IS NULL;"
+    ok &= db.dbUpdate(buySQL, [])
+    const sellSQL = "UPDATE acntrade SET lastpricesell = 0 WHERE lastpricesell IS NULL;"
+    ok &= db.dbUpdate(sellSQL, [])
+    const bscSQL = `UPDATE acntrade
+                SET bscprice = (CASE WHEN lastpricebuy = 0 THEN lastpricesell ELSE lastpricebuy END)
+            WHERE (lastpricebuy != 0 OR lastpricesell != 0 );
+            `
+    ok &= db.dbUpdate(bscSQL, [])
+
+    return ok;
 }
 

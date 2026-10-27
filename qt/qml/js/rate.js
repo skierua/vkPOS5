@@ -5,6 +5,7 @@
 const CURRENCY = new Map();
 const LOCAL_RATE = new Map();
 const WEB_RATE = new Map();
+// const ALMOST_ZERO = 0.0000001;
 
 function loadCurrencies(db, model) {
     if (!db || !model) return;
@@ -122,59 +123,6 @@ function populateWebRates(model, msg) {
     });
 }
 
-/*function old_populateWebRates(model, msg){
-    // console.log(`II: 273#rate.js/populateWebRates`)
-
-    WEB_RATE.clear();
-    const l_populate = (jdata) =>
-    {
-        const rates = jdata
-        .filter(v => !v.pricecode)
-        .map(r => {
-                 return Object.assign({}, r, {
-                     "qty": Number(r.qty || 1),
-                     "bid": Number(r.bid || 0),
-                     "ask": Number(r.ask || 0),
-                 });
-             });
-        // console.log(`II: 827#rate.js ${JSON.stringify(rates)}`)
-
-        for (let r of rates){
-                WEB_RATE.set(r.atclcode, r);
-        };
-
-        for (let i =0; i < model.count; ++i){
-            const row = model.get(i);
-            if (WEB_RATE.has(row.curid)){
-                const webRate = WEB_RATE.get(row.curid);
-                const qtyCoef = Number(webRate.qty || 1) !== 0
-                                && row.qty !== Number(webRate.qty || 1) ?
-                                row.qty / Number(webRate.qty || 1) : 1;
-                if (qtyCoef !== 1){
-                    model.setProperty(i,"bidEdited", qtyCoef * Number(webRate.bid || 0))
-                    model.setProperty(i,"askEdited", qtyCoef * Number(webRate.ask || 0))
-                } else {
-                    model.setProperty(i,"bidEdited", Number(webRate.bid || 0))
-                    model.setProperty(i,"askEdited", Number(webRate.ask || 0))
-                }
-            }
-        }
-
-        return;
-    };
-
-    REST.loadRates((err, resp) => {
-                       if (err === null){
-                           // console.log("#278 rate.js/populateWebRates "+JSON.stringify(resp))
-                           l_populate(resp);
-                           // populateWebRates(model, resp)
-                           msg.info(`Ok ${resp.length}-s loaded`)
-                       } else {
-                          msg.error(err)
-                       }
-  });
-}*/
-
 function updateLocalRates(db, model, msg, zero = 0.0000001) {
     if (!(db) || model.count === 0) return;
 
@@ -202,7 +150,7 @@ function updateLocalRates(db, model, msg, zero = 0.0000001) {
 
         if (Math.abs(dAsk - eAsk) > zero) {
             refreshLocal = true;
-            let res = LibPrice.updRate((db), eAsk, currentItem.qty, currentItem.askId, currentItem.curid, 1);
+            let res = LibPrice.updRate((db), eAsk, currentItem.qty, currentItem.askId, currentItem.curid, -1);
             if (res === 0) ok = false; // Якщо запит повернув помилку (0), фіксуємо збій
         }
     }
@@ -214,14 +162,11 @@ function updateLocalRates(db, model, msg, zero = 0.0000001) {
         if (refreshLocal) {
             // console.log(`II: rate.js/updateLocalRates populateLocalRates`)
             populateLocalRates(db, model);
-            if(!!msg && typeof msg.info === "function")
-                msg.info("Курси успішно оновлені.");
         }
     } else {
         (db).dbRollback();
-        if(!!msg && typeof msg.error === "function")
-            msg.error("Критична помилка запису! Оновлення скасовано.");
     }
+    return ok;
 }
 
 

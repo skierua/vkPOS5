@@ -137,7 +137,7 @@ ApplicationWindow {
                         // syncBalanceAction,
                         changeDBAction,
                         { isSeparator: true },  // ✂️ роздільник
-                        testAction,
+                        // testAction,
                         winShiftAction,
                         { isSeparator: true },  // ✂️ роздільник
                         quitAction
@@ -610,19 +610,23 @@ ApplicationWindow {
     Action {
         id: testAction
         text: "TEST"
-        enabled: true
+        enabled: false
         onTriggered: {
             const ui = {
-                quitApp: () => quitTimer.start(),
-                z_popup: popupCloseShift,
+                info: (str) => logView.info(str),
                 error: (str) => logView.error(str),
             }
-            JS.handleShiftWinClose(Db, ui);
+            JS.testAction_handled(Db, ui);
+            // const ui = {
+            //     quitApp: () => quitTimer.start(),
+            //     z_popup: popupCloseShift,
+            //     error: (str) => logView.error(str),
+            // }
+            // JS.handleShiftWinClose(Db, ui);
             // const ui = {
             //     error: (str) => logView.error(str),
             // };
 
-            // JS.testAction_handled(Db);
             // JS.fix_acnt_item_980(Db, logView);
             // JS.feya_feature_fix(Db, logView);
             // popupCloseShift.open()
@@ -736,7 +740,7 @@ ApplicationWindow {
 
     Action {
         id: bindInnerAction
-        property int allowed: 2
+        property int allowed: 3
         text: "Новий ВНУТРІШНІ"
         icon.source: "qrc:/icon/add.svg"
         icon.width: 14
@@ -805,12 +809,20 @@ ApplicationWindow {
             if (component.status === Component.Ready) {
                 const newObj = component.createObject(compContainer, { dbDriver: Db, prnDriver: Prn })
                 newObj.vkEvent.connect( (id, param) => {
-                    if (id === 'info') {
-                        logView.info(`[Settings] ${param ?? "Unknown info"}`, 1, 5)
+                    if (id === 'taxConnChanged') {
+                        if (!!param){
+                           bindTaxAction.enabled = true;
+                           logView.info("Встановлено зʼєднання з ДПІ")
+                       } else {
+                           bindTaxAction.enabled = false;
+                           logView.warn("Втрачено зʼєднання з ДПІ")
+                       }
+                    } else if (id === 'info') {
+                        logView.info(`[Settings] ${param ?? "Unknown info"}`)
                     } else if (id === 'warning') {
-                        logView.warn(`[Settings] ${param ?? "Unknown warning"}`, 4, 10)
+                        logView.warn(`[Settings] ${param ?? "Unknown warning"}`)
                     } else if (id === 'error') {
-                        logView.error(`[Settings] ${param ?? "Unknown error"}`, 16)
+                        logView.error(`[Settings] ${param ?? "Unknown error"}`)
                     } else if (id === 'modeidChanged') {
                         root.modeid = Number(param || 3)
                         // logView.info(`Режим змінено на ${root.modeid}`, 1, 5)
@@ -944,6 +956,8 @@ ApplicationWindow {
                         // error: (str) => logView.error(str),
                     }
                     JS.handleShiftWinClose(ui);
+                } else if (id === "onCanceled"){
+                    if (!winShiftLoader.item.crntShiftData.isActive) quitTimer.start();
                 } else if (id === "info"){
                     logView.info(`[Shift] ${param ?? "Unknown info"}`);
                 } else if (id === "warn"){
