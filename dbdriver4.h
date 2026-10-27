@@ -73,11 +73,6 @@ public:
     Q_INVOKABLE QVariantList dbSelectRowsJSON(const QString &sql, const QString &filter = QString());
     Q_INVOKABLE QVariantList dbSelectRows(const QString &sql, const QVariantList &params);
 
-    // DEPRECATED
-    Q_INVOKABLE QString old_dbSelectRows(const QString &sql, const QString &filter = QString());
-    Q_INVOKABLE QString getJSONRowsFromSQL_2(const QString &sql, const QString &filter = QString())
-         { return old_dbSelectRows(sql, filter); }
-
 signals:
     void vkEvent(QString eventId, QVariant eventParam);
     void error(QString message);
