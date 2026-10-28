@@ -959,7 +959,7 @@ ApplicationWindow {
                 } else if (id === "onCanceled"){
                     if (!winShiftLoader.item.crntShiftData.isActive) quitTimer.start();
                 } else if (id === "info"){
-                    logView.info(`[Shift] ${param ?? "Unknown info"}`);
+                    logView.info(`${param ?? "Unknown info"}`);
                 } else if (id === "warn"){
                     logView.warn(`[Shift] ${param ?? "Unknown warning"}`);
                 } else if (id === "error"){
