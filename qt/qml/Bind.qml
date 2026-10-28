@@ -133,7 +133,7 @@ Item {
         enabled: Number(root.crntAcnt?.trade ?? 0) === 0 && (Number(root.crntAcnt?.mask ?? 0)&1) === 1
         text: "ГРН на рахунок"
         onTriggered: {
-            JS.handleDomToAcnt(dbDriver, bindModel, crntAcnt, -1 * root.totalPmnt);
+            JS.handleDomToAcnt(dbDriver, bindModel, root.crntAcnt.acntno, root.totalPmnt);
             // bindModel.addDcm(dbDriver, "", crntAcnt, -1 * root.totalPmnt);
             // bindView.restart();
             newRowAction.trigger();
@@ -146,7 +146,10 @@ Item {
         text: "ВАЛЮТА на рахунок"
         onTriggered: {
             // console.log(`II: Bind.qml#8e7 acnt=${JSON.stringify(root.crntAcnt)}`)
-            JS.handleCrnToAcnt(dbDriver, totalCurrencyView.model, bindModel, crntAcnt);
+            JS.handleCrnToAcnt(dbDriver,
+                               // totalCurrencyView.model,
+                               bindModel,
+                               root.crntAcnt.acntno);
             // bindView.restart();
             newRowAction.trigger();
         }

@@ -134,6 +134,7 @@ ApplicationWindow {
                         { isSeparator: true },  // ✂️ роздільник
                         winCashWizardAction,
                         actionSetting,
+                        winTaxServiceAction,
                         // syncBalanceAction,
                         changeDBAction,
                         { isSeparator: true },  // ✂️ роздільник
@@ -892,11 +893,20 @@ ApplicationWindow {
 
     Action {
         id: winTaxServiceAction
-        enabled: false
-        checkable: true
-        checked: taxServiceLoader.active
+        property int allowed: 1
+        // enabled: false
+        // checkable: true
+        // checked: taxServiceLoader.active
         text: "ПРРО/касовий"
-        onTriggered: { taxServiceLoader.active = checked; }
+        onTriggered: {
+            actionSetting.trigger();
+            if ((compContainer.currentItem.codeid || "") === "settings"){
+                // console.info("II:#790j Main.qml actTAX", (typeof compContainer.currentItem.gotoTAX));
+                compContainer.currentItem.gotoTAX?.trigger();
+            }
+
+            taxServiceLoader.active = checked;
+        }
     }
 
     Action {
