@@ -111,7 +111,7 @@ function tranBind(db, jbind) {
                     ok &= db.dbUpdate(updateBuyPriceSql, param);
                 } else if (dcmItem.dcm === "trade:sell" && amntNum < 0) {
                     const updateSellPriceSql = `UPDATE acntrade SET lastpricesell = :price WHERE acntno = :acntno AND article = :atclid;`;
-                    ok &= db.dbUpdate(updateSellPriceSql, []);
+                    ok &= db.dbUpdate(updateSellPriceSql, param);
                 } else {
                     const updateBscPriceSql = `UPDATE acntrade SET bscprice = :price WHERE acntno = :acntno AND article = :atclid;`;
                     ok &= db.dbUpdate(updateBscPriceSql, param);
@@ -182,7 +182,7 @@ function tranBind(db, jbind) {
     } else {
         // Якщо стався бодай один збій — скасовуємо весь чек повністю, залишаючи базу в повній чистоті
         db.dbRollback();
-        console.log("[sqlTran.js] Критична помилка проведення чека! Транзакцію скасовано SQLite.");
+        console.error("[sqlTran.js] Критична помилка проведення чека! Транзакцію скасовано SQLite.");
         return 0;
     }
 }

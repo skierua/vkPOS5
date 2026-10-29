@@ -283,6 +283,7 @@ function bindToSale(db, dcmid, payType) {
         const dcm = dcmSource[r];
         const article = LibItem.getItemById(db, dcm.itemid);
         ok &= (!!article.id ?? false);
+        ok &= (article.mask ?? 0) === 4;
         // console.log(`id82#CashDesk ${JSON.stringify(dcm)}`);
         const price = dcm.amount !== 0 ? Math.abs(Number(dcm.eqamount || 0)/Number(dcm.amount)) : 0;
         total_eq += Number(dcm.eqamount || 0);
@@ -311,17 +312,14 @@ function bindToSale(db, dcmid, payType) {
     // payType може приходити з інтерфейсу вибору оплати
     const isCash = (payType === "cash" || Number(payType || 0) === 0);
 
-    // 1. Чиста сума товарів у копійках без жодних округлень
     const totalEqCents = Math.round(Math.abs(total_eq) * 100);
     const pure_total_val = totalEqCents / 100;
 
-    // 2. Розраховуємо копійки з урахуванням типу оплати (НБУ тільки для готівки!)
     const totalSumCents = isCash ? (Math.round(totalEqCents / 50) * 50) : totalEqCents;
 
     const total_sum_val = totalSumCents / 100;
     const round_sum_val = (totalSumCents - totalEqCents) / 100;
 
-    // 3. Динамічно формуємо масив платежів під ПРРО
     let paymentsArray = [];
     if (isCash) {
         paymentsArray.push({

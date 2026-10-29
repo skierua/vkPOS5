@@ -18,6 +18,7 @@ Item {
     property var prnDriver                 // printer manager
     property string title: "Налаштування системи"
     property string codeid: "settings"
+    property alias gotoTAX: actTAX
 
     // Список дій контекстного меню (перемикачі вкладок)
     property list<Action> vkContextActions: [

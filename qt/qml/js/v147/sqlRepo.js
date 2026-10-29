@@ -18,7 +18,7 @@ function monProfit(db, vdate) {
         sum(amount) AS amnt
     FROM strgdocum
     ${whereCondition}
-    GROUP BY acntcdt, tm, dcmaker;
+    GROUP BY acntcdt, tm, dcmaker HAVING abs( amnt ) > 1;
     `
     return db.dbSelectRows(vsql, params) || [];
 }

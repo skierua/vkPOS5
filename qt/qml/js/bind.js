@@ -51,22 +51,37 @@ function crnTotalList(db, model) {
     return res;
 }
 
-function handleDomToAcnt(db, model, acnt, amnt){
+function handleDomToAcnt(db, model, acntNo, amnt){
     const atcl = LibItem.getItemById(db);
-    const type = amnt < 0 ? "pay:out" : "pay:in"
-    const ok = model.addDcm(atcl, acnt, type, amnt, null, "зарахування на рахунок");
+    const amntVal = 0 - Number(amnt || 0);
+    const type = amntVal < 0 ? "pay:out" : "pay:in"
+    const dcmData = {
+        atclId: "",
+        acntNo: String(acntNo || ""),
+        amnt: amntVal,
+        type: type,
+        note: "зарахування на рахунок"
+    }
+
+    const ok = model.addDcm(db, dcmData);
     if (!ok) console.error(model.lastError);
 }
 
-function handleCrnToAcnt(db, crnTotal, model, acnt){
+function handleCrnToAcnt(db, model, acntNo){
     // const crnTotal = crnTotalList(model);
-    for (let i = 0; i < crnTotal.length; ++i) {
-        // console.info(`II: bind.js/handleCrnToAcnt acntno=${acnt} cur=${crnTotal[i].id} amnt=${-1 * crnTotal[i].amnt}`)
-        const atcl = LibItem.getItemById(db, crnTotal[i].id);
-        const type = crnTotal[i].amnt > 0 ? "pay:out" : "pay:in"
-        const ok = model.addDcm(atcl, acnt, type, -1 * crnTotal[i].amnt, null, "ВАЛ. зарахування на рахунок");
-        if (!ok) console.error(model.lastError);
-    }
+    const totalList = crnTotalList(db, model)
+    totalList.forEach( v => {
+                          const amntVal = 0 - Number(v.amnt || 0);
+                          const type = amntVal < 0 ? "pay:out" : "pay:in"
+                          const dcmData = {
+                              atclId: v.id,
+                              acntNo: String(acntNo || ""),
+                              amnt: amntVal,
+                              type: type,
+                              note: "ВАЛ. зарахування на рахунок"
+                          };
+                          const ok = model.addDcm(db, dcmData);
+                      });
 }
 
 /**
@@ -137,17 +152,17 @@ function handleRsltToProfit(db, model, ui) {
 function handleTranAction(db, prn, model, ui) {
     if (!model.count) return -1;
 
-    const l_isTaxCorrect = () => {
-        let ok = true;
-        for (let i = 0; ok && i < model.count; ++i){
-            const dcm = model.get(i);
-            ok &= (dcm.dcode || "") === "trade:sell"
-            && Number(dcm.dsign || 0) < 0
-            && Number(dcm.darticle?.mask || 0) === 4;
-        }
+    // const l_isTaxCorrect = () => {
+    //     let ok = true;
+    //     for (let i = 0; ok && i < model.count; ++i){
+    //         const dcm = model.get(i);
+    //         ok &= (dcm.dcode || "") === "trade:sell"
+    //         && Number(dcm.dsign || 0) < 0
+    //         && Number(dcm.darticle?.mask || 0) === 4;
+    //     }
 
-        return ok;
-    };
+    //     return ok;
+    // };
 
     const l_parse = (raw) => {
         try {
@@ -161,10 +176,10 @@ function handleTranAction(db, prn, model, ui) {
     let bindForTax = null;
     if (!!ui && ui.state === "taxcheck") {
         // Якщо перевірка фіскального блоку НЕ пройшла успішно
-        if (!l_isTaxCorrect()) {
-            ui?.error?.("Помилка фіскалізації. Некоректний фіскальний документ");
-            return -2;
-        }
+        // if (!l_isTaxCorrect()) {
+        //     ui?.error?.("Помилка фіскалізації. Некоректний фіскальний документ");
+        //     return -2;
+        // }
 
         // Якщо все коректно — дозволяємо відправку на сервер ДПС
         sendToTax = true;
