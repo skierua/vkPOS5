@@ -43,6 +43,45 @@ function initDatabase(db) {
         to_v147(db);
         console.log("[Migration] Структуру бази даних успішно оновлено до версії 147!");
     }
+
+    manageIndexes(db);
+
+}
+
+function manageIndexes(db){
+    try {
+        db.dbSelectRowsJSON("PRAGMA foreign_keys = OFF;");
+
+        // Відкриваємо фінансову транзакцію безпеки
+        db.dbSelectRowsJSON("BEGIN TRANSACTION;");
+
+        db.dbSelectRowsJSON("CREATE INDEX IF NOT EXISTS strgdocum_tm_idx ON strgdocum (dcmtime);");
+        db.dbSelectRowsJSON("CREATE INDEX IF NOT EXISTS strgdocum_cdt_idx ON strgdocum (acntcdt);");
+        db.dbSelectRowsJSON("CREATE INDEX IF NOT EXISTS strgdocum_item_idx ON strgdocum (item);");
+
+        db.dbSelectRowsJSON("CREATE INDEX IF NOT EXISTS item_char_idx ON item (itemchar);");
+        db.dbSelectRowsJSON("CREATE INDEX IF NOT EXISTS item_pid_idx ON item (parentid);");
+
+        db.dbSelectRowsJSON("CREATE INDEX IF NOT EXISTS acnt_no_idx ON acnt (acntno);");
+        db.dbSelectRowsJSON("CREATE INDEX IF NOT EXISTS acnt_item_idx ON acnt (item);");
+
+        db.dbSelectRowsJSON("CREATE INDEX IF NOT EXISTS acnt_item_idx ON price (item);");
+
+
+        // Фіксуємо транзакцію в заголовок файлу
+        db.dbSelectRowsJSON("COMMIT;");
+
+        // Піднімаємо версію в заголовку SQLite до 147
+        db.dbSelectRowsJSON("PRAGMA user_version = 147;");
+        console.log("[Migration] Індекси успішно створені");
+    } catch (error) {
+        console.error("[Migration] Критична помилка створення індексів: " + String(error));
+        db.dbSelectRowsJSON("ROLLBACK;");
+    } finally {
+        // Обов'язково повертаємо контроль цілісності зв'язків назад
+        db.dbSelectRowsJSON("PRAGMA foreign_keys = ON;");
+    }
+
 }
 
 function to_v147(db){

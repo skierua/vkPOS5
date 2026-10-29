@@ -501,7 +501,8 @@ Item {
                                             // console.info(`II:#8e6 fldPrice/onClicked`, dlgRoot.isPriceEditable)
                                             if (dlgRoot.ListView.view) {
                                                 dlgRoot.ListView.view.currentIndex = index;
-                                                fldPriceEdit.text = model.dprice.toFixed(4)
+                                                const prec = (100 * model.dprice) - Math.round(100 * model.dprice) < 0.1 ? 2 : 4;
+                                                fldPriceEdit.text = model.dprice.toFixed(prec)
                                                 fldPriceEdit.visible = true;
                                                 fldPriceEdit.forceActiveFocus();
                                             }
@@ -653,7 +654,7 @@ Item {
 
                             readonly property int pqty: model.jprice?.qty || (model.darticle ? Number(model.darticle.qty ?? 1) : 1)
 
-                            validator: DoubleValidator { bottom: 0; decimals: 4; notation: "StandardNotation"; locale: "en_US" }
+                            validator: DoubleValidator { bottom: 0; /*decimals: 4;*/ notation: "StandardNotation"; locale: "en_US" }
 
                             onActiveFocusChanged: {
                                 if (activeFocus) selectAll();
@@ -671,9 +672,17 @@ Item {
                                     // if (!priceObj.qty) priceObj.qty = fldPriceEdit.pqty;
 
                                     // model.jprice = priceObj; // Перезаписуємо об'єкт для тригеру оновлення QML
-                                    model.dprice = inputVal
-                                    dlgRoot.ListView.view.model.setDcmTradeData(index);
-                                    dlgRoot.ListView.view.restart();
+                                    const minPrice = 0.98 * model.dprice;
+                                    const maxPrice = 1.02 * model.dprice;
+                                    if ( minPrice < inputVal && inputVal < maxPrice){
+                                        model.dprice = inputVal;
+                                        dlgRoot.ListView.view.model.setDcmTradeData(index);
+                                        dlgRoot.ListView.view.restart();
+                                    } else {
+                                        vkEvent("error", "Перевищення маржі");
+                                    };
+
+
                                 }
                                 visible = false;
                                 fldMainInput.forceActiveFocus();

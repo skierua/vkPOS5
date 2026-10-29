@@ -587,15 +587,21 @@ parent.enabled ? (parent.down ? "#047857" : "#10B981") : "#E5E7EB" }
                             font { pixelSize: 13; bold: true }
                             background: Rectangle { radius: 6; color: parent.activeFocus ? "#FFFFFF" : "#F9FAFB"; border { width: 1; color: parent.activeFocus ? "#3B82F6" : "#D1D5DB" } }
                             validator: DoubleValidator {
-                                bottom: (incasRateEdit.currentModelItem && !!incasRateEdit.currentModelItem.priceVal) ? incasRateEdit.currentModelItem.priceVal * 0.98 : 0.0;
-                                top: (incasRateEdit.currentModelItem && !!incasRateEdit.currentModelItem.priceVal) ? incasRateEdit.currentModelItem.priceVal * 1.02 : 999999.0;
+                                bottom: 0;
+                                // bottom: (incasRateEdit.currentModelItem && !!incasRateEdit.currentModelItem.priceVal) ? incasRateEdit.currentModelItem.priceVal * 0.98 : 0.0;
+                                // top: (incasRateEdit.currentModelItem && !!incasRateEdit.currentModelItem.priceVal) ? incasRateEdit.currentModelItem.priceVal * 1.02 : 999999.0;
                                 decimals: 4;
                                 notation: "StandardNotation"; locale: "en_US" }
                             onActiveFocusChanged: if (activeFocus) selectAll();
                             text: incasRateEdit.currentModelItem ? String(incasRateEdit.currentModelItem.priceVal || 0) : "0";
                             onEditingFinished: { if (incasRateEdit.currentModelItem) {
                                     // console.log(`BE ue3#Shift.qml idx=${incasRateEdit.incasid} text=${text} priceVal=${incasRateEdit.currentModelItem.priceVal}`);
-                                    incasRateEdit.currentModelItem.priceVal = Number(text);
+                                    const prevVal = Number(incasRateEdit.currentModelItem.priceVal);
+                                    const newVal = Number(text);
+                                    if (newVal > 0.98 * prevVal && newVal < 1.02 * prevVal){
+                                        incasRateEdit.currentModelItem.priceVal = Number(text);
+                                    }
+
                                     // vw.model.setProperty(incasRateEdit.incasid, "priceVal", Number(text));
                                     // console.log(`AF ue3#Shift.qml idx=${incasRateEdit.incasid} text=${text} priceVal=${incasRateEdit.currentModelItem.priceVal}`);
                                 }

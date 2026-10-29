@@ -152,17 +152,17 @@ function handleRsltToProfit(db, model, ui) {
 function handleTranAction(db, prn, model, ui) {
     if (!model.count) return -1;
 
-    const l_isTaxCorrect = () => {
-        let ok = true;
-        for (let i = 0; ok && i < model.count; ++i){
-            const dcm = model.get(i);
-            ok &= (dcm.dcode || "") === "trade:sell"
-            && Number(dcm.dsign || 0) < 0
-            && Number(dcm.darticle?.mask || 0) === 4;
-        }
+    // const l_isTaxCorrect = () => {
+    //     let ok = true;
+    //     for (let i = 0; ok && i < model.count; ++i){
+    //         const dcm = model.get(i);
+    //         ok &= (dcm.dcode || "") === "trade:sell"
+    //         && Number(dcm.dsign || 0) < 0
+    //         && Number(dcm.darticle?.mask || 0) === 4;
+    //     }
 
-        return ok;
-    };
+    //     return ok;
+    // };
 
     const l_parse = (raw) => {
         try {
@@ -176,10 +176,10 @@ function handleTranAction(db, prn, model, ui) {
     let bindForTax = null;
     if (!!ui && ui.state === "taxcheck") {
         // Якщо перевірка фіскального блоку НЕ пройшла успішно
-        if (!l_isTaxCorrect()) {
-            ui?.error?.("Помилка фіскалізації. Некоректний фіскальний документ");
-            return -2;
-        }
+        // if (!l_isTaxCorrect()) {
+        //     ui?.error?.("Помилка фіскалізації. Некоректний фіскальний документ");
+        //     return -2;
+        // }
 
         // Якщо все коректно — дозволяємо відправку на сервер ДПС
         sendToTax = true;
