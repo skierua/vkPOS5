@@ -225,32 +225,6 @@ ListModel {
         dcm.dnote = noteVal
         dcm.disTrade = isTrade
 
-/*        let dcm = {
-            dsign: signVal,
-            dcode: typeVal,
-            darticleId: atclIdVal,
-            darticlePrec: atclPrecVal,
-            darticleMask: atclMaskVal,
-            dacntNo: acntNoVal,
-            dacntNote: acntNoteVal,
-            damnt: rndAmnt,
-            dnote: noteVal,
-            disTrade: isTrade,
-            dprice: 0.0,
-            dpriceDsc: 0.0,
-            dpriceBns: 0.0,
-            dpriceType: "", // ''|'offer'
-            dpriceQty: 1,
-            drate: 1,
-            dscEditable: true,
-            moneyEq: 0.0,
-            moneyDsc: 0.0,
-            moneyBns: 0.0,
-            dnotetag: '',
-            retfor: "",
-            err: ""
-        }; */
-
         if (isTrade){
             // if (!jdata?.jprice) {
             //     mRoot.lastError = "Document rate's missing";

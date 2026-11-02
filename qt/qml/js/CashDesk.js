@@ -279,6 +279,7 @@ function bindToSale(db, dcmid, payType) {
     let ok = (bind?.dcmtype || "") === "check";
     let articles = [];
     let total_eq = 0;
+    let total_dsc = 0;
     for (let r = 0; ok && r < dcmSource.length; ++r) {
         const dcm = dcmSource[r];
         const article = LibItem.getItemById(db, dcm.itemid);
@@ -287,6 +288,7 @@ function bindToSale(db, dcmid, payType) {
         // console.log(`id82#CashDesk ${JSON.stringify(dcm)}`);
         const price = dcm.amount !== 0 ? Math.abs(Number(dcm.eqamount || 0)/Number(dcm.amount)) : 0;
         total_eq += Number(dcm.eqamount || 0);
+        total_dsc += Number(dcm.discount || 0);
         ok &= (dcm.dcmtype === "trade:sell");
         // ok &= (Number(dcm.mask || 0) === 4); // Маска 4 — роздрібні товари (Goodies)
         ok &= Number(dcm.amount || 0) < 0;
@@ -299,7 +301,8 @@ function bindToSale(db, dcmid, payType) {
             "amount": Math.abs(dcm.amount).toFixed(dcm.unitprec || 2),
             "price": price.toFixed(3),
             "cost": Math.abs(dcm.eqamount || 0).toFixed(2),
-            "sum_discount": Math.abs(dcm.discount || 0).toFixed(2)
+            "sum_discount": (-1 * Math.abs(dcm.discount || 0)).toFixed(2),
+            // "letters":"Д",
         });
     }
 
@@ -313,12 +316,15 @@ function bindToSale(db, dcmid, payType) {
     const isCash = (payType === "cash" || Number(payType || 0) === 0);
 
     const totalEqCents = Math.round(Math.abs(total_eq) * 100);
-    const pure_total_val = totalEqCents / 100;
+    const totalDscCents = Math.round(Math.abs(total_dsc) * 100);
+    const totalPmntCents = totalEqCents - totalDscCents;
 
-    const totalSumCents = isCash ? (Math.round(totalEqCents / 50) * 50) : totalEqCents;
+    const pure_total_val = totalPmntCents / 100;
+
+    const totalSumCents = isCash ? (Math.round(totalPmntCents / 50) * 50) : totalPmntCents;
 
     const total_sum_val = totalSumCents / 100;
-    const round_sum_val = (totalSumCents - totalEqCents) / 100;
+    const round_sum_val = (totalSumCents - totalPmntCents) / 100;
 
     let paymentsArray = [];
     if (isCash) {
@@ -360,7 +366,7 @@ function bindToSale(db, dcmid, payType) {
         "print_width": 32,
         "pdf_width": 48
     };
-
+// console.info(`II:#625r CashDesk ${JSON.stringify(taxbind)}`)
     return taxbind;
 }
 

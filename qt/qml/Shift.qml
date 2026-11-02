@@ -107,7 +107,7 @@ Window {
                     vkEvent("info", "Зміну успішно ЗАКРИТО");
                     vkEvent("shiftClosed", null);
                     root.close();
-                } else logView.error("Помилка закриття зміни");
+                } else logView.error(`Помилка закриття зміни:${JS.LAST_ERROR}`);
             } else { logView.error("Системна помилка: Відсутня функція закриття зміни"); }
         }
     }

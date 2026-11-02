@@ -221,6 +221,7 @@ function uploadBalance(db, callback) {
 
 }
 
+// shift.js
 function uploadMonRepo(db, vdate = new Date().toISOString(), callback) {
     if (!db) return [];
     const vdateT = !!vdate ? vdate.trim() : "";
@@ -228,6 +229,7 @@ function uploadMonRepo(db, vdate = new Date().toISOString(), callback) {
                  ? new Date().toISOString().substring(0, 7)
                  : vdateT.substring(0, 7);
     const source = LibRepo.monProfit(db, period);
+    console.info("II:#42s source.js ", JSON.stringify(source))
     const repo = source.map(v => {
            const parts = v.acnt.split(/\.|\//);
            if (!parts[1] || !parts[2] ) return null;
@@ -252,8 +254,8 @@ function uploadMonRepo(db, vdate = new Date().toISOString(), callback) {
         console.warn("WW: REST.uploadMonRepo is PROHIBITED (BAN_SEND = true) !!!")
         console.warn(`WW: REST.uploadMonRepo req=${JSON.stringify(repoReq)}`)
     } else {
-        // console.warn(`WW: REST.uploadMonRepo req=${JSON.stringify(repoReq)}`)
-        postRequest("/app_api", repoReq, (err, resp) => { callback(err); });
+        console.warn(`WW: REST.uploadMonRepo req=${JSON.stringify(repoReq)}`)
+        postRequest("/app_api", repoReq, (err, resp) => { callback(err, resp); });
         // postRequest("/reports", repoReq, (err, resp) => { callback(err); });
     }
 
@@ -314,6 +316,25 @@ function postRequest(path, req, callback) {
         request.send("data=" + encodeURIComponent(JSON.stringify(req)));
 
 }
+
+
+// Хелпер-обгортка для симуляції await
+function postRequestAsync(url, req) {
+    return new Promise((resolve, reject) => {
+        // Викликаємо вашу оригінальну функцію з її логікою
+        postRequest(url, req, (err, resp) => {
+            if (err) {
+                // Якщо є помилка, передаємо її в секцію .catch()
+                reject(err);
+            } else {
+                // Якщо все добре, передаємо результат у наступний .then()
+                resolve(resp);
+            }
+        });
+    });
+}
+
+
 
 // DEPRECATED
 function patchRequest(url, req, token, callback) {
@@ -401,7 +422,6 @@ function postRequest2(url, req, callback) {
         request.send("data=" + JSON.stringify(req));
     }
 }
-
 /*
   "/dcms?api_token="+resttoken
   "/accounts?api_token="+resttoken.  {"term":root.term,"reqid":"upd","shop":root.term,"data":jacnt.rows}

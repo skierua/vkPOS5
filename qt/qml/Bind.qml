@@ -74,7 +74,7 @@ Item {
         State {
             name: "taxcheck"
             PropertyChanges { target: root; title: "ФІСКАЛЬНИЙ" }
-            PropertyChanges { target: dscbnsColumn; visible: false }
+            PropertyChanges { target: dscbnsColumn; visible: true }
             PropertyChanges { target: rateColumn; visible: false }
             PropertyChanges { target: actionRsltToProfit; enabled: false }
             PropertyChanges { target: actionRevaluation; enabled: false }
@@ -665,23 +665,21 @@ Item {
                                 if (!visible) return;
 
                                 const inputVal = Number(text);
-                                if (inputVal !== 0 && model.dprice && dlgRoot.ListView.view && dlgRoot.ListView.view.model) {
+                                if (inputVal !== 0 && dlgRoot.ListView.view && dlgRoot.ListView.view.model) {
                                     // Оновлюємо внутрішні фінансові об'єкти
                                     // let priceObj = model.jprice;
                                     // priceObj.price = inputVal;
                                     // if (!priceObj.qty) priceObj.qty = fldPriceEdit.pqty;
 
                                     // model.jprice = priceObj; // Перезаписуємо об'єкт для тригеру оновлення QML
-                                    const minPrice = 0.98 * model.dprice;
-                                    const maxPrice = 1.02 * model.dprice;
-                                    if ( minPrice < inputVal && inputVal < maxPrice){
-                                        model.dprice = inputVal;
-                                        dlgRoot.ListView.view.model.setDcmTradeData(index);
-                                        dlgRoot.ListView.view.restart();
-                                    } else {
-                                        vkEvent("error", "Перевищення маржі");
-                                    };
-
+                                    const minPrice = (model.darticleMask === 2 ? 0.98 : 0.90) * model.dprice;
+                                    const maxPrice = (model.darticleMask === 2 ? 1.02 : 1.10) * model.dprice;
+                                    if ( inputVal < minPrice ) vkEvent("warn", "Ціна.Перевищення мінімальної маржі");
+                                    if ( inputVal > maxPrice ) vkEvent("warn", "Ціна.Перевищення максимальної маржі");
+    // console.info("II:#624 Bind.qml inputVal,dprice",inputVal,model.dprice);
+                                    model.dprice = inputVal;
+                                    dlgRoot.ListView.view.model.setDcmTradeData(index);
+                                    dlgRoot.ListView.view.restart();
 
                                 }
                                 visible = false;
