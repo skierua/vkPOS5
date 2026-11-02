@@ -9,8 +9,14 @@
 .import "v147/sqlShift.js" as LibShift
 .import "v147/sqlTran.js" as LibTran
 
+let LAST_ERROR = "";
+// Оголошуємо властивість-геттер для читання ззовні
+Object.defineProperty(this, "lastError", {
+    get: function() { return LAST_ERROR; },
+    configurable: true
+});
 
- function handleDriverChanged(db, model, ui){
+function handleDriverChanged(db, model, ui){
    if (!db) return;
    const shift = LibShift.crntShiftData(db);
    if (!shift) return;
@@ -33,7 +39,7 @@
    }
 
    // populateIncas();
- }
+}
 
 
 function buildRsltBind(db, bind, cshr){
@@ -77,9 +83,6 @@ function startShift(db, bind, ui) {
        if (!!ui && typeof ui.warn === "function") ui.warn("shift IS allready active");
        return -1;
     }
-    // const jbind = buildRsltBind(db, bind, shift?.cshr || "")
-    // console.info(`II: shift.js#14r3 jbind=${JSON.stringify(jbind)}`)
-    // return 1;
 
     // UNBLOCK !!!
     const shid = LibShift.dbStartShift(db, ui.cshr || "");
@@ -98,12 +101,14 @@ function startShift(db, bind, ui) {
    // if(1){
       // send reports to REST API
       if (REST.IS_CONNECTED || false){
-         REST.uploadMonRepo(db, lastShiftMonth,
-                            (err)=>{
-                               // TODO error log
-                                  if (!err) ui?.info?.("REST repo sync is Ok");
-                                  else ui?.error?.(err || "REST sending error");
-                            });
+         uploadMonRepoAsync(db, lastShiftMonth)
+                 .then(function(result) {
+                    ui.info("Звіт за попередній місяць синхронізовано:");
+                 })
+                 .catch(function(error) {
+                     LAST_ERROR = error.text;
+                     ui.error("Помилка відправки звіту за попередній місяць: " + error.text);
+                 });
       }
 
       let bid = 0;
@@ -115,10 +120,20 @@ function startShift(db, bind, ui) {
       // return -1;
 
 
-      if (!!bid){
-         sendBindToREST(db, jbind, ui);
-         ui?.info?.("Успішне проведення балансування TRADE");
-         // return bid;
+      if (!!bid && REST.IS_CONNECTED){
+         sendBindToRESTAsync(db, jbind)
+             .then((msg) => {
+                 ui.info("Операції успішно відправлено на сервер.");
+             })
+             .catch((err) => {
+                 if (err === "REST_DISCONNECTED") {
+                     ui.warn("Немає зв'язку з сервером, дані збережено локально.");
+                     resolve();
+                 } else {
+                     LAST_ERROR = err;
+                     ui.error("Помилка переоцінки: " + err);
+                 }
+             });
       } else {
          if (!!ui && typeof ui.warn === "function") ui.warn("Помилка проведення балансування TRADE");
          // return -1;
@@ -131,147 +146,37 @@ function startShift(db, bind, ui) {
 }
 
 function finishShift(db, bind, ui) {
+   LAST_ERROR = "";
    let ok = true;
-   let r =0;
-   let res = {
-      "status": -1,
-      "bindList": null,
-      "errstr": null
-   }
 
    if (!db) {
-      if (!!ui && typeof ui.error === "function") ui.error("DB connection is broken");
+      // if (!!ui && typeof ui.error === "function") ui.error("DB connection is broken");
+      LAST_ERROR = "DB connection is broken";
       return -1;
    };
 
    const cashAcntNo = LibAcnt.DfltAcnt.cashAcntNo(db);
    const shift = LibShift.crntShiftData(db);
    if (!shift || !shift.isActive) {
-      if (!!ui && typeof ui.warn === "function") ui.warn("shift IS NOT active");
+      // if (!!ui && typeof ui.warn === "function") ui.warn("shift IS NOT active");
+      LAST_ERROR = "shift IS NOT active";
       return -1;
    }
 
-/*   if (typeof LibTran.tranBind !== "function"
-         || typeof LibShift.dbRefreshTradeRate !== "function") {
-        if (!!ui && typeof ui.error === "function")
-           ui.error("System error: 'tranBind','dbRefreshTradeRate' function is missed");
-      return -1;
-   }
-   ok = LibShift.dbRefreshTradeRate(db);
-   if (!ok) {
-      res.errstr = "SQL Error: refresh trade rates";
-      if (!!ui && typeof ui.error === "function")
-         ui.error("SQL Error: refresh trade rates");
-      return -1;
-   } */
 
    ok = bind.tradeRevaluation(db);
    if (ok && !!bind.count){
       const dcmList = bind.dcmsToTran(cashAcntNo);
-      if (!dcmList){
-         if (!!ui && typeof ui.error === "function")
-            ui.error(bind.lastError || "Помилка формування ордерів інкасації" || "Bind unknown error");
-      }
-      // const total = bind.total();
-      const utcTimeStamp = new Date().toISOString();
-      const jbind = {
-          "id": "dcmbind",
-          "dcm": "folder",
-          "dbt": cashAcntNo,
-          "cdt": "rslt",
-         "amnt": "0.00",
-         "eq": "0.00",
-         "dsc": "0.00",
-         "bns": "0.00",
-          "note": "reval",
-          "clnt": shift?.cshrId || "",
-         "cshr": shift?.cshrId || "",
-          "tm": utcTimeStamp,
-          "dcms": dcmList
-      }
+      if (!!dcmList && dcmList.length > 0){
+         // if (!!ui && typeof ui.error === "function")
+         //    ui.error(bind.lastError || "Помилка формування ордерів інкасації" || "Bind unknown error");
 
-      // console.info(`shift.js#98u3 bind=${JSON.stringify(jbind)}`);
-      // continue;
-      const bid = LibTran.tranBind(db, jbind);
-      if (bid > 0){
-         sendBindToREST(db, jbind, ui);
-      } else {
-         if (!!ui && typeof ui.error === "function")
-            ui.error("Помилка проведення переоцінки");
-         return -1;
-      }
-   }
-   if (!!ui && typeof ui.info === "function") ui.info("Переоцінку успішно завершено");
-
-
-/*   const atcl = LibItem.getItemById(db);
-   const t_source = LibShift.dbRevalList(db) || [];
-  // console.info(`II: shift.js/finishShift#5i5 t_source=${JSON.stringify(t_source)}`)
-   const revalSet = new Set(
-       t_source
-           .filter(v => v && v.eno) // 1. Спочатку відсікаємо записи без eno
-           .map(v => {
-               const parts = v.eno.split(/\.|\//);
-               return parts[1] || "";
-           })
-           .filter(code => code !== "") // 3. Прибираємо порожні результати з Set
-   );
-  // revalSet.forEach(k => { console.info(`II: shift.js/finishShift#732 k=${k}`); });
-  const bindList = [];
-
-  const revalSource = t_source.filter(v => v && (v.amnt !== 0 || v.eqamnt !== 0));
-  // console.info(`II: shift.js/finishShift#203 revalSource=${JSON.stringify(revalSource)}`)
-   for (const crntAcntNo of revalSet) {
-      bind.flush();
-       // console.info(`II: shift.js/finishShift crntAcntNo=${crntAcntNo}`);
-      ok = true;
-      const revalAcntSource = revalSource.filter(v => {
-                                              const parts = v.eno.split(/\.|\//);
-                                              return crntAcntNo === (parts[1] || "");
-                                           });
-      // console.info(`II: shift.js/finishShift#8dj revalAcntSource=${JSON.stringify(revalAcntSource)}`)
-      for (const reval of revalAcntSource){
-         const priceVal = Number(reval.bscprice || 0);
-         const amntVal = Number(reval.amnt || 0);
-         if (!priceVal && !!amntVal) continue;
-         const eqVal = Number(reval.eqamnt || 0);
-         const profitVal = amntVal * priceVal + eqVal;
-         if (Math.abs(100 * profitVal) < 1) continue;
-         // const acntEq = LibAcnt.acntbal(db, String(reval.eno || ""));
-         // const acntRslt = LibAcnt.acntbal(db, String(reval.rno || ""));
-         const noteVal = `${(profitVal < 0 ? "+++" : "---")} reval(${reval.item}) ${reval.amnt} * ${reval.bscprice}`;
-         const dcm_1 = {
-            atclId: atcl.id,
-            acntNo: String(reval.eno || ""),
-            amnt: profitVal,
-            type: "memo",
-            note: noteVal,
-         }
-         const dcm_2 = {
-            atclId: atcl.id,
-            acntNo: String(reval.rno || ""),
-            amnt: 0 - profitVal,
-            type: "memo",
-            note: noteVal,
-         }
-         ok &= bind.addDcm(db, dcm_1);
-         ok &= bind.addDcm(db, dcm_2);
-         // ok &= bind.addDcm( atcl, acntEq, "memo", profitVal, null, noteVal);
-         // ok &= bind.addDcm( atcl, acntRslt, "memo", 0 - profitVal, null, noteVal);
-         // console.info(`II: shift.js/finishShift#i24 noteVal=${noteVal} bind.count=${bind.count}`)
-      }
-      if (ok && !!bind.count){
-         const dcmList = bind.dcmsToTran(cashAcntNo);
-         if (!dcmList){
-            if (!!ui && typeof ui.error === "function")
-               ui.error(bind.lastError || "Помилка формування ордерів інкасації" || "Bind unknown error");
-         }
          // const total = bind.total();
          const utcTimeStamp = new Date().toISOString();
          const jbind = {
              "id": "dcmbind",
              "dcm": "folder",
-             "dbt": crntAcntNo,
+             "dbt": cashAcntNo,
              "cdt": "rslt",
             "amnt": "0.00",
             "eq": "0.00",
@@ -288,17 +193,39 @@ function finishShift(db, bind, ui) {
          // continue;
          const bid = LibTran.tranBind(db, jbind);
          if (bid > 0){
-            sendBindToREST(db, jbind, ui);
+            // всередині вашої великої функції закриття зміни:
+            ui.info("Синхронізація даних з REST...");
+
+            if (REST.IS_CONNECTED){
+               sendBindToRESTAsync(db, jbind)
+                   .then((msg) => {
+                       ui.info("Дані успішно відправлено на сервер.");
+                       // Переходимо до наступного кроку (наприклад, закриття в локальній БД)
+                       // return nextStepPromise();
+                   })
+                   .catch((err) => {
+                       if (err === "REST_DISCONNECTED") {
+                           ui.warn("Немає зв'язку з сервером, дані збережено локально.");
+                           resolve();
+                       } else {
+                           LAST_ERROR = err;
+                           ui.error("Помилка переоцінки: " + err);
+                       }
+                   });
+            }
+
          } else {
-            if (!!ui && typeof ui.error === "function")
-               ui.error("Помилка проведення переоцінки");
+            ui?.error("Помилка проведення переоцінки");
+            LAST_ERROR = "Помилка проведення переоцінки";
+            console.info("II:#5tw shift.js ", LAST_ERROR)
             return -1;
          }
-         bindList.push(jbind)
       }
-      if (!!ui && typeof ui.info === "function") ui.info("Переоцінку успішно завершено");
    }
-*/
+
+   // if (!!ui && typeof ui.info === "function") ui.info("Переоцінку успішно завершено");
+
+
 //    console.info(`II: shift.js/finishShift#256y bindList=${JSON.stringify(bindList)}`)
 // return null;
 
@@ -306,8 +233,10 @@ function finishShift(db, bind, ui) {
    ok = db.closeShift(shift.id);
 
    if (!ok){
-      if (!!ui && typeof ui.error === "function")
-         ui.error(db.dbLastError() || "Помилка фіналізації зміни в C++");
+      // if (!!ui && typeof ui.error === "function")
+      ui.error(db.dbLastError() || "Помилка фіналізації зміни в C++");
+      LAST_ERROR = "Помилка фіналізації зміни в C++";
+      // console.info("II:#42s shift.js ", LAST_ERROR)
       return -1;
    }
 
@@ -315,15 +244,19 @@ function finishShift(db, bind, ui) {
    // if (1){
    if (REST.IS_CONNECTED){
       const period = new Date().toISOString().substring(0, 7);
-      REST.uploadMonRepo(db, period,
-                         (err)=>{
-                            // TODO error log
-                               if (!err) ui?.info?.("REST repo sync is Ok");
-                               else ui?.error?.(err || "REST sending error");
-                         });
+      uploadMonRepoAsync(db, period)
+              .then(function(result) {
+                  // Цей блок виконується як код після await
+                  // console.log("Звіт синхронізовано:", JSON.stringify(result));
+                 ui.info("Звіт синхронізовано");
+                  // bindModel.update(result);
+              })
+              .catch(function(error) {
+                  // Сюди прилетить помилка мережі, статус 0 або код 'EE'
+                  LAST_ERROR = error.text;
+                  ui.error("Помилка: " + error.text);
+              });
    }
-
-   ui?.info?.("Зміну ЗАКРИТО");
    return 0;
 }
 
@@ -468,7 +401,22 @@ function handleIncasAction(db, model, bind, ui){
 
       return -1;
    }
-   sendBindToREST(db, jbind, ui);
+   if (REST.IS_CONNECTED){
+      sendBindToRESTAsync(db, jbind)
+          .then((msg) => {
+              ui.info("Дані успішно відправлено на сервер.");
+          })
+          .catch((err) => {
+              if (err === "REST_DISCONNECTED") {
+                  ui.warn("Немає зв'язку з сервером, дані збережено локально.");
+                  resolve();
+                  // Тут можна зробити resolve(), щоб не переривати закриття зміни через офлайн
+              } else {
+                  LAST_ERROR = err;
+                  ui.error("Помилка переоцінки: " + err);
+              }
+          });
+   }
    if (!!ui && typeof ui.info === "function") ui.info("Валюти успішно ІНКАСОВАНО");
    return bid;
 }
@@ -478,40 +426,70 @@ function isIncas(db){
    return !!bulkAcntNo;
 }
 
-
-function monProfitForUpload(db, flt){
-   if (!db) return [];
-   const period =  (!flt || flt.length < 7)
-                ? new Date().toISOString().substring(0, 7)
-                : flt.substring(0, 7);
-   const source = LibRepo.monProfit(db, period);
-   const res = source.map(v => {
-                                  const parts = v.acnt.split(/\.|\//);
-                                  if (!parts[1] || !parts[2] ) return null;
-                                  return {
-                                     "itemid": parts[2] || "",
-                                     "acnt": parts[1] || "",
-                                     "amnt": Math.round(v.amnt),
-                                     "cshr": v.cshr || ""}
-                               });
-   if (!res || !res.length) return null;
-   return res;
-}
-
-function sendBindToREST(db, jbind, ui){
-   if (REST.IS_CONNECTED ){
-      REST?.uploadBalance?.(db,
-        (e)=>{
-           if (!!e) ui?.warn?.(e || "REST sync error");
+function uploadMonRepoAsync(url, period) {
+    return new Promise((resolve, reject) => {
+      if (!REST || typeof REST.uploadMonRepo !== "function") {
+         return reject("REST.uploadBind is missing");
+      }
+        REST.uploadMonRepo(url, period, (err, resp) => {
+            if (err) {
+                // Якщо є помилка, передаємо її в секцію .catch()
+                reject(err);
+            } else {
+                // Якщо все добре, передаємо результат у наступний .then()
+                resolve(resp);
+            }
         });
-      REST.uploadBind(jbind,
-                 (err)=>{
-                    if (!!err){
-                        ui?.warn?.(err || "REST sending error");
-                    }
-
-            });
-   }
-
+    });
 }
 
+function uploadBalancePromise(db) {
+    return new Promise((resolve, reject) => {
+        if (!REST || typeof REST.uploadBalance !== "function") {
+            return resolve(); // Якщо методу немає, просто пропускаємо без помилки
+        }
+        REST.uploadBalance(db, (err) => {
+            if (err) reject("REST sync error: " + err);
+            else resolve();
+        });
+    });
+}
+
+function uploadBindPromise(jbind) {
+    return new Promise((resolve, reject) => {
+        if (!REST || typeof REST.uploadBind !== "function") {
+            return reject("REST.uploadBind is missing");
+        }
+        REST.uploadBind(jbind, (err) => {
+            if (err) reject("REST sending error: " + err);
+            else resolve();
+        });
+    });
+}
+
+function sendBindToRESTAsync(db, jbind) {
+    return new Promise((resolve, reject) => {
+        if (!REST.IS_CONNECTED) {
+            return reject("REST_DISCONNECTED");
+        }
+
+        Promise.all([
+            uploadBalancePromise(db),
+            uploadBindPromise(jbind)
+        ])
+        .then(() => {
+            // Обидва запити завершилися успішно
+            resolve("Sync successful");
+        })
+        .catch((error) => {
+            // Будь-яка помилка з балансу або біндінгу прилетить сюди
+            console.warn(error);
+            reject(error);
+        });
+    });
+}
+
+// uploadBalancePromise(db)
+//     .then(() => uploadBindPromise(jbind))
+//     .then(() => resolve())
+//     .catch(reject);

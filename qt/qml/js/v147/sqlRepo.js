@@ -20,6 +20,7 @@ function monProfit(db, vdate) {
     ${whereCondition}
     GROUP BY acntcdt, tm, dcmaker HAVING abs( amnt ) > 1;
     `
+    // console.info("II:#6tw sqlRepo.js ", vsql, JSON.stringify(params))
     return db.dbSelectRows(vsql, params) || [];
 }
 
