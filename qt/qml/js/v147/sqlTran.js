@@ -128,8 +128,8 @@ function tranBind(db, jbind) {
         }
     }
 // console.log(`sqlTran 33333 ok=[${ok}] \n ${JSON.stringify(tranSchedule)}`);
-    const sqlClientField = (jbind.clnt === "") ? "NULL" : `'${jbind.clnt}'`;
-    const sqlNoteField = (!jbind.note || jbind.note === "") ? "NULL" : `'${jbind.note}'`;
+    const sqlClientField = (jbind.clnt === "") ? null : jbind.clnt;
+    const sqlNoteField = (!jbind.note || jbind.note === "") ? null : jbind.note;
 
     // const insertMainDocSql = `
     //     INSERT INTO docum (dcmtype, acntdbt, amount, eqamount, discount, bonus, dcmstate, acntcdt, dcmnote, client, dcmtime)
@@ -162,9 +162,9 @@ function tranBind(db, jbind) {
     let did =0;
         for (r = 0; ok && r < jbind.dcms.length; ++r) {
             let subDcm = jbind.dcms[r];
-            let sqlItemField = (subDcm.crn === "") ? "NULL" : `'${subDcm.crn}'`;
-            let sqlRetforField = (subDcm.retfor === "") ? "NULL" : `${subDcm.retfor}`;
-            let sqlCshrField = ((shift?.cshrId || "") === "") ? "NULL" : `'${shift?.cshrId || ""}'`;
+            let sqlItemField = (subDcm.crn === "") ? null : subDcm.crn;
+            let sqlRetforField = (subDcm.retfor === "") ? null : subDcm.retfor;
+            let sqlCshrField = ((shift?.cshrId || "") === "") ? null : shift?.cshrId;
 
             // const insertSubDocSql = `
             //     INSERT INTO docum (dcmtype, acntdbt, amount, eqamount, discount, bonus, dcmstate, acntcdt, dcmnote, item, parentid, retfor, dcmaker, dcmtime)
