@@ -426,13 +426,6 @@ function z_report(callback) {
     }
 }
 
-// /api/v2/checks/f301ab5f-21a4-491e-83ce-396fa2a47cbe/pdf?api_token=42b5eaccba739f08***e7fe157eba8bf&pdf_width=80
-function getCheckPdf(uuid, width, callback) {
-    const widthVal = String(width || "80");
-    const path = `/checks/${uuid}/pdf?api_token=${TOKEN}&pdf_width=${widthVal}`;
-    getRequest(path, callback)
-}
-
 function postRequest(path, req, callback) {
     // console.log("[libTAX] data=" + JSON.stringify(req)); return;
     // console.log(`CashDesk.js/postRequest req=${JSON.stringify(req)}`)
@@ -446,7 +439,12 @@ function postRequest(path, req, callback) {
     // console.info(`II: CashDesk.js#666 ${request.readyState}`)
     request.onreadystatechange = function() {
         // console.info(`II: CashDesk.js#555 ${request.readyState}`)
-        // console.info(`II: CashDesk.js#7777 status=${request.status} ${request.response}`)
+        console.info(`II: CashDesk.js#7777
+                     status=${request.status}
+                     type=${request.responseType}
+                     heads**${request.getAllResponseHeaders()}
+                     `)
+        // resp**${request.response}
         if (request.readyState === XMLHttpRequest.DONE) {
             if (request.status === 200) {
                 let isPlainText = request.responseType === ''
@@ -481,7 +479,7 @@ function getRequest(path, callback) {
     let request = new XMLHttpRequest();
     let  err = null, resp = null;
     const url = HOST + API + path
-    console.log(`CashDesk.js/getRequest url=${url}`)
+    // console.log(`CashDesk.js/getRequest url=${url}`)
     request.onreadystatechange = function() {
         // console.info(`II: CashDesk.js#555 ${request.readyState}`)
         // console.info(`II: GET CashDesk.js#1234 ${request.responseText}`)
@@ -502,6 +500,45 @@ function getRequest(path, callback) {
     request.setRequestHeader("Content-Type","application/json");
     request.setRequestHeader("Accept","application/json");
     request.setRequestHeader("developer-id","linux,mppanna");
+    request.send();
+}
+
+// /api/v2/checks/f301ab5f-21a4-491e-83ce-396fa2a47cbe/pdf?api_token=42b5eaccba739f08***e7fe157eba8bf&pdf_width=80
+// function getCheckPdf(uuid, width, callback) {
+//     const widthVal = String(width || "80");
+//     const path = `/checks/${uuid}/pdf?api_token=${TOKEN}&pdf_width=${widthVal}`;
+//     getRequest(path, callback)
+// }
+
+function getCheckPdf(uuid, width, callback) {
+    let request = new XMLHttpRequest();
+    const widthVal = String(width || "80");
+    const url = `${HOST}${API}/checks/${uuid}/pdf?api_token=${TOKEN}&pdf_width=${widthVal}`;
+
+    request.onreadystatechange = function() {
+        // console.info(`II: CashDesk.js#4444
+        //              status=${request.status}
+        //              type=${request.responseType}
+        //              heads**${request.getAllResponseHeaders()}
+        //              resp**${request.response}
+        //              `)
+        if (request.readyState === XMLHttpRequest.DONE) {
+            if (request.status === 200) {
+                // request.response тепер містить ArrayBuffer (сирі бінарні дані)
+                callback(null, request.response);
+            } else {
+                callback("Error: " + request.status, null);
+            }
+        }
+    }
+
+    request.open("GET", url);
+    request.setRequestHeader("Content-Type", "application/json");
+    request.setRequestHeader("Accept", "application/json");
+    request.setRequestHeader("developer-id", "linux,mppanna");
+
+    request.responseType = "arraybuffer";
+
     request.send();
 }
 
