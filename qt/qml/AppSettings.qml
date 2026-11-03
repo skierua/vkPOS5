@@ -849,7 +849,7 @@ Item {
                                     }
                                 }
 
-/*                                UIBtn{
+ /*                               UIBtn{
                                     id: btnTestTAX
                                     // enabled: false
                                     text: "pdf check"
@@ -857,11 +857,14 @@ Item {
                                     Layout.preferredHeight: 44
 
                                     onClicked: {
-                                        TAX.getCheckPdf("eeab9f39-a0f2-433a-83ad-39e770e320bf", null, (err, resp) => {
-                                                console.info(`AppSetting.qml btnTestTAX onClicked\n ${err || resp}`)
+                                        TAX.getCheckPdf("eeab9f39-a0f2-433a-83ad-39e770e320bf", null, (err, pdfBuffer) => {
+                                                // console.info(`AppSetting.qml btnTestTAX onClicked\n ${err || resp}`)
                                                  const title = !!err ? "Помилка:" : "Успішно:"
-                                                 taxFeedback.text = title + "\n" + (err || resp);
+                                                 taxFeedback.text = title ; //+ "\n" + (err || resp);
                                                  // if (!err) prnDriver.savePdf(resp);
+                                                // let success = prnDriver.savePdf(pdfBuffer);
+                                                let success = prnDriver.printPosPdf(pdfBuffer);
+                                                if (!success) console.log("Файл збережено!");
                                             });
                                     }
                                 } */

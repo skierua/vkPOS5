@@ -413,7 +413,7 @@ function handleIncasAction(db, model, bind, ui){
                   // Тут можна зробити resolve(), щоб не переривати закриття зміни через офлайн
               } else {
                   LAST_ERROR = err;
-                  ui.error("Помилка переоцінки: " + err);
+                  ui.error("REST Помилка інкасації: " + err);
               }
           });
    }
@@ -429,7 +429,7 @@ function isIncas(db){
 function uploadMonRepoAsync(url, period) {
     return new Promise((resolve, reject) => {
       if (!REST || typeof REST.uploadMonRepo !== "function") {
-         return reject("REST.uploadBind is missing");
+         return reject("REST_DISCONNECTED");
       }
         REST.uploadMonRepo(url, period, (err, resp) => {
             if (err) {

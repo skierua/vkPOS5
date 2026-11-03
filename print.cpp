@@ -2,6 +2,8 @@
 #include <QDir>
 #include <QPrinter>
 #include <QPainter>
+#include <QStandardPaths>
+#include <QProcess>
 
 
 Print::Print(QObject *parent)
@@ -400,7 +402,92 @@ int Print::saveOrder(const QVariantMap &bind)
     return 0;
 }
 
-QString Print::savePdf(const QString &base64Data, const QString &fileName){
+bool Print::savePdf(const QByteArray &data) const {
+    if (data.isEmpty()) return false;
+
+    // Зберігаємо у папку документів або завантажень
+    // QString path = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/" + fileName;
+
+    QString path = getAbsoluteReportPath(m_TAXcheckSubPath);
+    QFile file(path);
+
+    if (file.open(QIODevice::WriteOnly)) {
+        file.write(data);
+        file.close();
+        qDebug() << "PDF успішно збережено в:" << path;
+        return true;
+    }
+    return false;
+}
+
+bool Print::printPdf(const QByteArray &data) const {
+    if (data.isEmpty()) return false;
+
+    // Тимчасово зберігаємо файл для друку
+    // QString tempPath = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/temp_print.pdf";
+    QString path = getAbsoluteReportPath(m_TAXcheckSubPath);
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly)) return false;
+    file.write(data);
+    file.close();
+
+    // Відправляємо на дефолтний системний принтер через утиліту lp (Linux/Ubuntu каси)
+    QProcess printProcess;
+    QStringList args;
+    // printProcess.start("lp", QStringList() << path);
+    // return printProcess.waitForFinished();
+
+    // -o fit-to-page автоматично масштабує PDF під ширину стрічки/паперу принтера
+    args << "-o" << "fit-to-page" << path << m_checkPrinter;
+
+    // Запускаємо стандартну утиліту друку Linux
+    printProcess.start("lp", args);
+
+    // Чекаємо завершення відправки в чергу друку (таймаут 5 секунд)
+    return printProcess.waitForFinished(5000);}
+
+bool Print::printPosPdf(const QByteArray &pdfData) const {
+    if (pdfData.isEmpty()) return false;
+
+    // Тимчасово зберігаємо отриманий бінарний ArrayBuffer як файл .pdf
+    // QString tempPdf = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/pos_report.pdf";
+    QString tempPdf = getAbsoluteReportPath(m_TAXcheckSubPath);
+    QFile file(tempPdf);
+    if (!file.open(QIODevice::WriteOnly)) return false;
+    file.write(pdfData);
+    file.close();
+
+    // Шлях для майбутньої картинки (pdftoppm автоматично додасть "-1.png" до префіксу)
+    // QString tempImgPrefix = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/pos_page";
+    QString tempImgPrefix = getAbsoluteReportPath("report/lastTAXimg");
+    QString finalImgPath = tempImgPrefix + "-1.png";
+
+    // Рендеримо PDF в PNG картинку з високою чіткістю (300 DPI для термопринтерів)
+    QProcess convertProcess;
+    QStringList convertArgs;
+    convertArgs << "-png" << "-r" << "300" << "-singlefile" << tempPdf << tempImgPrefix;
+
+    convertProcess.start("pdftoppm", convertArgs);
+    if (!convertProcess.waitForFinished()) return false;
+
+    // Відправляємо згенеровану картинку на чековий принтер через систему CUPS (lp)
+    // QProcess printProcess;
+    // QStringList printArgs;
+
+    // // -o fit-to-page змушує драйвер Epson TM автоматично підігнати ширину картинки під 58/80мм стрічку
+    // printArgs << "-o" << "fit-to-page" << finalImgPath;
+
+    // printProcess.start("lp", printArgs);
+    // bool success = printProcess.waitForFinished();
+
+    // Очищаємо тимчасові файли на диску каси
+    // QFile::remove(tempPdf);
+    // QFile::remove(finalImgPath);
+    bool success = true;
+    return success;
+}
+
+/*QString Print::old_savePdf(const QString &base64Data, const QString &fileName){
 // QString Print::savePdf(const QByteArray &base64Data, const QString &fileName){
     // qDebug() << "II: print.cpp#38u" << base64Data;
     // QByteArray cleanData = base64Data.toUtf8();
@@ -429,178 +516,5 @@ QString Print::savePdf(const QString &base64Data, const QString &fileName){
 
     qWarning() << "Could not write PDF file to:" << path;
     return QString();
-}
-
-/* // old version
-int Print::paintCheck(const QVariantMap &bind, int mode, int isCopy){
-    QLocale locale = QLocale::system();
-    QPrinter printer;
-    QString reportPath = getAbsoluteReportPath(m_checkSubPath);
-    // qDebug() << "II: print.cpp/paintCheck printerName=" << m_checkPrinter;
-    if (mode) {
-        // Друк на фізичний термопринтер каси
-        printer.setPrinterName(m_checkPrinter);
-    } else {
-        printer.setOutputFileName(reportPath);
-    }
-
-    QPainter painter;
-
-    if (!painter.begin(&printer)) {
-        if (mode) {
-            m_lastError = QString("Помилка QPainter для друку чеку. Принтер: %1")
-                              .arg(printer.printerName());
-        } else {
-            m_lastError = QString("Помилка QPainter для запису чеку. Каталог: %1")
-                              .arg(printer.outputFileName());
-        }
-        // const QString strErr = "Не вдалося відкрити QPainter. Перевірте права доступу або підключення принтера.";
-        qWarning() << m_lastError;
-
-        return 1;
-    }
-
-    int yoffset = 0;
-    QString fontFamily = QStringLiteral("Arial");
-    int fontStretch = 70;
-    int fontSize = 10;
-
-    QFont f = painter.font();
-    f.setFamily(fontFamily);
-    f.setPointSize(12);
-    painter.setFont(f);
-
-    // Завантаження логотипу із папки додатку
-    QPixmap pxm(QStringLiteral("./logo.png"));
-    if (!pxm.isNull()) {
-        painter.drawPixmap(QPointF(0, yoffset), pxm);
-        yoffset += 35;
-    }
-
-    QString checkTitle = QStringLiteral("Чек")
-                         + (m_check == QStringLiteral("check") ? QString() : QStringLiteral(" - попередня"))
-                         + (isCopy ? QStringLiteral(" (копія)") : QString());
-
-    painter.drawText(QRect(0, yoffset, 170, 20), Qt::AlignHCenter | Qt::AlignVCenter, checkTitle);
-
-    f.setPointSize(fontSize);
-    f.setStretch(fontStretch);
-    painter.setFont(f);
-
-    painter.drawText(QRect(0, yoffset += 20, 170, 14), tr("Name") + QStringLiteral(": ") + m_termCode);
-    painter.drawText(QRect(0, yoffset += 14, 170, 14), tr("Address") + QStringLiteral(": ") + m_termAddress);
-
-    // Шапка таблиці чека
-    painter.drawText(QRect(0, yoffset += 16, 140, 14), tr("Артикул"));
-    painter.drawText(QRect(0, yoffset += 14, 35, 14), Qt::AlignHCenter, tr("К-сть"));
-    painter.drawText(QRect(35, yoffset, 45, 14), Qt::AlignHCenter, tr("Ціна"));
-    painter.drawText(QRect(80, yoffset, 55, 14), Qt::AlignHCenter, tr("Сума"));
-    painter.drawText(QRect(135, yoffset, 35, 14), Qt::AlignHCenter, tr("Знж"));
-
-    yoffset += 16;
-    const QVariantList dcmsArray = bind.value(QStringLiteral("dcms")).toList();
-    int i = 0;
-    for (const QVariant &v_dcm_val : dcmsArray) {
-        QVariantMap v_dcm = v_dcm_val.toMap();
-        QVariantMap v_item = v_dcm.value(QStringLiteral("jitem")).toMap();
-        if (v_dcm.isEmpty()) continue;
-
-        double am = abs(v_dcm.value(QStringLiteral("amnt")).toDouble());
-        double eq = abs(v_dcm.value(QStringLiteral("eq")).toDouble());
-        double ds = abs(v_dcm.value(QStringLiteral("dsc")).toDouble());
-        int qty = v_item.value(QStringLiteral("qty"), 1).toInt();
-        int mask = v_item.value(QStringLiteral("mask"), 0).toInt();
-        int prec = v_item.value(QStringLiteral("unitprec"), 2).toInt(); // 2 — дефолтна точність, якщо prec відсутній
-        QString noteStr = v_dcm.value(QStringLiteral("note")).toString().trimmed();
-        QString crnStr = v_dcm[QStringLiteral("crn")].toString().trimmed();
-        QString inoteStr = noteStr.indexOf(QStringLiteral("#")) < 0 ? QString() : noteStr.right(noteStr.indexOf(QStringLiteral("#")));
-        QString dcmType = v_dcm.value(QStringLiteral("dcm")).toString();
-
-        if (dcmType.startsWith("trade:")) {
-            QString cleanNote = noteStr.left(noteStr.indexOf(QStringLiteral("#")));
-            QString iidStr = (mask == 2) ? (QStringLiteral(" #") + crnStr) : QString();
-
-            painter.drawText(QRect(0, yoffset, 160, 14), (am > 0 ? QStringLiteral("+ ") : QStringLiteral("- ")) + cleanNote + iidStr);
-            yoffset += 14;
-
-            painter.drawText(QRect(0, yoffset, 35, 14), Qt::AlignRight, locale.toString(qAbs(am), 'f', prec));
-
-            // ЗАХИСТ ВІД ДІЛЕННЯ НА НУЛЬ: Якщо am == 0, ставимо ціну 0.00
-            QString priceStr = QStringLiteral("0.00");
-            if (am != 0.0) {
-                priceStr = QString::number(qty * (eq) / am, 'f', 2);
-                // priceStr = QString::number(qty * (eq + ds) / am, 'f', 2);
-            }
-
-            QString qtySuffix = (qty == 1.0) ? QString() : QStringLiteral("/%1").arg(qty);
-            painter.drawText(QRect(35, yoffset, 45, 14), Qt::AlignRight, priceStr + qtySuffix);
-
-            painter.drawText(QRect(80, yoffset, 55, 14), Qt::AlignRight, locale.toString(qAbs(eq), 'f', 2));
-            painter.drawText(QRect(135, yoffset, 35, 14), Qt::AlignRight, locale.toString(qAbs(ds), 'f', 2));
-
-            if (noteStr.contains(QStringLiteral("#"))) {
-                painter.drawText(QRect(0, yoffset += 14, 150, 14), inoteStr.mid(inoteStr.indexOf(QStringLiteral("#")) + 1));
-            }
-        } else {
-            // Касові ордери (Внесення / Вилучення)
-            QString icharStr = v_item.value(QStringLiteral("itemchar"), "N/A").toString();
-            QString iidStr = (mask == 2) ? (QStringLiteral(" #") + crnStr) : QString();
-
-            painter.drawText(QRect(0, yoffset, 160, 14), (am > 0 ? QStringLiteral("+Отр ") : QStringLiteral("-Вид ")) + icharStr + inoteStr + iidStr);
-            yoffset += 14;
-
-            painter.drawText(QRect(0, yoffset, 55, 14), Qt::AlignRight, locale.toString(qAbs(am), 'f', prec));
-            painter.drawText(QRect(60, yoffset, 110, 14), noteStr);
-        }
-
-        yoffset += 16;
-    }
-
-    // Підсумковий блок чека
-    painter.drawText(QRect(0, yoffset, 170, 12), QStringLiteral("--------------------------------------------------------------------------"));
-    painter.drawText(QRect(0, yoffset += 14, 60, 14), tr("Всього:"));
-
-    double totalEq = bind.value(QStringLiteral("eq")).toString().toDouble();
-    double totalDsc = bind.value(QStringLiteral("dsc")).toString().toDouble();
-    double totalAmount = bind.value(QStringLiteral("amnt")).toString().toDouble();
-
-    painter.drawText(QRect(55, yoffset, 80, 14), Qt::AlignRight, locale.toString(qAbs(totalEq), 'f', 2));
-    painter.drawText(QRect(135, yoffset, 35, 14), Qt::AlignRight, locale.toString(qAbs(totalEq), 'f', 2));
-
-    painter.drawText(QRect(0, yoffset += 8, 170, 12), QStringLiteral("--------------------------------------------------------------------------"));
-
-    f.setPointSize(11);
-    f.setStretch(100);
-    painter.setFont(f);
-
-    painter.drawText(QRect(0, yoffset += 10, 50, 30), Qt::AlignLeft | Qt::AlignVCenter, ((totalEq + totalDsc) < 0 ? QStringLiteral("+") : QStringLiteral("-")) + tr("Сума"));
-
-    f.setBold(true);
-    f.setPointSize((qAbs(totalEq + totalDsc) < 1000000.0) ? 14 : 13);
-    painter.setFont(f);
-
-    painter.drawText(QRect(50, yoffset, 120, 30), Qt::AlignRight | Qt::AlignVCenter, locale.toString(qAbs(totalEq + totalDsc), 'f', 2));
-
-    f.setBold(false);
-    f.setStretch(fontStretch);
-    f.setPointSize(fontSize);
-    painter.setFont(f);
-
-    painter.drawText(QRect(0, yoffset += 25, 75, 14), (totalAmount >= 0 ? QStringLiteral("+") : QStringLiteral("-")) + tr(" Готівка:"));
-    painter.drawText(QRect(80, yoffset, 90, 14), Qt::AlignRight, locale.toString(qAbs(totalAmount), 'f', 2));
-
-    // Підвал чека (Метадані)
-    painter.drawText(QRect(0, yoffset += 25, 100, 14), tr("Id:") + bind.value(QStringLiteral("id")).toString().rightJustified(6, '0'));
-    painter.drawText(QRect(0, yoffset += 14, 150, 14), tr("TermId: ") + m_termCode + QStringLiteral(" ( ") + m_termUser + QStringLiteral(" )"));
-    painter.drawText(QRect(0, yoffset += 14, 150, 14), tr("Time: ") + bind.value(QStringLiteral("dcmtime")).toString().left(16));
-
-    f.setPointSize(12);
-    painter.setFont(f);
-    painter.drawText(QRect(0, yoffset += 18, 150, 20), Qt::AlignHCenter, tr("Дякуємо за співпрацю !"));
-
-    painter.end();
-    m_lastError = "";
-    return 0;
-}
-*/
+}*/
 

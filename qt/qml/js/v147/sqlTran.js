@@ -48,8 +48,9 @@ function tranBind(db, jbind) {
 
         // Якщо бонусного рахунку для цього клієнта ще немає — створюємо його в аліасі acntbal
         if (!balacnt || balacnt.errid !== 0) {
-            const insertBonusSql = `INSERT INTO acntbal (acntno, client, mask) VALUES ('${bonusAcntNo}', '${jbind.clnt}', 1);`;
-            db.dbInsert(insertBonusSql);
+            const insertBonusSql = `INSERT INTO acntbal (acntno, client, mask) VALUES ( ? , ? , 1);`;
+            const insertBonusParam = [bonusAcntNo, jbind.clnt];
+            db.dbInsert(insertBonusSql, insertBonusParam);
         }
         bnsid = acnt_id(db, bonusAcntNo);
         ok &= (bnsid.errid === 0 && Number(bnsid.acid || 0) !== 0);
@@ -130,12 +131,29 @@ function tranBind(db, jbind) {
     const sqlClientField = (jbind.clnt === "") ? "NULL" : `'${jbind.clnt}'`;
     const sqlNoteField = (!jbind.note || jbind.note === "") ? "NULL" : `'${jbind.note}'`;
 
+    // const insertMainDocSql = `
+    //     INSERT INTO docum (dcmtype, acntdbt, amount, eqamount, discount, bonus, dcmstate, acntcdt, dcmnote, client, dcmtime)
+    //     VALUES ('${jbind.dcm}', '${jbind.dbt}', ${Number(jbind.amnt || 0)}, ${Number(jbind.eq || 0)}, ${Number(jbind.dsc || 0)}, ${Number(jbind.bns || 0)}, 1, '${jbind.cdt}', ${sqlNoteField}, ${sqlClientField}, '${jbind.tm}');
+    // `;
+    // let pid = db.dbInsert(insertMainDocSql);
     const insertMainDocSql = `
         INSERT INTO docum (dcmtype, acntdbt, amount, eqamount, discount, bonus, dcmstate, acntcdt, dcmnote, client, dcmtime)
-        VALUES ('${jbind.dcm}', '${jbind.dbt}', ${Number(jbind.amnt || 0)}, ${Number(jbind.eq || 0)}, ${Number(jbind.dsc || 0)}, ${Number(jbind.bns || 0)}, 1, '${jbind.cdt}', ${sqlNoteField}, ${sqlClientField}, '${jbind.tm}');
+        VALUES ( ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? );
     `;
+    const insertMainDocParam = [jbind.dcm,
+                                jbind.dbt,
+                                Number(jbind.amnt || 0),
+                                Number(jbind.eq || 0),
+                                Number(jbind.dsc || 0),
+                                Number(jbind.bns || 0),
+                                1,
+                                jbind.cdt,
+                                sqlNoteField,
+                                sqlClientField,
+                                jbind.tm
+                             ];
+    let pid = db.dbInsert(insertMainDocSql, insertMainDocParam);
 
-    let pid = db.dbInsert(insertMainDocSql);
     ok &= (pid !== 0);
     // console.log(`sqlTran 55555 ok=[${ok}]`);
 
@@ -148,24 +166,45 @@ function tranBind(db, jbind) {
             let sqlRetforField = (subDcm.retfor === "") ? "NULL" : `${subDcm.retfor}`;
             let sqlCshrField = ((shift?.cshrId || "") === "") ? "NULL" : `'${shift?.cshrId || ""}'`;
 
+            // const insertSubDocSql = `
+            //     INSERT INTO docum (dcmtype, acntdbt, amount, eqamount, discount, bonus, dcmstate, acntcdt, dcmnote, item, parentid, retfor, dcmaker, dcmtime)
+            //     VALUES ('${subDcm.dcm}', '${subDcm.dbt}', ${Number(subDcm.amnt || 0)}, ${Number(subDcm.eq || 0)}, ${Number(subDcm.dsc || 0)}, ${Number(subDcm.bns || 0)}, 1, '${subDcm.cdt}', '${subDcm.note || ""}', ${sqlItemField}, ${pid}, ${sqlRetforField}, ${sqlCshrField}, '${jbind.tm}');
+            // `;
+
+            // did = db.dbInsert(insertSubDocSql);
             const insertSubDocSql = `
                 INSERT INTO docum (dcmtype, acntdbt, amount, eqamount, discount, bonus, dcmstate, acntcdt, dcmnote, item, parentid, retfor, dcmaker, dcmtime)
-                VALUES ('${subDcm.dcm}', '${subDcm.dbt}', ${Number(subDcm.amnt || 0)}, ${Number(subDcm.eq || 0)}, ${Number(subDcm.dsc || 0)}, ${Number(subDcm.bns || 0)}, 1, '${subDcm.cdt}', '${subDcm.note || ""}', ${sqlItemField}, ${pid}, ${sqlRetforField}, ${sqlCshrField}, '${jbind.tm}');
+                VALUES ( ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? );
             `;
+            const insertSubDocParam = [
+                                        subDcm.dcm,
+                                        subDcm.dbt,
+                                        Number(subDcm.amnt || 0),
+                                        Number(subDcm.eq || 0),
+                                        Number(subDcm.dsc || 0),
+                                        Number(subDcm.bns || 0),
+                                        1,
+                                        subDcm.cdt,
+                                        (subDcm.note || ""),
+                                        sqlItemField,
+                                        pid,
+                                        sqlRetforField,
+                                        sqlCshrField,
+                                        jbind.tm
+                                    ];
 
-            did = db.dbInsert(insertSubDocSql);
+            did = db.dbInsert(insertSubDocSql, insertSubDocParam);
             ok &= (did !== 0);
             for (let j = 0; ok && j < tranSchedule.length; ++j) {
                 if (r !== tranSchedule[j].rowid) continue;
-                const insertTranSql = `
-                    INSERT INTO documtran (dcmid, amount, dbtid, cdtid)
-                    VALUES (${did},
-                            ${Number(tranSchedule[j].amount || 0)},
-                            ${tranSchedule[j].dbtid},
-                            ${tranSchedule[j].cdtid});
-                `;
-
-                let tid = db.dbInsert(insertTranSql);
+                const insertTranSql = "INSERT INTO documtran (dcmid, amount, dbtid, cdtid)  VALUES (? , ? , ? , ? );";
+                const insertTranParam = [
+                                          did,
+                                          Number(tranSchedule[j].amount || 0),
+                                          tranSchedule[j].dbtid,
+                                          tranSchedule[j].cdtid
+                                      ];
+                let tid = db.dbInsert(insertTranSql, insertTranParam);
                 ok &= (tid !== 0);
             }
         }
@@ -208,8 +247,9 @@ function acntTrade_id(db, acnt, article = "") {
     // Ваші С++ тригери SQLite t_acntrade_ai самі згенерують супутні eqvl та rslt рахунки!
     if (!res || res.errid !== 0 || Number(res.acid || 0) === 0) {
     // if (res?.acid) {
-        const insertTradeAcntSql = `INSERT INTO acntrade (pkey, acntno, article) VALUES ((select max(id)+1 from acnt), '${acnt}', '${article}');`;
-        db.dbInsert(insertTradeAcntSql);
+        const insertTradeAcntSql = `INSERT INTO acntrade (pkey, acntno, article) VALUES ((select max(id)+1 from acnt), ? , ? );`;
+        const insertTradeAcntParam = [acnt, article];
+        db.dbInsert(insertTradeAcntSql, insertTradeAcntParam);
 
         // Перечитуємо дані — тепер вони залізобетонно існують завдяки тригеру бази
         res = db.dbSelectRow(vsql);
@@ -248,8 +288,8 @@ function acnt_id(db, acnt, article = "") {
     // Якщо рахунок не знайдено (або виникла сервісна помилка) — автоматично створюємо його в SQLite
     if (!res || res.errid !== 0 || Number(res.acid || 0) === 0) {
         const sqlItemField = (article === "") ? "NULL" : `'${article}'`;
-        const insertSql = `INSERT INTO acnt (acntno, item) VALUES ('${acnt}', ${sqlItemField});`;
-
+        const insertSql = "INSERT INTO acnt (acntno, item) VALUES ( ? , ? );";
+        const insertParam = [acnt, sqlItemField];
         db.dbInsert(insertSql);
 
         // Перечитуємо дані з бази — тепер вони гарантовано існують

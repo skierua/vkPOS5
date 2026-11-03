@@ -32,7 +32,10 @@ public:
     Q_INVOKABLE int saveOrder(const QVariantMap &bind);
 
     // Q_INVOKABLE QString savePdf(const QByteArray &base64Data, const QString &fileName = "report/lastTAXcheck.pdf");
-    Q_INVOKABLE QString savePdf(const QString &base64Data, const QString &fileName = "report/lastTAXcheck.pdf");
+    Q_INVOKABLE bool savePdf(const QByteArray &data) const;
+    Q_INVOKABLE bool printPdf(const QByteArray &data) const;
+    Q_INVOKABLE bool printPosPdf(const QByteArray &pdfData) const;
+        // Q_INVOKABLE QString old_savePdf(const QString &base64Data, const QString &fileName = "report/lastTAXcheck.pdf");
 
     Q_INVOKABLE void setTerm(const QString &v) { m_termCode = v; }
     Q_INVOKABLE void setAddress(const QString & v) { m_termAddress = v; }
