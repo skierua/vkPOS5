@@ -136,8 +136,6 @@ function old_balanceForUpload(db, tm, ofset) {
     const tmVal = Number(tm ?? 0);
     const ofsetVal = `'-${String(ofset || 10)} seconds'`
 
-    // Прибрано 'localtime'. Тепер порівняння часу транзакцій
-    // з системним 'now' за Гринвічем відбувається безпомилково і миттєво!
     const whereCondition = !!tm
         ? `(datetime(dbtupd) > datetime('${tm}', ${ofsetVal} ) OR datetime(cdtupd) > datetime('${tm}', ${ofsetVal}))`
         : "(abs(beginamnt) + abs(turndbt) + abs(turncdt)) > 0.0001";

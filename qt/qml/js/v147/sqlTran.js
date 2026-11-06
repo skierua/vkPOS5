@@ -42,12 +42,12 @@ function tranBind(db, jbind) {
         const bonusAcntNo = LibAcnt.createClientBonusAcntNo(clnt);
         // const bonusAcntNo = Config.getClntBonusAcntNo(clnt);
 
-        // Використовуємо шаблонні рядки ES6 замість String().arg
-        const selectBonusSql = `SELECT acntno, client, mask FROM acntbal WHERE acntno = '${bonusAcntNo}' AND client = '${jbind.clnt}';`;
-        let balacnt = db.dbSelectRow(selectBonusSql);
+        const selectBonusSql = `SELECT acntno, client, mask FROM acntbal WHERE acntno = ? AND client = ? ;`;
+        const selectBonusParam = [ bonusAcntNo, jbind.clnt ];
+        let balacnt = db.dbSelectRows(selectBonusSql, selectBonusParam);
 
         // Якщо бонусного рахунку для цього клієнта ще немає — створюємо його в аліасі acntbal
-        if (!balacnt || balacnt.errid !== 0) {
+        if (!balacnt || balacnt.length === 0) {
             const insertBonusSql = `INSERT INTO acntbal (acntno, client, mask) VALUES ( ? , ? , 1);`;
             const insertBonusParam = [bonusAcntNo, jbind.clnt];
             db.dbInsert(insertBonusSql, insertBonusParam);
@@ -131,11 +131,6 @@ function tranBind(db, jbind) {
     const sqlClientField = (jbind.clnt === "") ? null : jbind.clnt;
     const sqlNoteField = (!jbind.note || jbind.note === "") ? null : jbind.note;
 
-    // const insertMainDocSql = `
-    //     INSERT INTO docum (dcmtype, acntdbt, amount, eqamount, discount, bonus, dcmstate, acntcdt, dcmnote, client, dcmtime)
-    //     VALUES ('${jbind.dcm}', '${jbind.dbt}', ${Number(jbind.amnt || 0)}, ${Number(jbind.eq || 0)}, ${Number(jbind.dsc || 0)}, ${Number(jbind.bns || 0)}, 1, '${jbind.cdt}', ${sqlNoteField}, ${sqlClientField}, '${jbind.tm}');
-    // `;
-    // let pid = db.dbInsert(insertMainDocSql);
     const insertMainDocSql = `
         INSERT INTO docum (dcmtype, acntdbt, amount, eqamount, discount, bonus, dcmstate, acntcdt, dcmnote, client, dcmtime)
         VALUES ( ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? );
@@ -166,12 +161,6 @@ function tranBind(db, jbind) {
             let sqlRetforField = (subDcm.retfor === "") ? null : subDcm.retfor;
             let sqlCshrField = ((shift?.cshrId || "") === "") ? null : shift?.cshrId;
 
-            // const insertSubDocSql = `
-            //     INSERT INTO docum (dcmtype, acntdbt, amount, eqamount, discount, bonus, dcmstate, acntcdt, dcmnote, item, parentid, retfor, dcmaker, dcmtime)
-            //     VALUES ('${subDcm.dcm}', '${subDcm.dbt}', ${Number(subDcm.amnt || 0)}, ${Number(subDcm.eq || 0)}, ${Number(subDcm.dsc || 0)}, ${Number(subDcm.bns || 0)}, 1, '${subDcm.cdt}', '${subDcm.note || ""}', ${sqlItemField}, ${pid}, ${sqlRetforField}, ${sqlCshrField}, '${jbind.tm}');
-            // `;
-
-            // did = db.dbInsert(insertSubDocSql);
             const insertSubDocSql = `
                 INSERT INTO docum (dcmtype, acntdbt, amount, eqamount, discount, bonus, dcmstate, acntcdt, dcmnote, item, parentid, retfor, dcmaker, dcmtime)
                 VALUES ( ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? , ? );
@@ -230,6 +219,7 @@ function tranBind(db, jbind) {
  * ВИЗНАЧЕННЯ ТОРГОВОГО ID РАХУНКУ ТА ЙОГО ЕКВІВАЛЕНТІВ (З автоматичним розгортанням тріади)
  */
 function acntTrade_id(db, acnt, article = "") {
+    // console.info(`II:#632 sqlTran.js acntTrade_id STARTED `, acnt, article)
     let res = {};
     if (article === "") {
         res.errid = 1;
@@ -271,6 +261,7 @@ function acntTrade_id(db, acnt, article = "") {
  * @returns {Object} - Об'єкт { acid, eqid, rsid, [errid], [errname] }
  */
 function acnt_id(db, acnt, article = "") {
+    // console.info(`II:#632 sqlTran.js acnt_id STARTED `, acnt, article)
     let res = {};
     if (!db || acnt === undefined || acnt === null || acnt === "") {
         return { "errid": 1, "errname": qsTr("Не вказано номер рахунку") };
@@ -287,10 +278,10 @@ function acnt_id(db, acnt, article = "") {
 
     // Якщо рахунок не знайдено (або виникла сервісна помилка) — автоматично створюємо його в SQLite
     if (!res || res.errid !== 0 || Number(res.acid || 0) === 0) {
-        const sqlItemField = (article === "") ? "NULL" : `'${article}'`;
+        const sqlItemField = (article === "") ? null : article;
         const insertSql = "INSERT INTO acnt (acntno, item) VALUES ( ? , ? );";
         const insertParam = [acnt, sqlItemField];
-        db.dbInsert(insertSql);
+        db.dbInsert(insertSql, insertParam);
 
         // Перечитуємо дані з бази — тепер вони гарантовано існують
         res = db.dbSelectRow(vsql);

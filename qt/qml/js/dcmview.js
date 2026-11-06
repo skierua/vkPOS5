@@ -1,3 +1,5 @@
+.import "CashDesk.js" as TAX
+.import "common.js" as COMM
 .import "v147/sqlAcnt.js" as LibAcnt
 .import "v147/sqlBind.js" as LibBind
 .import "v147/sqlClient.js" as LibClient
@@ -5,10 +7,14 @@
 
 const ROW_CACHE = []
 const SECTION_CACHE = new Map();
-const PAGE_CAPACITY = 25;
+const PROXY_ROW = [];
+const PROXY_SECTION = new Set();
+
+const PAGE_CAPACITY = 50;
 const PAGER = [];
 const CLIENT_CACHE = new Map();
 const ACNT_CACHE = new Map();
+
 
 function bindCount(){
     return SECTION_CACHE.size;
@@ -18,62 +24,9 @@ function sectInfo(code) {
     return SECTION_CACHE.get(String(code || ""));
 }
 
-/*function load(db, model, condition = "", ui) {
-    ROW_CACHE.splice(0, ROW_CACHE.length);
-    SECTION_CACHE.clear();
-
-    if (!db) return;
-
-    const source1 = LibBind.dbDocum(db, condition, false);
-    const source2 = LibBind.dbDocum(db, condition, true);
-    const joinSource = source1.concat(source2);
-    // console.log(`II: dcmview.js source: ${JSON.stringify(joinSource)}`);
-    const bindList = joinSource.filter(v => v.pid === "");
-    for (let v of bindList) {
-        const clid = v.clid || "";
-        if (!!clid){
-            if (!CLIENT_CACHE.has(String(clid))){
-                const client = LibClient.client(db, clid);
-                CLIENT_CACHE.set(clid, client);
-            }
-            // console.info(`II: dcmview,js/load clid=${clid}`)
-            v.clname = CLIENT_CACHE.get(String(clid || ""))?.name || clid;
-        } else v.clname = "";
-
-        SECTION_CACHE.set(String(v.dcmid), v);
-    }
-
-    const dcmList = joinSource
-    .filter(v => v.pid !== "")
-    .sort((a, b) =>
-        (a.shftid === 0 && b.shftid !== 0) ? -1 :
-        (a.shftid !== 0 && b.shftid === 0) ? 1 :
-        ((b.shftid - a.shftid) || (b.pid - a.pid) || (a.dcmid - b.dcmid))
-    )
-    .map(function(v) {
-        const acntno = String(v.acntcdt || "");
-        if (!ACNT_CACHE.has(String(acntno))){
-            const acnt = LibAcnt.acntbal(db, acntno);
-            ACNT_CACHE.set(String(acntno || ""), acnt);
-        }
-            // Створюємо копію об'єкта v та додаємо jarticle
-        const cdtacnt = ACNT_CACHE.get(String(acntno || ""))
-        const acntclnt = cdtacnt?.clname || "";
-        const acntname = cdtacnt?.note || `[${cdtacnt?.name}]` || "N/A";
-        // console.info(`II: dcmview.js/load#9ie ${JSON.stringify(cdtacnt)}`, `${acntclnt}:${acntname}:${v.acntcdt}` )
-            return Object.assign({}, v, {
-                jarticle: LibItem.getItemById(db, v.itemid),
-                cdtacntname: `${acntclnt}:${acntname}:${v.acntcdt}`,
-                flt: true
-            });
-        });
-    ROW_CACHE.push(...dcmList);
-
-    filterData(model, ui)
-} */
-
 function load_2(db, model, ui) {
-    ROW_CACHE.splice(0, ROW_CACHE.length);
+    // ROW_CACHE.splice(0, ROW_CACHE.length);
+    ROW_CACHE.length = 0;
     SECTION_CACHE.clear();
 
     if (!db) return;
@@ -108,10 +61,15 @@ function load_2(db, model, ui) {
 
         SECTION_CACHE.set(String(v.dcmid), v);
     }
+    // const dcmList = dcmSource.sort((a, b) =>
+    //      (a.shftid === 0 && b.shftid !== 0) ? -1 :
+    //      (a.shftid !== 0 && b.shftid === 0) ? 1 :
+    //      ((b.shftid - a.shftid) || (b.pid - a.pid) || (a.dcmid - b.dcmid))
+    //  )
     const dcmList = dcmSource.sort((a, b) =>
-         (a.shftid === 0 && b.shftid !== 0) ? -1 :
-         (a.shftid !== 0 && b.shftid === 0) ? 1 :
-         ((b.shftid - a.shftid) || (b.pid - a.pid) || (a.dcmid - b.dcmid))
+         ((Number(b.shftid || Number.MAX_SAFE_INTEGER) - Number(a.shftid || Number.MAX_SAFE_INTEGER) )
+          || (b.pid - a.pid)
+          || (a.dcmid - b.dcmid))
      )
      .map(function(v) {
          const acntno = String(v.acntcdt || "");
@@ -132,18 +90,20 @@ function load_2(db, model, ui) {
          });
     if (dcmList.length < 60000) ROW_CACHE.push(...dcmList);
     else for (let row of dcmList) { ROW_CACHE.push(row); };
-    // ROW_CACHE.push(...dcmList);
 
-     filterData(model, ui)
+    filterData(model, ui)
 
 }
 
 
-function isAllowed(row, flt) {
+function isAllowed(row, flt, dcmType) {
     // if (!row) return false;
-    if (!flt || flt === "") return true;
-
+    if ((!flt || flt === "") && !dcmType) return true;
     const dcm = ROW_CACHE[row];
+    const checkFlt = !dcmType ? true
+                                : (PROXY_SECTION.has(String(dcm.pid)) || (SECTION_CACHE.get(String(dcm.pid))?.dcmtype || "") === dcmType)
+
+    // console.info("II:#523 dcmview.js ", flt,  dcmType, checkFlt, String(dcm.pid), (SECTION_CACHE.get(String(dcm.pid))?.dcmtype || "---"));
     const filterLower = flt.toLowerCase();
     const noteStr = String(dcm.dcmnote || "").toLowerCase();
     // const subnoteStr = String(dcm.dcmsubnote || "").toLowerCase();
@@ -152,7 +112,7 @@ function isAllowed(row, flt) {
     const atclFStr = String(dcm.jarticle?.itemname || "").toLowerCase();
 
     // console.info(`II: dcmview.js/isAllowed`, JSON.stringify(dcm), row, flt)
-    return (dcm.itemid === filterLower
+    return checkFlt && (dcm.itemid === filterLower
             || noteStr.includes(filterLower)
             // || subnoteStr.includes(filterLower)
             || (dcm.jarticle?.scancode || "").includes(filterLower)
@@ -165,27 +125,31 @@ function isAllowed(row, flt) {
 
 
 function filterData(model, ui){
-    let tmpa = []
-    const flt = ui?.filter || "";
-    PAGER.splice(0, PAGER.length);
-    let count =0, fcount =0
-    let pid = 0;
-    let fpid = 0;
-    for ( let r =0; r < ROW_CACHE.length; ++r){
-        // console.info("II: dcmview.js/filterData ", r,  JSON.stringify(ROW_CACHE[r]));
-        if (flt === undefined || flt === "" || isAllowed(r, flt) ){
-            if (fpid !== ROW_CACHE[r].pid) {
-                fpid = ROW_CACHE[r].pid
-                if (fcount % PAGE_CAPACITY === 0 ) PAGER.push(r);
-                ++fcount
+    // console.info("II: dcmview.js/filterData ", JSON.stringify(ui));
+    model.clear();
+    // PROXY_ROW.splice(0, PROXY_ROW.length);
+    PROXY_ROW.length = 0;
+    PROXY_SECTION.clear();
+    const dcmType = String(ui?.dcmType || '') ;
+    const flt = (ui?.filter || "");
+    const isFlt = (!ui.dcmType || !flt);
+    if (isFlt){
+        for ( let r =0; r < ROW_CACHE.length; ++r){
+            // console.info("II: dcmview.js/filterData ", r,  JSON.stringify(ROW_CACHE[r]));
+            if (isAllowed(r, flt, dcmType) ){
+                PROXY_SECTION.add(ROW_CACHE[r].pid)
+                PROXY_ROW.push(r);
             }
-            ROW_CACHE[r].flt = true;
-        } else  { ROW_CACHE[r].flt = false; }
+        }
+    } else {
+        for (const k of SECTION_CACHE.keys()) {
+            PROXY_SECTION.add(k);
+        }
+        ROW_CACHE.forEach((v,i) => PROXY_ROW.push(i));
     }
-    // const str =` з ${PAGER.length} (${fcount} позицій)`
-    // ui.setFooter(str);
-    ui?.setPages?.(PAGER.length);
-    ui?.setBinds?.(fcount);
+
+    ui?.setPages?.(Math.ceil(PROXY_ROW.length / PAGE_CAPACITY));
+    ui?.setBinds?.(PROXY_SECTION.size);
 
     // console.info(`II: dcmview.js/filterData PAGER:${JSON.stringify(PAGER)}`);
     // console.info(`II: dcmview.js/filterData pages:${PAGER.length} binds:${fcount}`);
@@ -195,16 +159,12 @@ function filterData(model, ui){
 
 function populate(model, page =1){
     model.clear();
-
-    // let pid = ""
-    let ofs = PAGER[page-1]
-    let lim = (page >= PAGER.length ? ROW_CACHE.length : PAGER[page])
+    const ofs = PAGE_CAPACITY * (page-1);
+    const lim = ((PAGE_CAPACITY * page) >= PROXY_ROW.length ? PROXY_ROW.length : (PAGE_CAPACITY * page));
     // console.info(`II: dcmview.js/populate page=${page} ofs=${ofs} lim=${lim}`);
-    for (; ofs < lim; ++ofs){
+    for ( let r = ofs; r < lim; ++r){
         // console.info(`II: dcmview.js/populate flt=[${ROW_CACHE[ofs].flt}]`);
-
-        if (!ROW_CACHE[ofs].flt) continue;
-        addNew(model, ROW_CACHE[ofs]);
+        addNew(model, ROW_CACHE[PROXY_ROW[r]]);
     }
     // console.info(`II: dcmview.js/populate length=${ROW_CACHE.length} count=${model.count}`);
 }
@@ -392,3 +352,40 @@ function handleSelect(db, popup) {
 
 }
 
+function handleLoadTAXCheckAsync(row) {
+    const uuid = sectInfo(String(row?.pid || "")).dcmno
+    return new Promise((resolve, reject) => {
+        if (!TAX || typeof TAX.getCheckPdf !== "function") {
+         return reject("TAX_DISCONNECTED");
+        }
+        TAX.getCheckPdf(uuid, null, (err, pdfBuffer) => {
+            if (err) reject(err);
+            else resolve(pdfBuffer);
+        });
+    });
+}
+
+function handleFiscalizateAsync(db, row) {
+    // console.log("II:#98e dcmview.js ", JSON.stringify(row))
+    const bid = String(row?.pid || "")
+    return new Promise((resolve, reject) => {
+        if (!TAX || typeof TAX.sale !== "function") {
+         return reject("TAX_DISCONNECTED");
+        }
+        TAX.sale(db, bid, 0, (err, resp) => {
+            if (err) reject(err);
+            else {
+                 const updateData = {
+                     "dcmnote": JSON.stringify(resp)
+                 };
+                 resolve(resp);
+                 const parsed = COMM.parse(resp);
+                 const taxNo = String(parsed?.uuid || "");
+                 if (!!taxNo) updateData.dcmno = taxNo;
+                  // console.info(`II: bind.js#4r21 updateData=${JSON.stringify(updateData)}\ntaxNo=${taxNo}`)
+                 const uOk = LibBind.updDocum(db, bid, updateData);
+                 if (!uOk) reject("DB_ERROR");
+              }
+        });
+    });
+}

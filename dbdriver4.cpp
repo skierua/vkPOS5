@@ -1,5 +1,6 @@
 #include "dbdriver4.h"
 
+#include <QMutexLocker>
 #include <QSqlQuery>
 #include <QSqlRecord>
 #include <QSqlError>
@@ -18,6 +19,16 @@ DbDriver4::DbDriver4(QObject *parent)
     // Використовуємо дефолтне з'єднання за замовчуванням.
     // Це золотий стандарт Qt6 для локальних SQLite баз. Тепер витоки дескрипторів повністю закриті.
     m_db = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"));
+
+    // if (m_db.open()) {
+        // QSqlQuery q(m_db);
+
+        // // 1. Вмикаємо режим WAL (поверне рядок "wal", якщо успішно)
+        // q.exec(QStringLiteral("PRAGMA journal_mode=WAL;"));
+
+        // // 2. Встановлюємо таймаут очікування у 5 секунд
+        // q.exec(QStringLiteral("PRAGMA busy_timeout=5000;"));
+    // }
 }
 /*
 DbDriver4::DbDriver4(QObject *parent) : QObject(parent) {
@@ -27,9 +38,44 @@ DbDriver4::DbDriver4(QObject *parent) : QObject(parent) {
 
 }
 */
+bool DbDriver4::checkConnection()
+{
+    if (!m_db.isOpen()) {
+        if (!m_db.open()) {
+            m_lastError = QStringLiteral("EE:DbDriver4::checkConnection ERROR OPEN...\nName: %1\n%2")
+            .arg(m_db.databaseName(), m_db.lastError().text());
+            qDebug() << m_lastError;
+            return false;
+        } else {
+            QSqlQuery q(m_db);
 
+            // Вмикаємо режим WAL
+            q.exec(QStringLiteral("PRAGMA journal_mode=WAL;"));
+            q.exec(QStringLiteral("PRAGMA synchronous = NORMAL;"));
+
+            // Встановлюємо таймаут очікування у 5 секунд
+            q.exec(QStringLiteral("PRAGMA busy_timeout=5000;"));
+        }
+        return true;
+    }
+
+    // Виконуємо мізерний запит у пам'яті, щоб переконатися, що файл не заблоковано
+    QSqlQuery query(m_db);
+    if (!query.exec(QStringLiteral("SELECT 1;"))) {
+        qDebug() << "WW: Database connection lost or locked. Trying to reopen...";
+        m_db.close(); // Закриваємо "битий" дескриптор
+        return m_db.open(); // Намагаємось відкрити наново
+    }
+
+    return true;
+}
+
+// LEGACY
 bool DbDriver4::openConnection()
 {
+    return checkConnection();
+
+
     // Лічильник посилань: відкриваємо фізичну базу тільки для першого вхідного виклику
     if (++m_cc == 1) {
         if (!m_db.open()) {
@@ -39,24 +85,15 @@ bool DbDriver4::openConnection()
             qDebug() << m_lastError;
             m_cc = 0; // Скидаємо лічильник назад у нуль
             return false;
-        } else {
-            // Вмикаємо контроль зовнішніх ключів для збереження цілісності зв'язків
-            // m_db.exec(QStringLiteral("PRAGMA foreign_keys = ON;"));
-
-            // // Вмикаємо сучасний режим журналу WAL. Він дозволяє касі одночасно
-            // // швидко писати чеки в базу і не блокувати QML-компоненти, які в цей же момент читають баланси.
-            // m_db.exec(QStringLiteral("PRAGMA journal_mode = WAL;"));
-
-            // // Знижуємо синхронізацію до NORMAL (у режимі WAL це на 100% безпечно від збоїв живлення,
-            // // але прискорює роботу SQLite на SSD накопичувачах у рази)
-            // m_db.exec(QStringLiteral("PRAGMA synchronous = NORMAL;"));
         }
     }
     return true;
 }
-
+// LEGACY
 void DbDriver4::closeConnection()
 {
+    return;
+
     if (--m_cc <= 0) {
         m_db.close();
         m_cc = 0; // Захист від випадкових від'ємних значень лічильника
@@ -270,147 +307,10 @@ bool DbDriver4::closeShift(const QString &shftid)
     closeConnection();
     return commitstatus;
 }
-/*
-bool DbDriver4::closeShift(const QString &shftid)
-{
-    QSqlQuery q = QSqlQuery(m_db);
-    QString vstr = QString();
-    m_lastError = "";
-    // QString closeDate = QString();
-    if (!openConnection()) {
-        return false;
-    }
-    //    q = QSqlQuery(QString("delete from docum where dcmstate = 0;"), m_db);
-    q = QSqlQuery(QString("delete from docum where dcmstate = 0 or dcmstate = 8;"), m_db);
-    if (!q.isActive()) {
-        m_lastError = tr("Zombie deleting error");
-        qDebug() << "EE:DbDriver3::closeShift Zombie deleting error sqlerror="<<q.lastError();
-        return false;
-    }
-    // int newId = 0;
-    bool commitstatus = true;
-    QString qerror = QString();
-
-    // revaluation2();
-
-    m_db.transaction();
-
-
-    // save current shift to storage
-
-    // erase storage
-    vstr = QString("delete from strgacnt where shftid = 0 or shftid = %1 or (shftid < (select max(id) from shift where shftdate <= date('now', '-6 month')));").arg(shftid);
-    q = QSqlQuery(vstr, m_db);
-    if (!q.isActive()) {
-        commitstatus = false;
-        qerror += "\n#1 " + q.lastError().text() + "{"+vstr+"}";
-    }
-    //    qDebug("Dbdrv::shiftClose 20");
-    //    q = QSqlQuery(QString("delete from docum where dcmstate = 0;")); // ???
-    vstr = QString("delete from strgdocum where shftid = 0 or shftid = %1;").arg(shftid);
-    q = QSqlQuery(vstr, m_db);
-    if (!q.isActive()) {
-        commitstatus = false;
-        qerror += "\n#2 " + q.lastError().text() + "{"+vstr+"}";
-        //        qDebug()<< "DriverDB::shiftClose 25 q=" << q.lastQuery();
-    }
-
-    vstr = QString("delete from strgprice where pricetime <= date('now', '-6 month');");
-    q = QSqlQuery(vstr, m_db);
-    if (!q.isActive()) {
-        commitstatus = false;
-        qerror += "\n#2 " + q.lastError().text() + "{"+vstr+"}";
-    }
-
-    vstr = QString("delete from strgtran where dcmid <= (select max(dcmid) from strgdocum where dcmtime < date('now', '-6 month'));");
-    q = QSqlQuery(vstr, m_db);
-    if (!q.isActive()) {
-        commitstatus = false;
-        qerror += "\n#2 " + q.lastError().text() + "{"+vstr+"}";
-    }
-
-
-    q = QSqlQuery(QString("insert into strgacnt "
-                          "select %1, id, acntno, item, beginamnt, turndbt, turncdt "
-                          "from acnt where turndbt !=0 or turncdt !=0;").arg(shftid), m_db);
-    if (!q.isActive()) {
-        commitstatus = false;
-        qerror += "\n" + q.lastError().text();
-    }
-
-    q = QSqlQuery(QString("insert into strgdocum select id, %1, dcmtype, dcmno, item, acntdbt, acntcdt, amount, eqamount, "
-                          "discount, bonus, client, parentid, dcmstate, dcmnote, dcmtime, dcmaker, retfor "
-                          "from docum where dcmstate = 1 or dcmstate = 4;").arg(shftid), m_db);        //.arg(POSDcmModel::DCMSTTRAN).arg(POSDcmModel::DCMSTDEL)
-
-    if (!q.isActive()) {
-        commitstatus = false;
-        qerror += "\n" + q.lastError().text();
-    }
-
-    q = QSqlQuery(QString("insert into strgtran select dcmid, amount, dbtid, cdtid from documtran"), m_db);
-
-    if (!q.isActive()) {
-        commitstatus = false;
-        qerror += "\n" + q.lastError().text();
-    }
-
-    // update account
-    q = QSqlQuery(QString("update acnt set beginamnt = beginamnt + turndbt - turncdt;"), m_db);
-    if (!q.isActive()) {
-        commitstatus = false;
-        qerror += "\n" + q.lastError().text();
-    }
-
-    q = QSqlQuery(QString("delete from documtran;"), m_db);
-    if (!q.isActive()) {
-        commitstatus = false;
-        qerror += "\n" + q.lastError().text();
-    }
-
-    q = QSqlQuery(QString("delete from docum where dcmstate = 1 or dcmstate = 4;"), m_db);        //.arg(POSDcmModel::DCMSTTRAN).arg(POSDcmModel::DCMSTDEL)
-    if (!q.isActive()) {
-        commitstatus = false;
-        qerror += "\n" + q.lastError().text();
-    }
-
-    // reset account
-    q = QSqlQuery(QString("update acnt set turndbt = 0, turncdt = 0;"), m_db);
-    if (!q.isActive()) {
-        commitstatus = false;
-        qerror += "\n" + q.lastError().text();
-    }
-
-    q = QSqlQuery(QString("update shift set  shftend = '%1' where id = %2 ;")
-                      .arg(QDateTime::currentDateTime().toString(Qt::ISODate))
-                      .arg(shftid), m_db);
-
-    if (!q.isActive()) {
-        commitstatus = false;
-        qerror += "\n" + q.lastError().text();
-    }
-
-
-
-
-    if (commitstatus) {
-        m_db.commit();
-        //        QMessageBox::information(this, tr("vkPOS info"), tr("Shift successfully closed"), QMessageBox::Ok);
-        //        emit shiftClosed();
-    } else {
-        m_db.rollback();
-        m_lastError = "EE:DbDriver3::closeShift Closing error\n"+qerror;
-        qDebug()<<m_lastError;
-        emit error(m_lastError);
-    }
-
-    closeConnection();
-
-    return commitstatus;
-}
-*/
 
 int DbDriver4::dbInsert(const QString &sql)
 {
+    QMutexLocker locker(&m_dbMutex);
     int id = 0;
 
     if (openConnection()) {
@@ -438,6 +338,7 @@ int DbDriver4::dbInsert(const QString &sql)
 
 int DbDriver4::dbInsert(const QString &sql, const QVariantList &params)
 {
+    QMutexLocker locker(&m_dbMutex);
     int id = 0;
 
     if (!openConnection()) {
@@ -446,7 +347,6 @@ int DbDriver4::dbInsert(const QString &sql, const QVariantList &params)
 
     QSqlQuery q(m_db);
 
-    // 1. Попередньо готуємо запит
     if (!q.prepare(sql)) {
         m_lastError = QStringLiteral("EE:DbDriver4::dbInsert prepare ERROR\n%1\n%2")
         .arg(sql, q.lastError().text());
@@ -457,14 +357,11 @@ int DbDriver4::dbInsert(const QString &sql, const QVariantList &params)
         return id;
     }
 
-    // 2. Безпечно прив'язуємо параметри
     for (const QVariant &param : params) {
         q.addBindValue(param);
     }
 
-    // 3. Виконуємо запит
     if (q.exec()) {
-        // Витягуємо ID щойно створеного запису в SQLite
         id = q.lastInsertId().toInt();
     } else {
         m_lastError = QStringLiteral("EE:DbDriver4::dbInsert exec ERROR\n%1\n%2")
@@ -483,6 +380,7 @@ int DbDriver4::dbInsert(const QString &sql, const QVariantList &params)
 bool DbDriver4::dbUpdate(const QString &sql)
 {
     qDebug()<< "WW: DEPRECATED dbdriver4/dbUpdate !!!";
+    QMutexLocker locker(&m_dbMutex);
     bool res = false;
 
     if (openConnection()) {
@@ -511,6 +409,7 @@ bool DbDriver4::dbUpdate(const QString &sql)
 
 // sqlPrice.js
 bool DbDriver4::dbUpdate(const QString &sql, const QVariantList &params){
+    QMutexLocker locker(&m_dbMutex);
     if (!openConnection()) return false;
     bool ok = false;
     QSqlQuery q(m_db);
@@ -554,6 +453,7 @@ bool DbDriver4::dbUpdate(const QString &sql, const QVariantList &params){
 // sqlBind.js, sqlShift.js. sqlTran.js
 bool DbDriver4::dbUpdate(const QString &sql, const QVariantMap &params){
     // qDebug()<< "r343#dbdriver4/dbUpdateObj sql="<< sql << " param="<< params;
+    QMutexLocker locker(&m_dbMutex);
     if (!openConnection()) return false;
     bool ok = false;
     QSqlQuery q(m_db);
@@ -602,6 +502,7 @@ bool DbDriver4::dbUpdateParams(const QString &sql, const QVariantList &params){
 
 bool DbDriver4::dbDelete(const QString &sql)
 {
+    QMutexLocker locker(&m_dbMutex);
     bool res = false;
 
     if (openConnection()) {
@@ -636,6 +537,7 @@ bool DbDriver4::dbDelete(const QString &sql)
 // sqlTran.js
 QVariantMap DbDriver4::dbSelectRow(const QString &sql){
     // qDebug()<< "WW: DEPRECATED dbdriver4/dbSelectRow !!! \n" << sql;
+    QMutexLocker locker(&m_dbMutex);
     QVariantMap ret;
 
     if (!openConnection()) {
@@ -681,6 +583,7 @@ QVariantMap DbDriver4::dbSelectRow(const QString &sql){
 
 // with parameters
 QVariantMap DbDriver4::dbSelectRow(const QString &sql, const QVariantList &params){
+    QMutexLocker locker(&m_dbMutex);
     QVariantMap ret;
 
     if (!openConnection()) {
@@ -736,6 +639,7 @@ QVariantMap DbDriver4::dbSelectRow(const QString &sql, const QVariantList &param
 }
 
 QVariantList DbDriver4::dbSelectRows(const QString &sql, const QVariantList &params){
+    QMutexLocker locker(&m_dbMutex);
     QVariantList resultList;
     if (!openConnection()) {
         return resultList;
@@ -777,6 +681,7 @@ QVariantList DbDriver4::dbSelectRows(const QString &sql, const QVariantList &par
 
 QVariantList DbDriver4::dbSelectRowsJSON(const QString &sql, const QString &filter)
 {
+    QMutexLocker locker(&m_dbMutex);
     QVariantList resultList;
     const QString lowerFilter = filter.toLower();
     // qDebug() << "903y#DbDriver4::dbSelectRowsJSON sql=" << sql << " filter=" << filter;

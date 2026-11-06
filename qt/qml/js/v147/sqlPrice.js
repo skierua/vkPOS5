@@ -44,7 +44,6 @@ const DfltPriceQty = (() => {
 
     return {
         /**
-         * Наповнення кешу кратності пакувань з бази даних SQLite
          * @param {Object} db - C++ драйвер бази даних
          */
         populate(db) {
@@ -63,7 +62,6 @@ const DfltPriceQty = (() => {
         },
 
         /**
-         * Швидке отримання кратності для конкретного товару
          * @param {number|string} id - Ідентифікатор товару (pkey)
          * @returns {number} - Кратність пакування (дефолт: 1)
          */

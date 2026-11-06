@@ -411,13 +411,10 @@ bool Print::savePdf(const QByteArray &data) const {
     QString path = getAbsoluteReportPath(m_TAXcheckSubPath);
     QFile file(path);
 
-    if (file.open(QIODevice::WriteOnly)) {
-        file.write(data);
-        file.close();
-        qDebug() << "PDF успішно збережено в:" << path;
-        return true;
-    }
-    return false;
+    if (!file.open(QIODevice::WriteOnly)) return false;
+    file.write(data);
+    file.close();
+    return true;
 }
 
 bool Print::printPdf(const QByteArray &data) const {
@@ -444,8 +441,10 @@ bool Print::printPdf(const QByteArray &data) const {
     printProcess.start("lp", args);
 
     // Чекаємо завершення відправки в чергу друку (таймаут 5 секунд)
-    return printProcess.waitForFinished(5000);}
+    return printProcess.waitForFinished(5000);
+}
 
+// FOR TESTING
 bool Print::printPosPdf(const QByteArray &pdfData) const {
     if (pdfData.isEmpty()) return false;
 

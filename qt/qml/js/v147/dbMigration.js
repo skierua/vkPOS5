@@ -10,7 +10,7 @@ function initDatabase(db) {
 
     // 1. Зчитуємо поточну системну версію заголовка файлу
     let currentVersion = 0;
-    const versionResult = db.dbSelectRowsJSON("PRAGMA user_version;");
+    const versionResult = db.dbSelectRows("PRAGMA user_version;",[]);
 
     if (/*Array.isArray(versionResult) && */versionResult.length > 0) {
         currentVersion = Number(versionResult[0].user_version || 0);
