@@ -6,8 +6,8 @@
 // sending is prohibited for debugging purposes
 // sending uploadBind, uploadBalance is prohibited
 // sending connect, loginRequest, loadRates is NOT prohibited
-const BAN_SEND = true;
-// const BAN_SEND = false;
+// const BAN_SEND = true;
+const BAN_SEND = false;
 
 // REST API
 // POST

@@ -540,67 +540,73 @@ Window {
         height: parent.height
         Pane{
             anchors.fill: parent
-            ListView {
-                id: vw
-                property string dcmTypeFlt: 'check'
-                onDcmTypeFltChanged: {
-                    const ui = {
-                        filter: vfilterEdit.text.trim(),
-                        dcmType: vw.dcmTypeFlt,
-                        setPages: (v) => { dcmViewRootWindow.countPage = Number(v || 1);},
-                        setBinds: (v) => { dcmViewRootWindow.countBind = Number(v || 0);},
+            Rectangle{
+                anchors.fill: parent
+
+                ListView {
+                    id: vw
+                    property string dcmTypeFlt: 'check'
+                    onDcmTypeFltChanged: {
+                        const ui = {
+                            filter: vfilterEdit.text.trim(),
+                            dcmType: vw.dcmTypeFlt,
+                            setPages: (v) => { dcmViewRootWindow.countPage = Number(v || 1);},
+                            setBinds: (v) => { dcmViewRootWindow.countBind = Number(v || 0);},
+                        }
+                        JS.filterData(vw.model, ui);
+                        vcrntEdit.text = "1";
                     }
-                    JS.filterData(vw.model, ui);
-                    vcrntEdit.text = "1";
+
+                    readonly property bool isCrntTAXCheck:{
+                        if (currentIndex < 0 || currentIndex >= count) return false;
+                        const crnt = model.get(currentIndex);
+                        if (!crnt) return false;
+                        return !!JS.sectInfo(String(crnt.pid || "")).dcmno
+                    }
+                    readonly property bool isCrntFiscalizable:{
+                        if (currentIndex < 0 || currentIndex >= count) return false;
+                        const crnt = model.get(currentIndex);
+                        if (!crnt) return false;
+                        const info = JS.sectInfo(String(crnt.pid || ""));
+                        return !String(info.dcmno || "")
+                                && String(info.dcmtype || "") === 'check';
+
+                    }
+
+                    anchors{fill: parent}
+                    clip: true
+                    spacing: 2
+                    // model: ModelDbDcms{}
+                    model: ListModel{}
+                    delegate: dlg
+
+                    // Плавні тач-анімації списку
+                    add: Transition { NumberAnimation { properties: "x,y"; from: 100; duration: 250; easing.type: Easing.OutQuad } }
+                    addDisplaced: Transition { NumberAnimation { properties: "x,y"; duration: 250 } }
+                    remove: Transition { ParallelAnimation { NumberAnimation { property: "opacity"; to: 0; duration: 200 } NumberAnimation { properties: "x,y"; to: 100; duration: 200 } } }
+                    removeDisplaced: Transition { NumberAnimation { properties: "x,y"; duration: 200 } }
+
+                    // Повзунок скролу (Притиснутий праворуч зсередини списку)
+                    ScrollBar.vertical: ScrollBar {
+                        id: verticalScrollBar
+                        policy: ScrollBar.AsNeeded
+                        anchors.top: vw.top
+                        anchors.right: vw.right
+                        anchors.bottom: vw.bottom
+                        contentItem: Rectangle { implicitWidth: 6; radius: 3; color: verticalScrollBar.pressed ? "#757575" : "#bdbdbd" }
+                    }
+
+                    section.property: ""    //"pid"
+                    section.criteria: ViewSection.FullString
+                    section.delegate: secDlg
+
+                    highlight: highlightComponent
+                    highlightFollowsCurrentItem: false
+                    focus: true
                 }
 
-                readonly property bool isCrntTAXCheck:{
-                    if (currentIndex < 0 || currentIndex >= count) return false;
-                    const crnt = model.get(currentIndex);
-                    if (!crnt) return false;
-                    return !!JS.sectInfo(String(crnt.pid || "")).dcmno
-                }
-                readonly property bool isCrntFiscalizable:{
-                    if (currentIndex < 0 || currentIndex >= count) return false;
-                    const crnt = model.get(currentIndex);
-                    if (!crnt) return false;
-                    const info = JS.sectInfo(String(crnt.pid || ""));
-                    return !String(info.dcmno || "")
-                            && String(info.dcmtype || "") === 'check';
-
-                }
-
-                anchors{fill: parent}
-                clip: true
-                spacing: 2
-                // model: ModelDbDcms{}
-                model: ListModel{}
-                delegate: dlg
-
-                // Плавні тач-анімації списку
-                add: Transition { NumberAnimation { properties: "x,y"; from: 100; duration: 250; easing.type: Easing.OutQuad } }
-                addDisplaced: Transition { NumberAnimation { properties: "x,y"; duration: 250 } }
-                remove: Transition { ParallelAnimation { NumberAnimation { property: "opacity"; to: 0; duration: 200 } NumberAnimation { properties: "x,y"; to: 100; duration: 200 } } }
-                removeDisplaced: Transition { NumberAnimation { properties: "x,y"; duration: 200 } }
-
-                // Повзунок скролу (Притиснутий праворуч зсередини списку)
-                ScrollBar.vertical: ScrollBar {
-                    id: verticalScrollBar
-                    policy: ScrollBar.AsNeeded
-                    anchors.top: vw.top
-                    anchors.right: vw.right
-                    anchors.bottom: vw.bottom
-                    contentItem: Rectangle { implicitWidth: 6; radius: 3; color: verticalScrollBar.pressed ? "#757575" : "#bdbdbd" }
-                }
-
-                section.property: ""    //"pid"
-                section.criteria: ViewSection.FullString
-                section.delegate: secDlg
-
-                highlight: highlightComponent
-                highlightFollowsCurrentItem: false
-                focus: true
             }
+
 
         }
 
