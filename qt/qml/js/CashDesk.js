@@ -370,7 +370,7 @@ function bindToSale(db, dcmid, payType) {
     return taxbind;
 }
 
-// bind.js
+// bind.js dcmview.js
 function sale(db, dcmid, payType, callback) {
     // data.api_token = TOKEN
     // data.num_fiscal = CASH
@@ -439,11 +439,11 @@ function postRequest(path, req, callback) {
     // console.info(`II: CashDesk.js#666 ${request.readyState}`)
     request.onreadystatechange = function() {
         // console.info(`II: CashDesk.js#555 ${request.readyState}`)
-        console.info(`II: CashDesk.js#7777
-                     status=${request.status}
-                     type=${request.responseType}
-                     heads**${request.getAllResponseHeaders()}
-                     `)
+        // console.info(`II: CashDesk.js#7777
+        //              status=${request.status}
+        //              type=${request.responseType}
+        //              heads**${request.getAllResponseHeaders()}
+        //              `)
         // resp**${request.response}
         if (request.readyState === XMLHttpRequest.DONE) {
             if (request.status === 200) {

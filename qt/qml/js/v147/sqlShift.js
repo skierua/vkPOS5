@@ -97,62 +97,11 @@ function dbStartShift(db, cshrid = "") {
                     cshrid
                 ];
 
-    let vsql = " INSERT INTO shift (shftdate, shftbegin, cshr) VALUES ( ? , ? , ?);";
-
-    // let vsql = `
-    // INSERT INTO shift (shftdate, shftbegin, cshr)
-    //     VALUES ('${vnewd.substring(0, 10)}',
-    //             '${vnewd}',
-    //             '${cshrid}');
-    // `;
+    const vsql = " INSERT INTO shift (shftdate, shftbegin, cshr) VALUES ( ? , ? , ?);";
     const vid =  db.dbInsert(vsql, param)
 
     return vid;
 }
-
-/*
-function makeBind_reval(db, cshrid ){
-    var res = []
-    let ok = true;
-    let r=0, total = 0;
-    let vsql = ""
-
-    const acntList = LibAcnt.dbAcntbal(db, `substr(acntno,1,${LibConf.glTradePrefix.length}) = '${LibConf.glTradePrefix}'`)
-    for (r =0; r < acntList.length; ++r){
-        const revalList = dbRevalList(db, acntList[r].acntno);
-        let dcms = []
-        total = 0;
-        for (let i =0; i < revalList.length; ++i){
-            total += Number(revalList[i].profit)
-            dcms.push({
-                       "dcm":"memo",
-                       "dbt":revalList[i].eno,
-                       "cdt":revalList[i].rno,
-                       "crn":"",
-                       "amnt":revalList[i].profit.toFixed(3),
-                       "eq":"0","dsc":"0","bns":"0",
-                       "note":`reval ${revalList[i].amnt}*${revalList[i].bscprice.toFixed(3)}/${revalList[i].item}`,
-                       "retfor":""
-                    })
-        }
-        if (dcms.length > 0){
-           const bind =  {
-                "id": "dcmbind",
-                "dcm": "folder",
-                "dbt": acntList[r].acntno,
-                "cdt": "rslt",
-                "amnt": "0","eq":"0","dsc":"0","bns":"0",
-                "note": "reval",
-                "clnt": cshrid,
-                "cshr": cshrid,
-                "dcms": dcms}
-            res.push(bind);
-        }
-    }
-
-    return res;
-}
-*/
 
 function dbRevalList(db, tradeAcntNo) {
     // console.log(`sqlClient.js#14rc tradeAcntNo=${tradeAcntNo}`)

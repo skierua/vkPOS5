@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QDir>
 #include <QQmlEngine>
+#include <QRecursiveMutex>
 #include <QSqlDatabase>
 #include <QVariantMap>
 #include <QVariantList>
@@ -61,10 +62,10 @@ public:
 
     Q_INVOKABLE QString dbLastError() const { return m_lastError; }
 
-    // Старий метод (залишається для сумісності)
-    Q_INVOKABLE QVariantMap dbSelectRow(const QString &sql);
     // НОВИЙ МЕТОД з підтримкою параметрів
     Q_INVOKABLE QVariantMap dbSelectRow(const QString &sql, const QVariantList &params);
+    // Старий метод (залишається для сумісності)
+    Q_INVOKABLE QVariantMap dbSelectRow(const QString &sql);
     Q_INVOKABLE QVariantMap getJSONRowFromSQL(const QString &sql) { return dbSelectRow(sql); } // Транзитний fallback
 
     // Замість повернення важкого рядка JSON (QString),
@@ -77,15 +78,19 @@ signals:
     void vkEvent(QString eventId, QVariant eventParam);
     void error(QString message);
 
+protected:
+    bool checkConnection();
+    bool openConnection();
+    void closeConnection();
+
 private:
     QSqlDatabase m_db;
     QString m_lastError;
     QString m_driver{QStringLiteral("QSQLITE")};
     int m_cc{0}; // Лічильник активних підключень (connectionCounter)
     // QString m_dbVersion;
+    QRecursiveMutex m_dbMutex;
 
-    bool openConnection();
-    void closeConnection();
 };
 
 #endif // DBDRIVER4_H

@@ -27,11 +27,16 @@ Window {
             loadAction.trigger();
 
     property var prnDriver                 // printer manager
+    property bool isTAXActive: false
 
     property int countPage: 1
     property int countBind: 0
 
     signal vkEvent(string eventId, var eventParam)
+
+    ButtonGroup {
+        id: viewDcmTypeGroup
+    }
 
     Action {
         id: previousAction
@@ -64,6 +69,7 @@ Window {
                 const ui = {
                     dbFilter: loadAction.filter,
                     dbFrom: findInterval.currentValue ?? "",
+                    dcmType: vw.dcmTypeFlt,
                     setPages: (v) => { dcmViewRootWindow.countPage = Number(v || 1);},
                     setBinds: (v) => { dcmViewRootWindow.countBind = Number(v || 0);},
                 }
@@ -80,14 +86,15 @@ Window {
 
     Action {
         id: bindModeAction
-        text: qsTr("Bind")
+        text: qsTr("Групувати")
         checkable: true
-        checked: true
-        onTriggered: { if (vw) vw.section.property = (checked ? "pid" : ""); }
+        checked: false
+        onTriggered: { if (!!vw) vw.section.property = (checked ? "pid" : ""); }
     }
 
     Action {
         id: viewFullBindAction
+        enabled: false
         text: "Показати весь чек"
         onTriggered: {
             if (vw.model && typeof JS.showFullBind === "function" && vw.currentIndex !== -1) {
@@ -95,6 +102,7 @@ Window {
             }
         }
     }
+
 
     Action {
         id: refuseAction
@@ -157,13 +165,71 @@ Window {
         }
     }
 
-/*    Action {
-        id: actionFiscalizate
-        enabled: false
-        text: "Фіскалізувати"
-        onTriggered: { vkEvent("docum.fiscCheck", vw.model.get(vw.currentIndex).bind); }
+    Action {
+        id: actionTAXCheckPrint
+        text: "Друкувати фіскальний чек"
+        enabled: isTAXActive && vw.isCrntTAXCheck
+        onTriggered: {
+            const row = Object.assign({}, vw.model.get(vw.currentIndex));
+            JS.handleLoadTAXCheckAsync(row)
+                .then(function(buff) {
+                   logView.info("Чек отримано");
+                    const printer = dcmViewRootWindow.prnDriver
+                                  ? dcmViewRootWindow.prnDriver
+                                  : (typeof Prn !== "undefined" ? Prn : null)
+                    if (printer){
+                        const ok = printer.printPdf(buff);
+                        // const ok = prnDriver.printPosPdf(buff);
+                    };
+                })
+                .catch(function(error) {
+                    logView.error("Помилка отримання чеку: " + error);
+                });
+        }
     }
-*/
+
+    Action {
+        id: actionTAXCheckSave
+        text: "Зберегти фіскальний чек"
+        enabled: isTAXActive && vw.isCrntTAXCheck
+        onTriggered: {
+            const row = Object.assign({}, vw.model.get(vw.currentIndex));
+            JS.handleLoadTAXCheckAsync(row)
+                .then(function(buff) {
+                   logView.info("Чек отримано");
+                    const printer = dcmViewRootWindow.prnDriver
+                                  ? dcmViewRootWindow.prnDriver
+                                  : (typeof Prn !== "undefined" ? Prn : null)
+                    if (printer){
+                        const ok = printer.savePdf(buff);
+                        if (!!ok) logView.info("Чек збережено на диску");
+                    };
+                })
+                .catch(function(error) {
+                    logView.error("Помилка отримання чеку: " + error);
+                });
+        }
+    }
+
+    Action {
+        id: actionFiscalizate
+        enabled: isTAXActive && vw.isCrntFiscalizable
+        text: "Фіскалізувати"
+        onTriggered: {
+            const row = Object.assign({}, vw.model.get(vw.currentIndex));
+            // console.log("II:#98e dcmview.js ", JSON.stringify(row))
+            // return;
+            JS.handleFiscalizateAsync(dbDriver, row)
+            .then(function(resp) {
+               logView.info("Чек отримано");
+            })
+            .catch(function(err) {
+                if (error === 'DB_ERROR') logView.warn("Docum updating error")
+                else logView.error("Помилка фіскалізації чеку: " + err);
+            });
+        }
+    }
+
 
 
     Component {
@@ -321,8 +387,6 @@ Window {
         }
     }
 
-
-
     Component {
         id: highlightComponent
 
@@ -366,6 +430,17 @@ Window {
 
                 return new Date(raw);
             }
+            readonly property string dcmName: {
+                if (!rootSec.infoObj) return "";
+                const dcmName = rootSec.infoObj.dcmtype
+                if (dcmName === 'check'){
+                    const dcmNo = rootSec.infoObj.dcmno;
+                    const taxStr = (!dcmNo) ? '' : '📜'   // 🧾
+                    return taxStr + dcmName;
+                }
+
+                return dcmName;
+            }
 
             RowLayout {
                 anchors.fill: parent
@@ -380,7 +455,7 @@ Window {
                     font.pixelSize: 13
                     font.bold: true
                     color: "#2c3e50"
-                    text: rootSec.infoObj ? String(rootSec.infoObj.dcmtype || "") : ""
+                    text: rootSec.dcmName
                     elide: Text.ElideRight
                 }
 
@@ -463,43 +538,72 @@ Window {
         // Це гарантує 100% точність відмальовки header та footer без графічних багів у Qt 6!
         width: parent.width
         height: parent.height
+        Pane{
+            anchors.fill: parent
+            ListView {
+                id: vw
+                property string dcmTypeFlt: 'check'
+                onDcmTypeFltChanged: {
+                    const ui = {
+                        filter: vfilterEdit.text.trim(),
+                        dcmType: vw.dcmTypeFlt,
+                        setPages: (v) => { dcmViewRootWindow.countPage = Number(v || 1);},
+                        setBinds: (v) => { dcmViewRootWindow.countBind = Number(v || 0);},
+                    }
+                    JS.filterData(vw.model, ui);
+                    vcrntEdit.text = "1";
+                }
 
-        // 1. СУЧАСНИЙ СПИСОК ЧЕКІВ ТА ОРДЕРІВ
-        ListView {
-            id: vw
-            anchors{fill: parent}
-            clip: true
-            spacing: 2
-            // model: ModelDbDcms{}
-            model: ListModel{}
-            delegate: dlg
+                readonly property bool isCrntTAXCheck:{
+                    if (currentIndex < 0 || currentIndex >= count) return false;
+                    const crnt = model.get(currentIndex);
+                    if (!crnt) return false;
+                    return !!JS.sectInfo(String(crnt.pid || "")).dcmno
+                }
+                readonly property bool isCrntFiscalizable:{
+                    if (currentIndex < 0 || currentIndex >= count) return false;
+                    const crnt = model.get(currentIndex);
+                    if (!crnt) return false;
+                    const info = JS.sectInfo(String(crnt.pid || ""));
+                    return !String(info.dcmno || "")
+                            && String(info.dcmtype || "") === 'check';
 
-            // Плавні тач-анімації списку
-            add: Transition { NumberAnimation { properties: "x,y"; from: 100; duration: 250; easing.type: Easing.OutQuad } }
-            addDisplaced: Transition { NumberAnimation { properties: "x,y"; duration: 250 } }
-            remove: Transition { ParallelAnimation { NumberAnimation { property: "opacity"; to: 0; duration: 200 } NumberAnimation { properties: "x,y"; to: 100; duration: 200 } } }
-            removeDisplaced: Transition { NumberAnimation { properties: "x,y"; duration: 200 } }
+                }
 
-            // Повзунок скролу (Притиснутий праворуч зсередини списку)
-            ScrollBar.vertical: ScrollBar {
-                id: verticalScrollBar
-                policy: ScrollBar.AsNeeded
-                anchors.top: vw.top
-                anchors.right: vw.right
-                anchors.bottom: vw.bottom
-                contentItem: Rectangle { implicitWidth: 6; radius: 3; color: verticalScrollBar.pressed ? "#757575" : "#bdbdbd" }
+                anchors{fill: parent}
+                clip: true
+                spacing: 2
+                // model: ModelDbDcms{}
+                model: ListModel{}
+                delegate: dlg
+
+                // Плавні тач-анімації списку
+                add: Transition { NumberAnimation { properties: "x,y"; from: 100; duration: 250; easing.type: Easing.OutQuad } }
+                addDisplaced: Transition { NumberAnimation { properties: "x,y"; duration: 250 } }
+                remove: Transition { ParallelAnimation { NumberAnimation { property: "opacity"; to: 0; duration: 200 } NumberAnimation { properties: "x,y"; to: 100; duration: 200 } } }
+                removeDisplaced: Transition { NumberAnimation { properties: "x,y"; duration: 200 } }
+
+                // Повзунок скролу (Притиснутий праворуч зсередини списку)
+                ScrollBar.vertical: ScrollBar {
+                    id: verticalScrollBar
+                    policy: ScrollBar.AsNeeded
+                    anchors.top: vw.top
+                    anchors.right: vw.right
+                    anchors.bottom: vw.bottom
+                    contentItem: Rectangle { implicitWidth: 6; radius: 3; color: verticalScrollBar.pressed ? "#757575" : "#bdbdbd" }
+                }
+
+                section.property: ""    //"pid"
+                section.criteria: ViewSection.FullString
+                section.delegate: secDlg
+
+                highlight: highlightComponent
+                highlightFollowsCurrentItem: false
+                focus: true
             }
 
-            section.property: "pid"
-            section.criteria: ViewSection.FullString
-            section.delegate: secDlg
-
-            highlight: highlightComponent
-            highlightFollowsCurrentItem: false
-            focus: true
         }
 
-        // Журнал логування (спливає знизу за потребою)
         LogView {
             id: logView
             anchors.bottom: parent.bottom
@@ -518,7 +622,6 @@ Window {
             debug: false
         }
 
-        // 🏢 ВЕРХНЯ ПАНЕЛЬ: Інтервальний фільтр архіву
         header: ToolBar {
             // width: parent.width
             // height: 30
@@ -577,13 +680,39 @@ Window {
 
                     Menu {
                         id: contextMenu
-                        MenuItem { action: viewFullBindAction }
-                        MenuItem { action: refuseAction }
+                        MenuItem { action: bindModeAction }
                         MenuSeparator { padding: 4 }
                         MenuItem { action: actionPrintCheck }
                         MenuItem { action: actionPrintOrder }
                         MenuSeparator { padding: 4 }
-                        MenuItem { action: bindModeAction }
+                        // MenuItem { action: viewFullBindAction }
+                        MenuItem { action: refuseAction }
+                        MenuSeparator { padding: 4 }
+                        MenuItem { action: actionTAXCheckPrint }
+                        MenuItem { action: actionTAXCheckSave }
+                        MenuItem { action: actionFiscalizate }
+                        MenuSeparator { padding: 4 }
+                        MenuItem {
+                            text: "Показати лише чеки"
+                            checkable: true
+                            checked: true // Default selected
+                            ButtonGroup.group: viewDcmTypeGroup
+                            onTriggered: vw.dcmTypeFlt = 'check';
+                        }
+                        MenuItem {
+                            text: "Показати лише фактури"
+                            checkable: true
+                            checked: true // Default selected
+                            ButtonGroup.group: viewDcmTypeGroup
+                            onTriggered: vw.dcmTypeFlt = 'facture';
+                        }
+                        MenuItem {
+                            text: "Показати всі документи"
+                            checkable: true
+                            checked: false
+                            ButtonGroup.group: viewDcmTypeGroup
+                            onTriggered: vw.dcmTypeFlt = '';
+                        }
                     }
                 }
             }
@@ -606,6 +735,7 @@ Window {
                     onAccepted: {
                         const ui = {
                             filter: text.trim(),
+                            dcmType: vw.dcmTypeFlt,
                             setPages: (v) => { dcmViewRootWindow.countPage = Number(v || 1);},
                             setBinds: (v) => { dcmViewRootWindow.countBind = Number(v || 0);},
                         }

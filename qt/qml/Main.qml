@@ -987,6 +987,7 @@ ApplicationWindow {
             item.title = `${root.title}(Documents)`;
             item.dbDriver = Db;
             item.prnDriver = Prn;
+            item.isTAXActive = JS.isTAXActive();
             item.show();
         }
 

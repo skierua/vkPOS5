@@ -138,9 +138,6 @@ function selDcmsByPid(db, pid, archive) {
     const vsql = `${selStmt(isArchive)} ${condStr};`;
 
     return db.dbSelectRows(vsql, param) || [];
-
-    // const vsql = `${selStmt(isArchive)} WHERE ${tbl}.parentid = ${cleanPid}`;
-    // return db.dbSelectRowsJSON(cleanPid);
 }
 
 // Пошук за кастомною SQL-умовою

@@ -567,7 +567,7 @@ ListModel {
             if (Math.abs(100 * profitVal) < 1) continue;
             const acntParts = reval.eno.split(/\.|\//);
             const realAtcl = LibItem.getItemById(db, acntParts[2] || "");
-            const noteVal = `${(profitVal < 0 ? "+++" : "---")} reval ${realAtcl.itemchar} ${reval.amnt} * ${reval.bscprice}`;
+            const noteVal = `${(profitVal < 0 ? "+++" : "---")} reval ${realAtcl.itemchar} ${reval.amnt} * ${reval.bscprice.toFixed(2)}`;
             const dcm_1 = {
                atclId: atcl.id,
                acntNo: String(reval.eno || ""),

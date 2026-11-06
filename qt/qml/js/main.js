@@ -131,6 +131,10 @@ function handleDbNameChanged(db, prn, container, msg, ui){
     return true;
 }
 
+function isTAXActive(){
+    return TAX.IS_CONNECTED;
+}
+
 function handlePingTAX(ui){
     TAX.ping((err, resp) => {
                  if (!!err) ui?.warn?.("Connection to the TAX server has been lost.")
@@ -307,33 +311,24 @@ function handleDrawerEvent(db, id, row, ui){
 
 function testAction_handled(db, ui){
 
-    const ok = LibShift.dbRefreshTradeRate(db);
-    if (ok) ui?.info("SUCCESS")
-    else ui?.error("ERROR")
-/*    const bid = 245756;
-    const resp = {
-    "ORDERNUM":"1rT89b5xMDE",
-    "ORDERDATE":"2026-08-13",
-    "ORDERTIME":"15:18:58",
-    "MAC":"85ebfa326a3919896b7d4082eef850240e28b0bd7bf7d22a4bf593e9e829ef35",
-    "is_offline":false,
-    "qr":null,
-    "qr_data":"https:\/\/cabinet.tax.gov.ua\/cashregs\/check?id=1rT89b5xMDE&date=20260813&fn=4000196849&time=1518&sm=270&mac=85ebfa326a3919896b7d4082eef850240e28b0bd7bf7d22a4bf593e9e829ef35",
-    "link":"https:\/\/web.cashdesk.com.ua\/check\/f140086c-790e-459f-94a5-eb811e08f13a\/html",
-    "pdf":null,
-    "text_print":null,
-    "uuid":"f140086c-790e-459f-94a5-eb811e08f13a",
-    "local_number":6487,
-    "cash_in_box":5244
-};
-    const updateData = {
-                    "dcmtype": "check",
-                    "dcmno": String(resp.uuid || ""),
-                    "dcmnote": JSON.stringify(resp)
-                };
-    const uOk = LibBind.updDocum(db, bid, updateData);
-    if (!uOk) ui?.error?.(db.dbLastError() || "Docum updating error");
-    return; */
+return;
+
+    const itemData = {
+        folder: 0,
+        parentid: '200006',
+        itemchar: 'Розетка 1 Soft ARDRO',
+        itemnote: 'ER111-W',
+        defunit: 'pc',
+        itemmask: 4,
+    }
+    const ok = LibItem.dbNewItem(db, itemData);
+    if (!!ok) ui.info(`item added: ${ok}`)
+    else ui.error(`item adding error: ${db.dbLastError()}`)
+
+
+    // const ok = LibShift.dbRefreshTradeRate(db);
+    // if (ok) ui?.info("SUCCESS")
+    // else ui?.error("ERROR")
 
     // const d = new Date();
     // const dd = new Date(d);
@@ -343,16 +338,6 @@ function testAction_handled(db, ui){
     // console.info(`II: e7ge#maim.js ${Date.now()} d=${d} ddIso=${ddIso}`)
     // return;
 
-    // ["840", "", "978","200111", "124", "840", "200111"]
-    // .forEach(v =>
-    //      {
-    //         const q = LibItem.new_getItemById(db, v);
-    //         console.info(`II: e7ge#maim.js ${Date.now()} \n${JSON.stringify(q)}`)
-    //      })
-
-    // REST.uploadMonRepo(db, new Date().toISOString(),
-    //                    (err)=>{})
-    // const t = LibTest.monProfit(db)
     // console.info(`II: 63gt#main.js/testAction_handled \n ${JSON.stringify(t)}`)
 }
 
