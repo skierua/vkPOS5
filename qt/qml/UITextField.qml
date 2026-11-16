@@ -13,6 +13,9 @@ FocusScope {
     property alias validator: editor.validator
     // property int pixelSize: 13
 
+    function selectAll() { editor.selectAll(); }
+
+
     implicitHeight: mainLayout.implicitHeight
     implicitWidth: 200
     ColumnLayout {
@@ -41,6 +44,7 @@ FocusScope {
                 font.pixelSize: 13;
                 selectByMouse: true;
                 background: null;
+                focus: true
             }
         }
     }

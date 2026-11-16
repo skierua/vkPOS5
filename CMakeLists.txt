@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 
 project(vkPOS5
-    VERSION 3.36
+    VERSION 3.37
     LANGUAGES CXX)
 
 
@@ -108,6 +108,7 @@ qt_add_qml_module(appvkPOS5
        QML_FILES
         qt/qml/Main.qml
         qt/qml/AppSettings.qml
+        qt/qml/Article.qml
         qt/qml/Bind.qml
         qt/qml/Balance.qml
         qt/qml/Client.qml
@@ -123,6 +124,9 @@ qt_add_qml_module(appvkPOS5
         ${JS_FILES}
     SOURCES
         ${CPP_FILES}
+        QML_FILES qt/qml/js/article.js
+        QML_FILES qt/qml/js/dbAsync.js
+        QML_FILES qt/qml/js/promisePolyfill.js
 )
 
 qt_add_resources(appvkPOS5 "app_res"

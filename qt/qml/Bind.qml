@@ -1351,7 +1351,6 @@ Item {
                     }
                 }
 
-                // КНОПКА ГРОШОВОЇ СКРИНЬКИ (Стильна, сіра)
                 UIBtn{
                     // id: btnDrawer
                     Layout.preferredWidth: 48

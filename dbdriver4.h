@@ -26,7 +26,7 @@ public:
     DbDriver4(DbDriver4&&) = delete;
     DbDriver4& operator=(DbDriver4&&) = delete;
 
-    Q_INVOKABLE bool dbTransaction() { return m_db.transaction(); }
+    Q_INVOKABLE bool dbTransaction();
     Q_INVOKABLE bool dbCommit() { return m_db.commit(); }
     Q_INVOKABLE bool dbRollback() { return m_db.rollback(); }
     // Q_INVOKABLE void msg(const QString &m = QString()) const {

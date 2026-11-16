@@ -66,6 +66,22 @@ Window {
             property var filter: null   //{"code":"", "val":""}
             icon.source: "qrc:/icon/reload.svg"
             onTriggered: {
+                // const tm = new Date();
+                // const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);    // startOfMonth
+                // const startOfYear = new Date(now.getFullYear(), 0, 1);                  // startOfYear
+                // // Two weeks ago (14 days)
+                // const twoWeeksAgo = new Date(now);
+                // twoWeeksAgo.setDate(now.getDate() - 14);
+
+                // // Two months ago
+                // const twoMonthsAgo = new Date(now);
+                // twoMonthsAgo.setMonth(now.getMonth() - 2);
+
+                // // One year ago
+                // const oneYearAgo = new Date(now);
+
+                // oneYearAgo.setFullYear(now.getFullYear() - 1);
+
                 const ui = {
                     dbFilter: loadAction.filter,
                     dbFrom: findInterval.currentValue ?? "",
@@ -76,6 +92,10 @@ Window {
                 vfilterEdit.text = "";
                 // console.info(`II: DcmView.qml/loadAction dbDriver=${dbDriver}`)
                 if (dcmViewRootWindow.dbDriver !== undefined && dcmViewRootWindow.dbDriver !== null) {
+                    // JS.load(dcmViewRootWindow.dbDriver,
+                    //         // {start: findInterval.model.get(findInterval.currentIndex).val ?? "", code: 'acntno', val: '3500'}
+                    //         {start: "2026-10-20", code: 'acntno', val: '3500'}
+                    //         );
                     JS.load_2(dcmViewRootWindow.dbDriver, vw.model, ui)
                 } else {
                     // console.warn("Драйвер бази даних відсутній")
@@ -174,7 +194,7 @@ Window {
             JS.handleLoadTAXCheckAsync(row)
                 .then(function(buff) {
                    logView.info("Чек отримано");
-                    const printer = dcmViewRootWindow.prnDriver
+                    const printer = !!dcmViewRootWindow.prnDriver
                                   ? dcmViewRootWindow.prnDriver
                                   : (typeof Prn !== "undefined" ? Prn : null)
                     if (printer){
@@ -197,7 +217,7 @@ Window {
             JS.handleLoadTAXCheckAsync(row)
                 .then(function(buff) {
                    logView.info("Чек отримано");
-                    const printer = dcmViewRootWindow.prnDriver
+                    const printer = !!dcmViewRootWindow.prnDriver
                                   ? dcmViewRootWindow.prnDriver
                                   : (typeof Prn !== "undefined" ? Prn : null)
                     if (printer){
@@ -663,14 +683,14 @@ Window {
 
                     // Фільтри адаптовані під новий ISO-UTC формат нашої міграції 147 версії
                     model: ListModel {
-                        ListElement { text: "За поточну зміну"; table: "docum"; filter: "" }
-                        ListElement { text: "Останні 2 тижні"; table: "documall"; filter: "last2Week" }
-                        ListElement { text: "За останній місяць"; table: "documall"; filter: "last1Month" }
-                        ListElement { text: "За ост.3 місяці"; table: "documall"; filter: "last3Month" }
-                        ListElement { text: "За останній рік"; table: "documall"; filter: "last1Year" }
-                        ListElement { text: "З початку місяця"; table: "documall"; filter: "startOfMonth" }
-                        ListElement { text: "З початку року"; table: "documall"; filter: "startOfYear" }
-                        ListElement { text: "Весь період (архів)"; table: "documall"; filter: "all" }
+                        ListElement { text: "За поточну зміну"; table: "docum"; filter: ""; val: "" }
+                        ListElement { text: "Останні 2 тижні"; table: "documall"; filter: "last2Week"; val: "date('now', '-14 day')" }
+                        ListElement { text: "За останній місяць"; table: "documall"; filter: "last1Month"; val: "date('now', '-1 month')" }
+                        ListElement { text: "За ост.3 місяці"; table: "documall"; filter: "last3Month"; val: "date('now', '-3 month')" }
+                        ListElement { text: "За останній рік"; table: "documall"; filter: "last1Year"; val: "date('now', '-1 year')" }
+                        ListElement { text: "З початку місяця"; table: "documall"; filter: "startOfMonth"; val: "date('now', 'start of month')" }
+                        ListElement { text: "З початку року"; table: "documall"; filter: "startOfYear"; val: "date('now', 'start of year')" }
+                        ListElement { text: "Весь період (архів)"; table: "documall"; filter: "all"; val: "2000-01-01" }
                     }
 
                     textRole: 'text'

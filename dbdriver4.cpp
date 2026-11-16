@@ -19,16 +19,6 @@ DbDriver4::DbDriver4(QObject *parent)
     // Використовуємо дефолтне з'єднання за замовчуванням.
     // Це золотий стандарт Qt6 для локальних SQLite баз. Тепер витоки дескрипторів повністю закриті.
     m_db = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"));
-
-    // if (m_db.open()) {
-        // QSqlQuery q(m_db);
-
-        // // 1. Вмикаємо режим WAL (поверне рядок "wal", якщо успішно)
-        // q.exec(QStringLiteral("PRAGMA journal_mode=WAL;"));
-
-        // // 2. Встановлюємо таймаут очікування у 5 секунд
-        // q.exec(QStringLiteral("PRAGMA busy_timeout=5000;"));
-    // }
 }
 /*
 DbDriver4::DbDriver4(QObject *parent) : QObject(parent) {
@@ -38,8 +28,29 @@ DbDriver4::DbDriver4(QObject *parent) : QObject(parent) {
 
 }
 */
+
+bool DbDriver4::dbTransaction() {
+    QMutexLocker locker(&m_dbMutex);
+
+    if (!checkConnection()) {
+        return false;
+    }
+
+    QSqlQuery q(m_db);
+
+    if (!q.exec(QStringLiteral("BEGIN IMMEDIATE;"))) {
+        m_lastError = QStringLiteral("EE:DbDriver4::dbTransaction ERROR\n%1")
+        .arg(q.lastError().text());
+        qDebug() << m_lastError;
+        return false;
+    }
+
+    return true;
+}
+
 bool DbDriver4::checkConnection()
 {
+    m_lastError.clear();
     if (!m_db.isOpen()) {
         if (!m_db.open()) {
             m_lastError = QStringLiteral("EE:DbDriver4::checkConnection ERROR OPEN...\nName: %1\n%2")
@@ -50,8 +61,8 @@ bool DbDriver4::checkConnection()
             QSqlQuery q(m_db);
 
             // Вмикаємо режим WAL
-            q.exec(QStringLiteral("PRAGMA journal_mode=WAL;"));
-            q.exec(QStringLiteral("PRAGMA synchronous = NORMAL;"));
+            // q.exec(QStringLiteral("PRAGMA journal_mode=WAL;"));
+            // q.exec(QStringLiteral("PRAGMA synchronous = NORMAL;"));
 
             // Встановлюємо таймаут очікування у 5 секунд
             q.exec(QStringLiteral("PRAGMA busy_timeout=5000;"));
@@ -311,6 +322,7 @@ bool DbDriver4::closeShift(const QString &shftid)
 int DbDriver4::dbInsert(const QString &sql)
 {
     QMutexLocker locker(&m_dbMutex);
+    m_lastError.clear();
     int id = 0;
 
     if (openConnection()) {
@@ -339,6 +351,7 @@ int DbDriver4::dbInsert(const QString &sql)
 int DbDriver4::dbInsert(const QString &sql, const QVariantList &params)
 {
     QMutexLocker locker(&m_dbMutex);
+    m_lastError.clear();
     int id = 0;
 
     if (!openConnection()) {
@@ -381,6 +394,7 @@ bool DbDriver4::dbUpdate(const QString &sql)
 {
     qDebug()<< "WW: DEPRECATED dbdriver4/dbUpdate !!!";
     QMutexLocker locker(&m_dbMutex);
+    m_lastError.clear();
     bool res = false;
 
     if (openConnection()) {
@@ -410,6 +424,7 @@ bool DbDriver4::dbUpdate(const QString &sql)
 // sqlPrice.js
 bool DbDriver4::dbUpdate(const QString &sql, const QVariantList &params){
     QMutexLocker locker(&m_dbMutex);
+    m_lastError.clear();
     if (!openConnection()) return false;
     bool ok = false;
     QSqlQuery q(m_db);
@@ -454,6 +469,7 @@ bool DbDriver4::dbUpdate(const QString &sql, const QVariantList &params){
 bool DbDriver4::dbUpdate(const QString &sql, const QVariantMap &params){
     // qDebug()<< "r343#dbdriver4/dbUpdateObj sql="<< sql << " param="<< params;
     QMutexLocker locker(&m_dbMutex);
+    m_lastError.clear();
     if (!openConnection()) return false;
     bool ok = false;
     QSqlQuery q(m_db);
@@ -503,6 +519,7 @@ bool DbDriver4::dbUpdateParams(const QString &sql, const QVariantList &params){
 bool DbDriver4::dbDelete(const QString &sql)
 {
     QMutexLocker locker(&m_dbMutex);
+    m_lastError.clear();
     bool res = false;
 
     if (openConnection()) {
@@ -538,6 +555,7 @@ bool DbDriver4::dbDelete(const QString &sql)
 QVariantMap DbDriver4::dbSelectRow(const QString &sql){
     // qDebug()<< "WW: DEPRECATED dbdriver4/dbSelectRow !!! \n" << sql;
     QMutexLocker locker(&m_dbMutex);
+    m_lastError.clear();
     QVariantMap ret;
 
     if (!openConnection()) {
@@ -584,6 +602,7 @@ QVariantMap DbDriver4::dbSelectRow(const QString &sql){
 // with parameters
 QVariantMap DbDriver4::dbSelectRow(const QString &sql, const QVariantList &params){
     QMutexLocker locker(&m_dbMutex);
+    m_lastError.clear();
     QVariantMap ret;
 
     if (!openConnection()) {
@@ -640,6 +659,7 @@ QVariantMap DbDriver4::dbSelectRow(const QString &sql, const QVariantList &param
 
 QVariantList DbDriver4::dbSelectRows(const QString &sql, const QVariantList &params){
     QMutexLocker locker(&m_dbMutex);
+    m_lastError.clear();
     QVariantList resultList;
     if (!openConnection()) {
         return resultList;
@@ -682,6 +702,7 @@ QVariantList DbDriver4::dbSelectRows(const QString &sql, const QVariantList &par
 QVariantList DbDriver4::dbSelectRowsJSON(const QString &sql, const QString &filter)
 {
     QMutexLocker locker(&m_dbMutex);
+    m_lastError.clear();
     QVariantList resultList;
     const QString lowerFilter = filter.toLower();
     // qDebug() << "903y#DbDriver4::dbSelectRowsJSON sql=" << sql << " filter=" << filter;

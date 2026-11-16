@@ -1,39 +1,65 @@
 // sqlItem.js
 .pragma library
+.import "../common.js" as JS
 
 // Код національної валюти за замовчуванням (Гривня)
 const DomesticCurrencyCode = "980";
 
-const SQL_STMT = `
-SELECT item.pkey AS id,
-    coalesce(item.parentid, '') AS pid,
-    scancode,
-    itemchar,
-    itemname,
-    itemnote,
-    itemmask AS mask,
-    uktzed,
-    taxchar,
-    taxprc,
-    coalesce(defunit, '') AS unitid,
-    unitchar,
-    coalesce(unitprec, 2) AS unitprec,
-    coalesce(unitname, '') AS unitname,
-    coalesce(code, '') AS unitcode,
-    coalesce(qty,1) AS qty
-FROM item
-    LEFT JOIN itemunit ON (defunit = itemunit.pkey)
-    LEFT JOIN articlepriceqty using(pkey)
-`;
 const FOLDERS = new Map();
 const ARTICLES = new Map(); // for currencies only
 
-// Локальний кеш в пам'яті (RAM Caching)
-let folderPathCache = [];
-let itemCache = [];
+const SQL_STMT = `
+    SELECT item.pkey AS id,
+        coalesce(item.parentid, '') AS pid,
+        scancode,
+        itemchar,
+        itemname,
+        itemnote,
+        itemmask AS mask,
+        uktzed,
+        taxchar,
+        taxprc,
+        coalesce(defunit, '') AS unitid,
+        itemunit.unitchar AS unitchar,
+        coalesce(itemunit.unitprec, 2) AS unitprec,
+        coalesce(itemunit.unitname, '') AS unitname,
+        coalesce(itemunit.code, '') AS unitcode,
+        coalesce(qty,1) AS qty,
+        folder
+    FROM item
+        LEFT JOIN itemunit ON (defunit = itemunit.pkey)
+        LEFT JOIN articlepriceqty using(pkey)
+`;
+const FOLDER_SQL_STMT = `
+    SELECT
+        pkey as id,
+        coalesce(parentid, '') pid,
+        itemchar,
+        itemmask AS mask,
+        coalesce(defunit, '') AS unitid
+    FROM item
+    WHERE folder = 1
+`;
+
+const NEW_ID_SQL_STMT = `
+    SELECT
+        COALESCE(max(CAST(pkey AS int)), 0) + 1 AS pkey
+    FROM item
+`;
+
+
+const UNIT_SQL_STMT = `
+    SELECT
+        pkey AS id,
+        unitchar AS uchar,
+        unitprec AS uprec,
+        unitname AS uname,
+        code AS ucode
+    FROM itemunit
+`;
 
 function dummyFolder() {
-    return { "id": "", "pid": "", "pathid": "", "name": "", "pathname": "" };
+    return { "id": "", "pid": "", "pathid": "", "name": "", "pathname": "", "mask": 0 };
 }
 
 function dummyItem() {
@@ -45,17 +71,9 @@ function dummyItem() {
     };
 }
 
-function buildWhereClause(conditionsArray) {
-    if (!conditionsArray || conditionsArray.length === 0) {
-        return "";
-    }
-    // Склеюємо умови через AND з правильними пробілами
-    return "WHERE " + conditionsArray.join(" AND ");
-}
-
 function fillFolders(db) {
     FOLDERS.clear();
-    const vsql = "SELECT pkey as id, coalesce(parentid, '') pid, itemchar FROM item WHERE folder = 1;";
+    const vsql = "SELECT pkey as id, coalesce(parentid, '') pid, itemchar, itemmask AS mask FROM item WHERE folder = 1;";
 
     // Читаємо нативний масив об'єктів без JSON.parse
     const rows = db.dbSelectRows(vsql, []) || [];
@@ -92,12 +110,12 @@ function fillFolders(db) {
                 "pid": current.pid,
                 "pathid": vpathid,
                 "name": current.itemchar,
-                "pathname": vpathname
+                "pathname": vpathname,
+                "mask": current.mask
             });
     }
 }
 
-// ГОЛОВНИЙ ОПТИМІЗОВАНИЙ МЕТОД: Отримання картки валюти з пам'яті (або з бази, якщо перший запит)
 // balance.js, bind.js, dcmview.js, drawer.js, shift.js
 function getItemById(db, id = "") {
     // console.log(`II: 8623y#sqlItem.js id=${id}`)
@@ -118,7 +136,7 @@ function getItemById(db, id = "") {
         cond.push("item.itemmask = ?");
         param.push(1);
     }
-    const condStr = buildWhereClause(cond);
+    const condStr = JS.buildWhereClause(cond);
     const vsql = `${SQL_STMT} ${condStr};`;
     // console.log(`II: 7wy3#sqlItem.js vsql=${vsql}`)
 
@@ -146,14 +164,6 @@ function getItemById(db, id = "") {
     if (mask === 2 || mask === 1) ARTICLES.set(idVal, res);
     return res;
 }
-
-// function findFolder(id) {
-//     return folderPathCache.findIndex((v) => v.id === id);
-// }
-
-// function findItem(id) {
-//     return itemCache.findIndex((v) => v.id === id);
-// }
 
 // Низькорівневий вибір характеристик з таблиці номенклатури
 // bind.jd, dcmview.js, rate.js
@@ -205,10 +215,6 @@ function itemList(db, mask){
 // }
 function dbNewItem(db, insData) {
     if (!db) return null;
-
-    // FOR TESTING
-    // db.dbDelete("DELETE FROM item WHERE pkey IS NULL OR pkey = '204990.0';");
-    // console.info(`II:#423 sqlItem.js 222 `)
 
     const keySQL = "SELECT COALESCE(max(CAST(pkey AS int)), 0) + 1 AS pkey FROM item ;";
     // console.info(`II:#423 sqlItem.js 333 `, keySQL)

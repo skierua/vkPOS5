@@ -131,6 +131,8 @@ ApplicationWindow {
                         winBalanceAction,
                         winClientAction,
                         winRateAction,
+                        // winArticleAction,
+                        actionArticle,
                         { isSeparator: true },  // ✂️ роздільник
                         winCashWizardAction,
                         actionSetting,
@@ -761,6 +763,16 @@ ApplicationWindow {
         }
     }
 
+/*    Action {
+        id: winArticleAction
+        text: "Товари"
+        onTriggered: {
+            if (winArticleLoader.active) {
+                if (winArticleLoader.item) winArticleLoader.item.raise();
+            } else winArticleLoader.active = true;
+        }
+    } */
+
     Action {
         id: winDcmsAction
         text: "Архів документів"
@@ -835,6 +847,50 @@ ApplicationWindow {
 
             } else {
                 logView.error("Помилка завантаження AppSettings.qml:" + component.errorString(), 0 );
+            }
+
+
+        }
+    }
+
+    Action {
+        id: actionArticle
+        text: qsTr("Каталог товарів")
+        onTriggered: {
+            closeChildWindow()
+
+            for (let i =0; i < compContainer.count; ++i ) {
+                if (compContainer.contentChildren[i].codeid === "article") {
+                    compContainer.currentIndex = i
+                    return
+                }
+            }
+            const component = Qt.createComponent("Article.qml");
+            if (component.status === Component.Ready) {
+                const newObj = component.createObject(compContainer, { dbDriver: Db })
+                newObj.vkEvent.connect( (id, param) => {
+                    if (id === '---') {
+                        if (!!param){
+                           bindTaxAction.enabled = true;
+                           logView.info("Встановлено зʼєднання з ДПІ")
+                       } else {
+                           bindTaxAction.enabled = false;
+                           logView.warn("Втрачено зʼєднання з ДПІ")
+                       }
+                    } else if (id === 'info') {
+                        logView.info(`${param ?? "Unknown info"}`)
+                    } else if (id === 'warning') {
+                        logView.warn(`${param ?? "Unknown warning"}`)
+                    } else if (id === 'error') {
+                        logView.error(`${param ?? "Unknown error"}`)
+                    } else {
+                        logView.warn("[Article] Bad event", 1)
+                    }
+                })
+                compContainer.currentIndex = compContainer.count - 1;
+
+            } else {
+                logView.error("Помилка завантаження Article.qml:" + component.errorString(), 0 );
             }
 
 
@@ -978,6 +1034,27 @@ ApplicationWindow {
             }
         }
     }
+
+/*    Loader{
+        id: winArticleLoader
+        active: false
+        source: 'Article.qml'
+        onLoaded: {
+            item.title = `${root.title}(Товари)`;
+            item.dbDriver = Db;
+            item.show();
+        }
+
+        Connections {
+            target: winArticleLoader.status === Loader.Ready ? winArticleLoader.item : null
+            function onClosing() {
+                winArticleLoader.active = false
+            }
+            // function onVkEvent(id, param) {
+                // const res = compContainer.currentItem.newRefused(param)
+            // }
+        }
+    } */
 
     Loader{
         id: dcmViewLoader
@@ -1441,7 +1518,9 @@ ApplicationWindow {
     }
 
     Component.onCompleted: {
-        // logView.append("this is INFO message")
+        const tm = new Date();
+        const iso = tm.toISOString().substring(0,10);
+         // logView.append("this is INFO message")
         // logView.append("this is WARNING message",1)
         // logView.append("this is ERROR message",0)
         // let p = "f26r"    //"s5k9";
