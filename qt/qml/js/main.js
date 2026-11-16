@@ -1,3 +1,4 @@
+.import "promisePolyfill.js" as LibPromise
 .import "libREST.js" as REST
 .import "CashDesk.js" as TAX
 .import "v147/dbMigration.js" as Migrator

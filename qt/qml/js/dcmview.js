@@ -1,5 +1,6 @@
 .import "CashDesk.js" as TAX
 .import "common.js" as COMM
+.import "dbAsync.js" as LibDb
 .import "v147/sqlAcnt.js" as LibAcnt
 .import "v147/sqlBind.js" as LibBind
 .import "v147/sqlClient.js" as LibClient
@@ -22,6 +23,51 @@ function bindCount(){
 
 function sectInfo(code) {
     return SECTION_CACHE.get(String(code || ""));
+}
+
+function load(db, dbFilter) {
+    ROW_CACHE.length = 0;
+    SECTION_CACHE.clear();
+    if (!db) return Promise.reject("Missing DB");
+    const start = String(dbFilter?.start || "");
+    const sqlCrntTbl = LibBind.selStmt(false);
+    const sqlStrgTbl = LibBind.selStmt(true);
+    const dcmSource = [];
+    const bindSource = [];
+
+    const cond = [];
+    const param = [];
+
+    if (!!start) {
+        cond.push("date(dcmtime) >= ?");
+        param.push(start);
+    }
+
+    let crntDataFilter = "";
+    let strgDataFilter = "";
+    if (String(dbFilter.code ?? "") === "acntno") {
+        cond.push("acntcdt = ?");
+        param.push(String(dbFilter.val ?? ""));
+
+        crntDataFilter = "SELECT DISTINCT parentid FROM docum";
+        strgDataFilter = "SELECT DISTINCT parentid FROM strgdocum";
+    }
+    const condStr = COMM.buildWhereClause(cond)
+    let sql = `${sqlCrntTbl} WHERE parentid IN (${crntDataFilter} ${condStr})`;
+    if (!!start) {
+        param.push(start);
+        param.push(String(dbFilter.val ?? ""));
+        sql += ` UNION ${sqlStrgTbl} WHERE parentid IN (${strgDataFilter} ${condStr})`;
+    }
+    console.info("II:#52 dcmview.js", sql, condStr, JSON.stringify(param))
+    return LibDb.selectPromise(db, sql, param)
+    .then(resp =>{
+       console.info("II:#52 dcmview.js", JSON.stringify(resp))
+    })
+    .catch(err => {
+      throw err;
+    });
+    // return Promise.resolve("Ok");
 }
 
 function load_2(db, model, ui) {
@@ -97,13 +143,15 @@ function load_2(db, model, ui) {
 
 
 function isAllowed(row, flt, dcmType) {
+    // console.info("II:#111 dcmview.js ", `[${flt}]`,  dcmType)
     // if (!row) return false;
     if ((!flt || flt === "") && !dcmType) return true;
     const dcm = ROW_CACHE[row];
     const checkFlt = !dcmType ? true
-                                : (PROXY_SECTION.has(String(dcm.pid)) || (SECTION_CACHE.get(String(dcm.pid))?.dcmtype || "") === dcmType)
+                              : ((SECTION_CACHE.get(String(dcm.pid))?.dcmtype || "") === dcmType)
+                                // : (PROXY_SECTION.has(String(dcm.pid)) || (SECTION_CACHE.get(String(dcm.pid))?.dcmtype || "") === dcmType)
 
-    // console.info("II:#523 dcmview.js ", flt,  dcmType, checkFlt, String(dcm.pid), (SECTION_CACHE.get(String(dcm.pid))?.dcmtype || "---"));
+    // console.info("II:#523 dcmview.js ", `[${flt}]`,  dcmType, checkFlt, String(dcm.pid), (SECTION_CACHE.get(String(dcm.pid))?.dcmtype || "---"));
     const filterLower = flt.toLowerCase();
     const noteStr = String(dcm.dcmnote || "").toLowerCase();
     // const subnoteStr = String(dcm.dcmsubnote || "").toLowerCase();
@@ -132,7 +180,8 @@ function filterData(model, ui){
     PROXY_SECTION.clear();
     const dcmType = String(ui?.dcmType || '') ;
     const flt = (ui?.filter || "");
-    const isFlt = (!ui.dcmType || !flt);
+    const isFlt = (!!dcmType || !flt);
+    // console.info("II: dcmview.js/filterData dcmType, flt, isFlt", dcmType, flt, isFlt, '===');
     if (isFlt){
         for ( let r =0; r < ROW_CACHE.length; ++r){
             // console.info("II: dcmview.js/filterData ", r,  JSON.stringify(ROW_CACHE[r]));

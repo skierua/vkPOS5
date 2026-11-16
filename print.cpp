@@ -431,17 +431,15 @@ bool Print::printPdf(const QByteArray &data) const {
     // Відправляємо на дефолтний системний принтер через утиліту lp (Linux/Ubuntu каси)
     QProcess printProcess;
     QStringList args;
-    // printProcess.start("lp", QStringList() << path);
-    // return printProcess.waitForFinished();
 
     // -o fit-to-page автоматично масштабує PDF під ширину стрічки/паперу принтера
-    args << "-o" << "fit-to-page" << path << m_checkPrinter;
+    args << "-d" << m_checkPrinter << "-o" << "fit-to-page" << path ;
 
     // Запускаємо стандартну утиліту друку Linux
     printProcess.start("lp", args);
 
     // Чекаємо завершення відправки в чергу друку (таймаут 5 секунд)
-    return printProcess.waitForFinished(5000);
+    return printProcess.waitForFinished(2000);
 }
 
 // FOR TESTING

@@ -512,7 +512,7 @@ function getRequest(path, callback) {
 
 function getCheckPdf(uuid, width, callback) {
     let request = new XMLHttpRequest();
-    const widthVal = String(width || "80");
+    const widthVal = String(width || "58");
     const url = `${HOST}${API}/checks/${uuid}/pdf?api_token=${TOKEN}&pdf_width=${widthVal}`;
 
     request.onreadystatechange = function() {

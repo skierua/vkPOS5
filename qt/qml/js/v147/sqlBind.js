@@ -67,6 +67,7 @@ function dbBind(db, bindid) {
     return jbind;
 }
 
+// dcmview.js
 function selStmt(archive) {
     const isArchive = !!archive;
     const tbl = isArchive ? "strgdocum" : "docum";
